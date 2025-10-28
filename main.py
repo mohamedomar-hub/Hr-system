@@ -18,8 +18,8 @@ def load_employee_data(file_path=EMPLOYEE_FILE):
 
 # تسجيل الدخول
 def login(df, code, password):
-    code_col = next((c for c in df.columns if 'code' in c), None)
-    pass_col = next((c for c in df.columns if 'pass' in c), None)
+    code_col = next((c for c in df.columns if 'employee_code' in c), None)
+    pass_col = next((c for c in df.columns if 'password' in c), None)
     title_col = next((c for c in df.columns if 'title' in c), None)
     
     if not code_col or not pass_col:
