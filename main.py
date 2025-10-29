@@ -1,4 +1,4 @@
-# hr_system_dark_mode_v2.py
+# hr_system_dark_mode_v3.py
 import streamlit as st
 import pandas as pd
 import requests
@@ -150,21 +150,21 @@ def render_logo_and_title():
         st.markdown("<h1 style='color:#e6eef8'>HR System — Dark Mode</h1>", unsafe_allow_html=True)
 
 def page_my_profile(user):
-    st.subheader("📋 صفحتي الشخصية")
+    st.subheader("📋 My Profile")
     df = st.session_state.get("df", pd.DataFrame())
     row = df[df["employee_code"].astype(str) == str(user["employee_code"])]
     if row.empty:
-        st.error("لم يتم العثور على بياناتك في النظام.")
+        st.error("Your profile data was not found.")
     else:
         cols = ["employee_code","Employee Name","password","Mobile","Hiring Date","annual_leave_balance","monthly_salary","Title"]
         existing_cols = [c for c in cols if c in row.columns]
         st.dataframe(row[existing_cols], use_container_width=True)
 
 def page_dashboard(user):
-    st.subheader("لوحة القيادة - Dashboard")
+    st.subheader("📊 Dashboard")
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
-        st.info("لا توجد بيانات حالياً.")
+        st.info("No employee data available.")
         return
     total = len(df)
     departments = df["Department"].nunique() if "Department" in df.columns else 0
@@ -176,62 +176,48 @@ def page_dashboard(user):
         except Exception:
             pass
     c1, c2, c3 = st.columns(3)
-    c1.metric("👥 إجمالي الموظفين", total)
-    c2.metric("🏷️ عدد الأقسام", departments)
-    c3.metric("✨ موظفين جدد (30 يوم)", new_hires)
+    c1.metric("👥 Total Employees", total)
+    c2.metric("🏷️ Departments", departments)
+    c3.metric("✨ New Hires (30 days)", new_hires)
     if "Department" in df.columns:
         dept_counts = df["Department"].fillna("Unknown").value_counts().reset_index()
         dept_counts.columns = ["Department","Count"]
-        fig = px.pie(dept_counts, values="Count", names="Department", title="توزيع الموظفين حسب القسم")
+        fig = px.pie(dept_counts, values="Count", names="Department", title="Employees by Department")
         st.plotly_chart(fig, use_container_width=True)
 
-# (keeping other HR pages from previous file simplified for brevity)
-def page_hr_manager(user):
-    st.subheader("إدارة HR")
-    st.info("جميع وظائف رفع الملفات وتحديث GitHub محفوظة كما هي في النسخة السابقة.")
-
-# ============================
-# Main App Flow
-# ============================
-ensure_session_df()
-render_logo_and_title()
-
-st.sidebar.title("القائمة")
-if "logged_in_user" not in st.session_state:
-    st.session_state["logged_in_user"] = None
-
-if not st.session_state["logged_in_user"]:
-    st.sidebar.subheader("تسجيل الدخول")
-    with st.sidebar.form("login_form"):
-        uid = st.text_input("الكود الوظيفي")
-        pwd = st.text_input("كلمة السر", type="password")
-        submitted = st.form_submit_button("دخول")
-    if submitted:
-        df = st.session_state.get("df", pd.DataFrame())
-        user = login(df, uid, pwd)
-        if user is None:
-            st.error("بيانات الدخول غير صحيحة.")
+def page_edit_employees():
+    st.subheader("✏️ Edit Employees")
+    df = st.session_state.get("df", pd.DataFrame())
+    if df.empty:
+        st.warning("No employee data available.")
+        return
+    edited_df = st.data_editor(df, num_rows="dynamic", use_container_width=True)
+    if st.button("💾 Save Changes"):
+        saved, pushed = save_and_maybe_push(edited_df, actor="HR")
+        if saved:
+            st.success("Changes saved locally.")
+            if pushed:
+                st.info("Changes pushed to GitHub.")
+            st.session_state["df"] = edited_df
         else:
-            st.session_state["logged_in_user"] = user
-            st.experimental_rerun()
-else:
-    user = st.session_state["logged_in_user"]
-    is_hr = str(user.get("Title","")).strip().lower() == "hr"
-    st.sidebar.write(f"👋 مرحبًا، {user.get('Employee Name','')}")
-    st.sidebar.markdown("---")
-    if is_hr:
-        page = st.sidebar.radio("الصفحات", ("Dashboard","HR Manager","Logout"))
-        if page == "Dashboard":
-            page_dashboard(user)
-        elif page == "HR Manager":
-            page_hr_manager(user)
-        elif page == "Logout":
-            st.session_state["logged_in_user"] = None
-            st.experimental_rerun()
-    else:
-        page = st.sidebar.radio("الصفحات", ("صفحتي الشخصية","Logout"))
-        if page == "صفحتي الشخصية":
-            page_my_profile(user)
-        elif page == "Logout":
-            st.session_state["logged_in_user"] = None
-            st.experimental_rerun()
+            st.error("Failed to save changes.")
+
+def page_delete_employee():
+    st.subheader("🗑️ Delete Employee")
+    df = st.session_state.get("df", pd.DataFrame())
+    if df.empty:
+        st.warning("No employee data available.")
+        return
+    selected_code = st.selectbox("Select employee code to delete", df["employee_code"].astype(str))
+    if st.button("Delete"):
+        confirm = st.checkbox("Confirm deletion")
+        if confirm:
+            df = df[df["employee_code"].astype(str) != selected_code]
+            saved, pushed = save_and_maybe_push(df, actor="HR")
+            if saved:
+                st.success("Employee deleted.")
+                if pushed:
+                    st.info("Changes pushed to GitHub.")
+                st.session_state["df"] = df
+            else:
+                st.error
