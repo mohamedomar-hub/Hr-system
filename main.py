@@ -26,38 +26,49 @@ def load_employee_data_from_github():
         st.error(f"❌ فشل تحميل الملف من GitHub. الكود: {response.status_code}")
         return pd.DataFrame()
 
-# دالة لرفع ملف إلى GitHub
+# دالة لرفع ملف إلى GitHub — مع سجل تفصيلي
 def upload_to_github(df, commit_message="تحديث بيانات الموظفين"):
-    # تحويل DataFrame لملف Excel في الذاكرة
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False)
-    output.seek(0)
-    file_content = base64.b64encode(output.read()).decode('utf-8')
-    
-    # جلب SHA الحالي للملف (مطلوب للتحديث)
-    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}"
-    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
-    params = {"ref": BRANCH}
-    response = requests.get(url, headers=headers, params=params)
-    
-    sha = None
-    if response.status_code == 200:
-        sha = response.json().get('sha')
-    
-    # رفع الملف
-    data = {
-        "message": commit_message,
-        "content": file_content,
-        "branch": BRANCH
-    }
-    if sha:
-        data["sha"] = sha
-    
-    put_response = requests.put(url, headers=headers, json=data)
-    return put_response.status_code == 200 or put_response.status_code == 201
+    try:
+        # تحويل DataFrame لملف Excel في الذاكرة
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False)
+        output.seek(0)
+        file_content = base64.b64encode(output.read()).decode('utf-8')
+        
+        # جلب SHA الحالي للملف (مطلوب للتحديث)
+        url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}"
+        headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+        params = {"ref": BRANCH}
+        response = requests.get(url, headers=headers, params=params)
+        
+        sha = None
+        if response.status_code == 200:
+            sha = response.json().get('sha')
+        else:
+            st.warning(f"⚠️ الملف غير موجود على GitHub. سيتم إنشاؤه. (Status: {response.status_code})")
+        
+        # رفع الملف
+        data = {
+            "message": commit_message,
+            "content": file_content,
+            "branch": BRANCH
+        }
+        if sha:
+            data["sha"] = sha
+        
+        put_response = requests.put(url, headers=headers, json=data)
+        st.write(f"📡 حالة رفع الملف: {put_response.status_code}")
+        if put_response.status_code not in (200, 201):
+            st.write(f"📄 رد GitHub: {put_response.json()}")
+        
+        return put_response.status_code == 200 or put_response.status_code == 201
 
-# تسجيل الدخول (نفس الكود السابق)
+    except Exception as e:
+        st.exception(f"❌ خطأ في upload_to_github: {e}")
+        return False
+
+# تسجيل الدخول
 def login(df, code, password):
     code_col = 'employee_code'
     pass_col = 'password'
@@ -112,18 +123,19 @@ def show_hr_dashboard(user, df):
             # حفظ على GitHub
             if upload_to_github(new_df):
                 st.success("✅ تم حفظ الملف على GitHub بنجاح!")
+                st.write("### 📊 البيانات الحالية:")
                 st.dataframe(new_df, use_container_width=True)
                 
-                # تنزيل محلي
+                # زر تنزيل
                 output = BytesIO()
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
                     new_df.to_excel(writer, index=False)
                 st.download_button("⬇️ نزّل النسخة", output.getvalue(), "employees.xlsx")
             else:
-                st.error("❌ فشل حفظ الملف على GitHub. تحقق من الإعدادات.")
+                st.error("❌ فشل حفظ الملف على GitHub.")
                 
         except Exception as e:
-            st.error(f"❌ خطأ: {e}")
+            st.exception(f"❌ خطأ أثناء معالجة الملف: {e}")
 
 # عرض لوحة الموظف
 def show_employee_dashboard(user, df):
