@@ -101,6 +101,15 @@ def login(df, code, password):
         st.error("الكود أو كلمة السر غير صحيحة.")
         return None
 
+# عرض لوحة الموظف
+def show_employee_dashboard(user, df):
+    st.title(f"مرحبا {user.get('employee name', 'غير محدد')} 👋")
+    user_data = {k: v for k, v in user.items() if k not in ['title_col', 'password', 'Title', 'employee_code']}
+    # إصلاح: حذف 'employee name' المكرر إذا كان 'Employee Name' موجود
+    if 'employee name' in user_data and 'Employee Name' in user_data:
+        user_data.pop('employee name', None)
+    st.dataframe(pd.DataFrame([user_data]), use_container_width=True)
+
 # عرض لوحة HR
 def show_hr_dashboard(user, df):
     st.title(f"مرحبا {user.get('employee name', 'غير محدد')} 👋")
@@ -145,14 +154,6 @@ def show_hr_dashboard(user, df):
                 
         except Exception as e:
             st.exception(f"❌ خطأ أثناء معالجة الملف: {e}")
-
-# عرض لوحة الموظف
-def show_employee_dashboard(user, df):
-    st.title(f"مرحبا {user.get('employee name', 'غير محدد')} 👋")
-    user_data = {k: v for k, v in user.items() if k not in ['title_col', 'password', 'Title', 'employee_code']}
-    if 'employee name' in user_data and 'Employee Name' in user_
-        user_data.pop('employee name', None)
-    st.dataframe(pd.DataFrame([user_data]), use_container_width=True)
 
 # =======================================
 # واجهة Streamlit
