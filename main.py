@@ -1,22 +1,26 @@
-# app.py
+# main.py
 import streamlit as st
 import pandas as pd
 import requests
 import base64
 from io import BytesIO
-import time
+import os
 
 # ============================
-# إعدادات GitHub من Secrets
+# إعدادات وأسامي افتراضية
 # ============================
-GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", "")  # من الأفضل حفظ التوكن في st.secrets
+# اسم ملف الموظفين المطلوب (حسب طلبك)
+DEFAULT_FILE_PATH = "Employees.xlsx"
+
+# نحاول قراءة إعدادات الريبو من st.secrets أولًا، وإلا نستخدم القيم الافتراضية
+GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", None)
 REPO_OWNER = st.secrets.get("REPO_OWNER", "mohamedomar-hub")
 REPO_NAME = st.secrets.get("REPO_NAME", "hr-system")
 BRANCH = st.secrets.get("BRANCH", "main")
-FILE_PATH = st.secrets.get("FILE_PATH", "employees.xlsx") if st.secrets.get("FILE_PATH") else "employees.xlsx"
+FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FILE_PATH") else DEFAULT_FILE_PATH
 
 # ============================
-# دوال مساعدة للـ GitHub
+# دوال مساعدة لـ GitHub
 # ============================
 def github_headers():
     headers = {"Accept": "application/vnd.github.v3+json"}
@@ -26,8 +30,7 @@ def github_headers():
 
 def load_employee_data_from_github():
     """
-    يجلب ملف employees.xlsx من الريبو ويعيده DataFrame.
-    لو فشل يرجع DataFrame فارغ.
+    يجلب ملف Employees.xlsx من الريبو ويعيد DataFrame.
     """
     try:
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}?ref={BRANCH}"
@@ -38,17 +41,14 @@ def load_employee_data_from_github():
             df = pd.read_excel(BytesIO(file_content))
             return df
         else:
-            # لو الملف مش موجود او خطأ هنعرض رسالة بس ونرجع df فاضي
-            st.warning(f"⚠️ لم يتم تحميل الملف من GitHub (status: {resp.status_code}). سيتم استخدام نسخة محلية إذا وجدت.")
+            # لو الملف مش موجود أو خطأ، نرجع df فارغ
             return pd.DataFrame()
-    except Exception as e:
-        st.error(f"❌ حدث خطأ أثناء تحميل البيانات من GitHub: {e}")
+    except Exception:
         return pd.DataFrame()
 
 def get_file_sha():
     """
-    يجلب SHA الحالي للملف إن وجد (محتاج للتحديث).
-    يرجع None لو الملف غير موجود أو خطأ.
+    يرجع SHA للملف الموجود على GitHub (مطلوب للتحديث).
     """
     try:
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}"
@@ -58,21 +58,20 @@ def get_file_sha():
             return resp.json().get("sha")
         else:
             return None
-    except Exception as e:
-        st.error(f"❌ خطأ في جلب SHA: {e}")
+    except Exception:
         return None
 
-def upload_to_github(df, commit_message="تحديث بيانات الموظفين من Streamlit"):
+def upload_to_github(df, commit_message="Update employees via Streamlit"):
     """
-    يرفع DataFrame كملف Excel إلى GitHub (ينشئ الملف أو يعدّله).
-    يرجع True لو نجح، False لو فشل.
+    يرفع DataFrame كملف Excel إلى GitHub (ينشئ أو يحدث الملف).
+    يعيد True لو نجح، False لو فشل أو لم يتوفر توكن.
     """
     if not GITHUB_TOKEN:
-        st.info("ℹ️ لم يتم رفع الملف إلى GitHub لأن GitHub token غير موجود في st.secrets.")
+        # ليس خطأ جسيم؛ لكن نعلم الـHR أنه لم يتم الرفع لأن التوكن غير مُعد.
         return False
 
     try:
-        # تحويل df إلى محتوى Excel في الذاكرة
+        # تحويل df إلى Excel في الذاكرة
         output = BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             df.to_excel(writer, index=False)
@@ -92,18 +91,8 @@ def upload_to_github(df, commit_message="تحديث بيانات الموظفي�
 
         put_resp = requests.put(url, headers=github_headers(), json=payload, timeout=60)
 
-        if put_resp.status_code in (200, 201):
-            return True
-        else:
-            st.error(f"❌ فشل رفع الملف إلى GitHub. Status: {put_resp.status_code}")
-            try:
-                st.write(put_resp.json())
-            except Exception:
-                pass
-            return False
-
-    except Exception as e:
-        st.exception(f"❌ استثناء أثناء upload_to_github: {e}")
+        return put_resp.status_code in (200, 201)
+    except Exception:
         return False
 
 # ============================
@@ -111,15 +100,22 @@ def upload_to_github(df, commit_message="تحديث بيانات الموظفي�
 # ============================
 def ensure_session_df():
     """
-    يضمن وجود df في session_state، ويحمل من GitHub عند التشغيل أول مرة.
+    يضمن وجود DataFrame في session_state عند أول تشغيل.
+    نحاول حمله من GitHub أولاً، وإذا فشل نستخدم ملف محلي مؤقت إذا وجد.
     """
     if "df" not in st.session_state:
         df_loaded = load_employee_data_from_github()
-        if df_loaded is None or df_loaded.empty:
-            # إن لم يتوفر من GitHub، نبدأ df فارغ
-            st.session_state["df"] = pd.DataFrame()
-        else:
+        if not df_loaded.empty:
             st.session_state["df"] = df_loaded
+        else:
+            # لو ما فيش على GitHub حاول نقرأ ملف محلي بنفس الاسم (لو موجود)
+            if os.path.exists(FILE_PATH):
+                try:
+                    st.session_state["df"] = pd.read_excel(FILE_PATH)
+                except Exception:
+                    st.session_state["df"] = pd.DataFrame()
+            else:
+                st.session_state["df"] = pd.DataFrame()
 
 def normalize_mobile_column(new_df):
     """
@@ -130,13 +126,13 @@ def normalize_mobile_column(new_df):
             new_df['Mobile'] = pd.to_numeric(new_df['Mobile'], errors='coerce').fillna(0).astype(int)
             new_df['Mobile'] = new_df['Mobile'].apply(lambda x: f"{int(x):011d}" if x > 0 else "")
         except Exception:
-            # لو فشل التحويل، نترك العمود كما هو
             pass
     return new_df
 
 def login(df, code, password):
     """
-    دالة تسجيل دخول: أصبحت أكثر مرونة - تقارن كسلاسل بعد التنضيف.
+    دالة تسجيل دخول: مقارنة كسلاسل بعد التنظيف.
+    تتوقع أعمدة: 'employee_code', 'password', 'Title', 'Employee Name'
     """
     code_col = 'employee_code'
     pass_col = 'password'
@@ -148,15 +144,9 @@ def login(df, code, password):
         st.error(f"أعمدة مطلوبة مفقودة في شيت الموظفين: {missing_cols}")
         return None
 
-    # تحويل الادخالات لسلاسل ومقارنة بعد التنظيف
-    try:
-        code_s = str(code).strip()
-        pwd_s = str(password).strip()
-    except Exception:
-        st.error("حدث خطأ في قراءة الكود أو كلمة السر.")
-        return None
+    code_s = str(code).strip()
+    pwd_s = str(password).strip()
 
-    # نضمن أن قيم الأعمدة تقارن كسلاسل بعد التفريغ من NaN
     df_local = df.copy()
     df_local[code_col] = df_local[code_col].astype(str).str.strip()
     df_local[pass_col] = df_local[pass_col].astype(str).str.strip()
@@ -167,29 +157,34 @@ def login(df, code, password):
         user_info['employee name'] = user_info.get(name_col, "")
         return user_info
     else:
-        st.error("الكود أو كلمة السر غير صحيحة.")
         return None
 
 def show_employee_dashboard(user):
     st.title(f"مرحبا {user.get('employee name', 'غير محدد')} 👋")
-    # عرض بيانات المستخدم الأساسية
+    st.write("### بياناتك:")
     user_display = {k: v for k, v in user.items() if k not in ['password']}
     st.dataframe(pd.DataFrame([user_display]), use_container_width=True)
 
 def show_hr_dashboard(user):
-    st.title(f"مرحبا {user.get('employee name', 'غير محدد')} 👋")
-    st.subheader("أنت مسؤول النظام (HR)")
+    """
+    لوحة HR: تحتوي على رفع ملف جديد، تأكيد التحديث، ومحاولات الرفع إلى GitHub.
+    هذه الدالة لا تُستدعى داخل الفورم لتجنّب مشاكل Streamlit.
+    """
+    st.title(f"مرحبا {user.get('employee name', 'HR')} 👋")
+    st.subheader("لوحة مسؤول الموارد البشرية")
 
     df = st.session_state.get("df", pd.DataFrame())
 
-    # عرض قائمة موظفي HR
+    # عرض موظفي HR إن وجدوا
     if 'Title' in df.columns:
         hr_users = df[df['Title'].astype(str).str.strip().str.lower() == 'hr']
         if not hr_users.empty:
+            cols_to_show = [c for c in ['employee_code', 'Employee Name', 'Title'] if c in hr_users.columns]
             st.write("### 📋 موظفو HR:")
-            st.dataframe(hr_users[['employee_code', 'Employee Name', 'Title']] if set(['employee_code','Employee Name','Title']).issubset(hr_users.columns) else hr_users, use_container_width=True)
+            st.dataframe(hr_users[cols_to_show], use_container_width=True)
 
-    st.write("### 📥 رفع ملف Excel جديد:")
+    st.write("### 📥 رفع ملف Excel جديد (Employees.xlsx):")
+    # ملاحظة: هنا لا نضع uploader داخل فورم حتى لا نحصل على استثناءات
     uploaded_file = st.file_uploader("اختر ملف (.xlsx) لرفع وتحديث بيانات الموظفين", type=["xlsx"], key="hr_uploader")
 
     if uploaded_file is not None:
@@ -200,57 +195,52 @@ def show_hr_dashboard(user):
             st.write("🔍 معاينة سريعة للملف الجديد:")
             st.dataframe(new_df.head(20), use_container_width=True)
 
-            # زر تأكيد الرفع والتحديث
+            # زر تأكيد الرفع والتحديث (ليس داخل فورم)
             if st.button("✅ تأكيد ورفع الملف وتحديث النظام"):
-                with st.spinner("⏳ جاري تحديث البيانات..."):
-                    # أولًا نحدث نسخة الجلسة
-                    st.session_state["df"] = new_df.copy()
+                # حدّث df في الجلسة أولاً
+                st.session_state["df"] = new_df.copy()
 
-                    # نحاول نرفع على GitHub
-                    uploaded = upload_to_github(new_df, commit_message=f"Update employees via Streamlit by {user.get('employee name','HR')}")
-                    if uploaded:
-                        st.success("✅ تم رفع الملف على GitHub وتحديث النظام بنجاح. الموظفون الجدد يمكنهم الآن تسجيل الدخول.")
+                # نحاول رفع الملف على GitHub إن كان التوكن موجود
+                uploaded = upload_to_github(new_df, commit_message=f"Update {FILE_PATH} via Streamlit by {user.get('employee name','HR')}")
+                if uploaded:
+                    st.success("✅ تم رفع الملف على GitHub وتحديث النظام بنجاح. الموظفون الجدد يمكنهم الآن تسجيل الدخول.")
+                else:
+                    if GITHUB_TOKEN:
+                        st.warning("⚠️ فشل رفع الملف إلى GitHub رغم وجود التوكن. البيانات تم تحديثها محلياً داخل التطبيق.")
                     else:
-                        # إذا لم ينجح الرفع على GitHub، نخبر الHR أن التحديث محلي فقط
-                        st.warning("⚠️ تم تحديث البيانات داخل التطبيق (محلياً)، لكن فشل رفع الملف على GitHub. يمكنك المحاولة مرة أخرى أو حفظ نسخة يدوياً.")
-                    
-                    # نعيد تشغيل السكربت بحيث النماذج الأخرى تلتقط df الجديد فوراً
-                    time.sleep(0.5)
-                    st.experimental_rerun()
+                        st.info("ℹ️ تم تحديث البيانات داخل التطبيق (محلياً). لا يوجد GitHub token في st.secrets لرفع الملف تلقائياً.")
+                # إعادة تشغيل ليُظهر التحديث فوراً في بقية التبويبات
+                st.experimental_rerun()
 
-            # زر لحفظ الملف محلياً للHR (تحميل)
-            output = BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            # زر تنزيل نسخة من الملف المرفوع
+            out = BytesIO()
+            with pd.ExcelWriter(out, engine='openpyxl') as writer:
                 new_df.to_excel(writer, index=False)
-            st.download_button("⬇️ تنزيل نسخة من الملف الذي رفعته", output.getvalue(), "employees_uploaded.xlsx")
+            st.download_button("⬇️ تنزيل نسخة من الملف الذي رفعته", out.getvalue(), f"{FILE_PATH}")
 
         except Exception as e:
             st.exception(f"❌ حدث خطأ أثناء قراءة الملف المرفوع: {e}")
 
     st.write("---")
-    st.write("خيارات إضافية:")
     col1, col2 = st.columns(2)
     with col1:
         if st.button("🔄 إعادة تحميل البيانات من GitHub الآن"):
-            with st.spinner("جاري تحميل الملف من GitHub..."):
-                df_loaded = load_employee_data_from_github()
-                if not df_loaded.empty:
-                    st.session_state["df"] = df_loaded
-                    st.success("✅ تم إعادة تحميل البيانات من GitHub وتحديث النظام.")
-                    st.experimental_rerun()
-                else:
-                    st.warning("⚠️ لم يتم تحميل بيانات من GitHub. تأكد أن الملف موجود وst.secrets مكوّن بشكل صحيح.")
-
-    with col2:
-        if st.button("📁 حفظ نسخة محلية من البيانات الحالية"):
-            df_curr = st.session_state.get("df", pd.DataFrame())
-            if not df_curr.empty:
-                out = BytesIO()
-                with pd.ExcelWriter(out, engine='openpyxl') as writer:
-                    df_curr.to_excel(writer, index=False)
-                st.download_button("⬇️ تحميل employees_current.xlsx", out.getvalue(), "employees_current.xlsx")
+            df_loaded = load_employee_data_from_github()
+            if not df_loaded.empty:
+                st.session_state["df"] = df_loaded
+                st.success("✅ تم إعادة تحميل البيانات من GitHub وتحديث النظام.")
+                st.experimental_rerun()
             else:
-                st.info("لا توجد بيانات حالياً لحفظها.")
+                st.warning("⚠️ لم يتم تحميل بيانات من GitHub. تأكد أن الملف موجود وst.secrets مكوّن بشكل صحيح.")
+    with col2:
+        df_curr = st.session_state.get("df", pd.DataFrame())
+        if not df_curr.empty:
+            out2 = BytesIO()
+            with pd.ExcelWriter(out2, engine='openpyxl') as writer:
+                df_curr.to_excel(writer, index=False)
+            st.download_button("⬇️ تنزيل employees_current.xlsx", out2.getvalue(), "employees_current.xlsx")
+        else:
+            st.info("لا توجد بيانات حالياً للحفظ أو التنزيل.")
 
 # ============================
 # واجهة Streamlit الرئيسية
@@ -261,52 +251,80 @@ st.title("🔐 نظام شؤون الموظفين")
 # ضمان وجود df في الجلسة
 ensure_session_df()
 
-# تبويبات الوظائف
+# تبويبات
 tab1, tab2 = st.tabs(["👨‍💼 Employees", "🧑‍💼 HR Section"])
 
+# ----------------------------
+# تبويب الموظفين - تسجيل دخول
+# ----------------------------
 with tab1:
     st.header("تسجيل دخول الموظفين")
     df = st.session_state.get("df", pd.DataFrame())
 
-    with st.form("login_emp"):
+    with st.form("login_emp_form"):
         code = st.text_input("الكود الوظيفي", key="emp_code")
         pwd = st.text_input("كلمة السر", type="password", key="emp_pwd")
-        if st.form_submit_button("دخول"):
-            if df.empty:
-                st.error("لا توجد بيانات موظفين حالياً. تواصل مع مسؤول الـHR.")
-            else:
-                user = login(df, code, pwd)
-                if user is not None and str(user.get('Title','')).strip().lower() != 'hr':
-                    show_employee_dashboard(user)
+        submit_emp = st.form_submit_button("دخول")
 
+    if submit_emp:
+        if df.empty:
+            st.error("لا توجد بيانات موظفين حالياً. تواصل مع مسؤول الـHR.")
+        else:
+            user = login(df, code, pwd)
+            if user is None:
+                st.error("الكود أو كلمة السر غير صحيحة.")
+            else:
+                # نضع حالة تسجيل الدخول في الجلسة ثم نعيد تشغيل الصفحة لعرض لوحة الموظف خارج الفورم
+                st.session_state["logged_in_user"] = user
+                st.session_state["is_hr_user"] = str(user.get('Title','')).strip().lower() == 'hr'
+                st.experimental_rerun()
+
+    # إذا كان المستخدم مسجّل من قبل في الجلسة، نعرض اللوحة مباشرة
+    if st.session_state.get("logged_in_user") and not st.session_state.get("is_hr_user", False):
+        show_employee_dashboard(st.session_state.get("logged_in_user"))
+
+# ----------------------------
+# تبويب HR - تسجيل دخول ثم لوحة
+# ----------------------------
 with tab2:
     st.header("لوحة HR")
-    with st.form("login_hr"):
-        code = st.text_input("الكود الوظيفي (HR)", key="hr_code")
-        pwd = st.text_input("كلمة السر (HR)", type="password", key="hr_pwd")
-        if st.form_submit_button("دخول HR"):
-            df = st.session_state.get("df", pd.DataFrame())
-            if df.empty:
-                # نتحقق من GitHub مرة أخرى قبل الرفض
-                df_loaded = load_employee_data_from_github()
-                if not df_loaded.empty:
-                    st.session_state["df"] = df_loaded
-                    df = df_loaded
+    # أولاً: فورم تسجيل الدخول للـHR
+    with st.form("login_hr_form"):
+        code_hr = st.text_input("الكود الوظيفي (HR)", key="hr_code")
+        pwd_hr = st.text_input("كلمة السر (HR)", type="password", key="hr_pwd")
+        submit_hr = st.form_submit_button("دخول HR")
 
-            if df.empty:
-                st.error("لا توجد بيانات موظفين حالياً في النظام أو GitHub.")
+    if submit_hr:
+        df = st.session_state.get("df", pd.DataFrame())
+        if df.empty:
+            # نحاول جلب من GitHub قبل الرفض
+            df_loaded = load_employee_data_from_github()
+            if not df_loaded.empty:
+                st.session_state["df"] = df_loaded
+                df = df_loaded
+
+        if df.empty:
+            st.error("لا توجد بيانات موظفين في النظام أو GitHub.")
+        else:
+            user_hr = login(df, code_hr, pwd_hr)
+            if user_hr is None:
+                st.error("خطأ في بيانات دخول HR.")
             else:
-                user = login(df, code, pwd)
-                if user is not None and str(user.get('Title','')).strip().lower() == 'hr':
-                    show_hr_dashboard(user)
-                else:
-                    st.error("يجب تسجيل دخول حساب HR لتصل لهذه الصفحة.")
+                # حفظ حالة تسجيل HR
+                st.session_state["logged_in_user"] = user_hr
+                st.session_state["is_hr_user"] = True
+                st.experimental_rerun()
 
-# ==================================
-# ملاحظات ختامية للمستخدم (محلية)
-# ==================================
+    # إن كان HR مسجل بالفعل في الجلسة، نعرض لوحة HR خارج الفورم
+    if st.session_state.get("logged_in_user") and st.session_state.get("is_hr_user", False):
+        show_hr_dashboard(st.session_state.get("logged_in_user"))
+
+# ----------------------------
+# ملاحظات أسفل التطبيق
+# ----------------------------
 st.markdown("---")
 st.write("ℹ️ ملاحظات:")
+st.write(f"- الملف المستعمل: **{FILE_PATH}**")
 st.write("- عندما يقوم HR برفع ملف جديد ويضغط 'تأكيد ورفع الملف وتحديث النظام'، سيتم تحديث البيانات داخل التطبيق فورًا.")
-st.write("- إذا كان `GITHUB_TOKEN` مخزنًا في `st.secrets`، سيحاول التطبيق أيضًا رفع الملف تلقائيًا إلى GitHub.")
-st.write("- في حال حدوث أي خطأ أثناء رفع الملف إلى GitHub، سيتم إعلام الـHR وستبقى البيانات محدثة محليًا داخل الجلسة (يمكن حفظها يدويًا بالضغط على زر التحميل).")
+st.write("- إذا كان `GITHUB_TOKEN` مضبوطًا في `st.secrets`، سيحاول التطبيق رفع الملف تلقائيًا إلى GitHub.")
+st.write("- في حالة فشل رفع الملف إلى GitHub، ستبقى البيانات محدثة محليًا في الجلسة ويمكن تحميلها يدوياً.")
