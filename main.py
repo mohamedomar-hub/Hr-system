@@ -29,6 +29,8 @@ def load_employee_data_from_github():
 # دالة لرفع ملف إلى GitHub — مع سجل تفصيلي
 def upload_to_github(df, commit_message="تحديث بيانات الموظفين"):
     try:
+        st.write("📡 جاري رفع الملف إلى GitHub...")
+
         # تحويل DataFrame لملف Excel في الذاكرة
         output = BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -45,6 +47,7 @@ def upload_to_github(df, commit_message="تحديث بيانات الموظفي�
         sha = None
         if response.status_code == 200:
             sha = response.json().get('sha')
+            st.write(f"✅ تم جلب SHA: {sha[:8]}...")
         else:
             st.warning(f"⚠️ الملف غير موجود على GitHub. سيتم إنشاؤه. (Status: {response.status_code})")
         
@@ -58,7 +61,7 @@ def upload_to_github(df, commit_message="تحديث بيانات الموظفي�
             data["sha"] = sha
         
         put_response = requests.put(url, headers=headers, json=data)
-        st.write(f"📡 حالة رفع الملف: {put_response.status_code}")
+        st.write(f"📡 حالة الرفع: {put_response.status_code}")
         if put_response.status_code not in (200, 201):
             st.write(f"📄 رد GitHub: {put_response.json()}")
         
@@ -120,6 +123,12 @@ def show_hr_dashboard(user, df):
                 new_df['Mobile'] = pd.to_numeric(new_df['Mobile'], errors='coerce').fillna(0).astype(int)
                 new_df['Mobile'] = new_df['Mobile'].apply(lambda x: f"{int(x):011d}" if x > 0 else "")
             
+            # عرض معلومات الـ Secrets قبل الرفع
+            st.write("🔍 **معلومات الـ Secrets:**")
+            st.write(f"- Token: {'✅ موجود' if GITHUB_TOKEN else '❌ مش موجود'}")
+            st.write(f"- Repo: {REPO_OWNER}/{REPO_NAME}")
+            st.write(f"- Branch: {BRANCH}")
+            
             # حفظ على GitHub
             if upload_to_github(new_df):
                 st.success("✅ تم حفظ الملف على GitHub بنجاح!")
@@ -141,7 +150,7 @@ def show_hr_dashboard(user, df):
 def show_employee_dashboard(user, df):
     st.title(f"مرحبا {user.get('employee name', 'غير محدد')} 👋")
     user_data = {k: v for k, v in user.items() if k not in ['title_col', 'password', 'Title', 'employee_code']}
-    if 'employee name' in user_data and 'Employee Name' in user_data:
+    if 'employee name' in user_data and 'Employee Name' in user_
         user_data.pop('employee name', None)
     st.dataframe(pd.DataFrame([user_data]), use_container_width=True)
 
