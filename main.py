@@ -4,8 +4,7 @@ import pandas as pd
 # مسار ملف الموظفين الأساسي
 EMPLOYEE_FILE = "employees.xlsx"
 
-# دالة لتحميل بيانات الموظفين
-@st.cache_data
+# ⚠️ إزالة @st.cache_data — علشان يقرأ الملف الجديد كل مرة
 def load_employee_data(file_path=EMPLOYEE_FILE):
     try:
         df = pd.read_excel(file_path)
@@ -54,7 +53,7 @@ def show_hr_dashboard(user, df):
     hr_users = df[df['Title'].str.strip().str.lower() == 'hr']
     if not hr_users.empty:
         st.write("### 📋 موظفو قسم الموارد البشرية (HR):")
-        st.dataframe(hr_users[['employee_code', 'Employee Name', 'Title']])
+        st.dataframe(hr_users[['employee_code', 'Employee Name', 'Title']], use_container_width=True)
 
     st.write("### 📥 رفع ملف Excel جديد لتحديث البيانات:")
     uploaded_file = st.file_uploader("اختر ملف Excel", type=["xlsx"])
@@ -65,11 +64,11 @@ def show_hr_dashboard(user, df):
             
             # تنسيق عمود Mobile كرقم 11 رقم
             if 'Mobile' in new_df.columns:
+                # تحويل لأرقام، ثم لنص، ثم ضبط الطول
                 new_df['Mobile'] = pd.to_numeric(new_df['Mobile'], errors='coerce').fillna(0).astype(int)
-                # تحويل الأرقام لنص وضبط الطول
                 new_df['Mobile'] = new_df['Mobile'].apply(lambda x: f"{int(x):011d}" if x > 0 else "")
             
-            # إزالة الأعمدة المكررة (مثل employee name المكررة)
+            # حذف الأعمدة المكررة (مثل employee name المكررة)
             cols_to_keep = ['employee_code', 'Employee Name', 'password', 'Title', 'Mobile', 'Hiring Date', 'annual_leave_balance', 'monthly_salary']
             new_df = new_df[[c for c in cols_to_keep if c in new_df.columns]]
             
@@ -77,9 +76,9 @@ def show_hr_dashboard(user, df):
             new_df.to_excel(EMPLOYEE_FILE, index=False)
             st.success("✅ تم تحديث بيانات الموظفين بنجاح!")
             
-            # عرض البيانات بعد التحديث
-            st.write("### 📊 البيانات الحالية للموظفين:")
-            st.dataframe(new_df)
+            # عرض البيانات الكاملة بعد التحديث
+            st.write("### 📊 البيانات الحالية للموظفين (كاملة):")
+            st.dataframe(new_df, use_container_width=True)  # ← هيعرض كل الأعمدة والصفوف
             
             # زر تنزيل الملف
             st.download_button(
@@ -107,7 +106,7 @@ def show_employee_dashboard(user, df):
     if 'employee name' in user_data and 'Employee Name' in user_data:
         user_data.pop('employee name', None)  # نحتفظ بـ Employee Name
     
-    st.dataframe(pd.DataFrame([user_data]))
+    st.dataframe(pd.DataFrame([user_data]), use_container_width=True)
 
 # =======================================
 # واجهة Streamlit
@@ -116,7 +115,7 @@ st.set_page_config(page_title="HR System", page_icon="👥")
 
 st.title("🔐 نظام شؤون الموظفين - تسجيل الدخول")
 
-# تحميل بيانات الموظفين
+# تحميل بيانات الموظفين (بدون كاش — علشان يقرأ الملف الجديد)
 df = load_employee_data(EMPLOYEE_FILE)
 
 if df.empty:
