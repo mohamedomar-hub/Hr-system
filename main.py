@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from io import BytesIO
 
 # مسار ملف الموظفين الأساسي
 EMPLOYEE_FILE = "employees.xlsx"
@@ -60,11 +61,12 @@ def show_hr_dashboard(user, df):
 
     if uploaded_file is not None:
         try:
+            # قراءة الملف
             new_df = pd.read_excel(uploaded_file)
             
             # تنسيق عمود Mobile كرقم 11 رقم
             if 'Mobile' in new_df.columns:
-                # تحويل لأرقام، ثم لنص، ثم ضبط الطول
+                # تحويل للأرقام، ثم لنص، ثم ضبط الطول
                 new_df['Mobile'] = pd.to_numeric(new_df['Mobile'], errors='coerce').fillna(0).astype(int)
                 new_df['Mobile'] = new_df['Mobile'].apply(lambda x: f"{int(x):011d}" if x > 0 else "")
             
@@ -72,18 +74,25 @@ def show_hr_dashboard(user, df):
             cols_to_keep = ['employee_code', 'Employee Name', 'password', 'Title', 'Mobile', 'Hiring Date', 'annual_leave_balance', 'monthly_salary']
             new_df = new_df[[c for c in cols_to_keep if c in new_df.columns]]
             
-            # حفظ الملف مؤقتًا (في البيئة)
-            new_df.to_excel(EMPLOYEE_FILE, index=False)
+            # حفظ الملف مؤقتًا في الذاكرة (BytesIO)
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                new_df.to_excel(writer, index=False)
+            output.seek(0)
+            
+            # حفظ الملف في متغير جلوبال (مش في ملف على القرص)
+            st.session_state['employee_data'] = new_df
+            
             st.success("✅ تم تحديث بيانات الموظفين بنجاح!")
             
             # عرض البيانات الكاملة بعد التحديث
             st.write("### 📊 البيانات الحالية للموظفين (كاملة):")
-            st.dataframe(new_df, use_container_width=True)  # ← هيعرض كل الأعمدة والصفوف
+            st.dataframe(new_df, use_container_width=True)
             
             # زر تنزيل الملف
             st.download_button(
                 label="⬇️ نزّل النسخة المحدثة",
-                data=new_df.to_excel(index=False, engine='openpyxl'),
+                data=output,
                 file_name="employees_updated.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
@@ -116,7 +125,11 @@ st.set_page_config(page_title="HR System", page_icon="👥")
 st.title("🔐 نظام شؤون الموظفين - تسجيل الدخول")
 
 # تحميل بيانات الموظفين (بدون كاش — علشان يقرأ الملف الجديد)
-df = load_employee_data(EMPLOYEE_FILE)
+if 'employee_data' not in st.session_state:
+    df = load_employee_data(EMPLOYEE_FILE)
+    st.session_state['employee_data'] = df
+else:
+    df = st.session_state['employee_data']
 
 if df.empty:
     st.warning("لا يمكن تحميل بيانات الموظفين. تأكد من وجود ملف employees.xlsx.")
