@@ -1,4 +1,4 @@
-# hr_system_dark_mode_v2_full.py
+# hr_system_dark_mode_v3.py
 import streamlit as st
 import pandas as pd
 import requests
@@ -7,9 +7,6 @@ from io import BytesIO
 import os
 import datetime
 import plotly.express as px
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
 # ============================
 # Configuration / Defaults
@@ -24,13 +21,6 @@ REPO_NAME = st.secrets.get("REPO_NAME", "hr-system")
 BRANCH = st.secrets.get("BRANCH", "main")
 FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FILE_PATH") else DEFAULT_FILE_PATH
 
-# SMTP configuration for notifications (optional)
-SMTP_HOST = st.secrets.get("SMTP_HOST", None)
-SMTP_PORT = st.secrets.get("SMTP_PORT", None)
-SMTP_USER = st.secrets.get("SMTP_USER", None)
-SMTP_PASS = st.secrets.get("SMTP_PASS", None)
-FROM_EMAIL = st.secrets.get("FROM_EMAIL", SMTP_USER)
-
 # ============================
 # Styling - Dark mode CSS
 # ============================
@@ -43,11 +33,7 @@ dark_css = """
 [data-testid="stHeader"], [data-testid="stToolbar"] {background-color: #0b1220;}
 .stButton>button {background-color: #0b72b9; color: white; border-radius: 8px; padding: 6px 12px;}
 [data-testid="stSidebar"] {background-color: #071226;}
-.stTextInput>div>div>input {background-color: #071226; color: #e6eef8;}
-.stNumberInput>div>input {background-color: #071226; color: #e6eef8;}
-.stSelectbox>div>div>div {background-color: #071226; color: #e6eef8;}
-.streamlit-expanderHeader {color: #e6eef8;}
-.css-1v0mbdj { color: #e6eef8; }
+.stTextInput>div>div>input, .stNumberInput>div>input, .stSelectbox>div>div>div {background-color: #071226; color: #e6eef8;}
 </style>
 """
 st.markdown(dark_css, unsafe_allow_html=True)
@@ -124,10 +110,7 @@ def ensure_session_df():
                 st.session_state["df"] = pd.DataFrame()
 
 def login(df, code, password):
-    # Expected column names
-    # We accept flexible columns: 'employee_code' & 'password' may have different casing
     df_local = df.copy()
-    # Normalize column names for matching
     col_map = {c.lower(): c for c in df_local.columns}
     code_col = col_map.get("employee_code", None)
     pass_col = col_map.get("password", None)
@@ -162,75 +145,6 @@ def save_and_maybe_push(df, actor="HR"):
     return saved, pushed
 
 # ============================
-# Email notification helper
-# ============================
-def send_salary_notification(to_email, employee_name, salary_amount, details_url=None):
-    """
-    Send a simple salary notification email. Uses SMTP config from secrets.
-    Returns True/False.
-    """
-    if not SMTP_HOST or not SMTP_PORT or not SMTP_USER or not SMTP_PASS or not FROM_EMAIL:
-        return False, "SMTP not configured"
-    try:
-        subject = "Salary Paid Notification"
-        body = f"""Hello {employee_name},
-
-This is to notify you that your salary for this month has been deposited.
-
-Details:
-- Employee: {employee_name}
-- Amount: {salary_amount}
-- Date: {datetime.datetime.now().strftime('%Y-%m-%d')}
-
-You can view more details in the HR portal. {f'Details: {details_url}' if details_url else ''}
-
-Best regards,
-HR Team
-"""
-        msg = MIMEMultipart()
-        msg["From"] = FROM_EMAIL
-        msg["To"] = to_email
-        msg["Subject"] = subject
-        msg.attach(MIMEText(body, "plain"))
-
-        server = smtplib.SMTP(SMTP_HOST, int(SMTP_PORT), timeout=20)
-        server.starttls()
-        server.login(SMTP_USER, SMTP_PASS)
-        server.sendmail(FROM_EMAIL, to_email, msg.as_string())
-        server.quit()
-        return True, "Sent"
-    except Exception as e:
-        return False, str(e)
-
-def notify_all_salaries(df, actor="HR"):
-    """
-    Iterate over rows with 'email' and 'monthly_salary' and send notifications.
-    Returns a summary dict.
-    """
-    summary = {"attempted": 0, "sent": 0, "failed": 0, "errors": []}
-    if "email" not in [c.lower() for c in df.columns]:
-        return summary
-    # find actual column names
-    col_map = {c.lower(): c for c in df.columns}
-    email_col = col_map.get("email")
-    salary_col = col_map.get("monthly_salary") or col_map.get("monthly salary") or col_map.get("salary")
-    name_col = col_map.get("employee name") or col_map.get("name")
-    for idx, row in df.iterrows():
-        email = str(row.get(email_col, "")).strip()
-        if not email or email.lower() in ("nan","none"):
-            continue
-        salary_amt = row.get(salary_col, "N/A") if salary_col else "N/A"
-        emp_name = row.get(name_col, "") if name_col else ""
-        summary["attempted"] += 1
-        ok, info = send_salary_notification(email, emp_name, salary_amt)
-        if ok:
-            summary["sent"] += 1
-        else:
-            summary["failed"] += 1
-            summary["errors"].append({"email": email, "error": info})
-    return summary
-
-# ============================
 # UI Components / Pages
 # ============================
 def render_logo_and_title():
@@ -247,23 +161,21 @@ def page_my_profile(user):
     if df.empty:
         st.info("No employee data available.")
         return
-    # Get employee code column name (case-insensitive)
     col_map = {c.lower(): c for c in df.columns}
     code_col = col_map.get("employee_code")
     if not code_col:
         st.error("Employee code column not found in dataset.")
         return
-    row = df[df[code_col].astype(str) == str(user.get(code_col) or user.get("employee_code") or user.get("Employee Code", ""))]
+    # Find the matching row by code (user dict may include original column name)
+    user_code = user.get(code_col) or user.get("employee_code") or user.get("Employee Code")
+    row = df[df[code_col].astype(str) == str(user_code)]
     if row.empty:
         st.error("Your record was not found.")
         return
-    # Show all columns for this row
     st.dataframe(row.reset_index(drop=True), use_container_width=True)
-    # Optionally allow employee to download their record
-    to_download = row.copy()
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        to_download.to_excel(writer, index=False, sheet_name="MyProfile")
+        row.to_excel(writer, index=False, sheet_name="MyProfile")
     buf.seek(0)
     st.download_button("Download My Profile (Excel)", data=buf, file_name="my_profile.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
@@ -273,16 +185,16 @@ def page_dashboard(user):
     if df.empty:
         st.info("No employee data available.")
         return
+
     # Normalize column names
     col_map = {c.lower(): c for c in df.columns}
     dept_col = col_map.get("department")
     hire_col = col_map.get("hire date") or col_map.get("hire_date") or col_map.get("hiring date")
-    salary_col = col_map.get("monthly_salary") or col_map.get("monthly salary") or col_map.get("salary")
-    email_col = col_map.get("email")
-    name_col = col_map.get("employee name") or col_map.get("name")
+    # salary_col left if needed later
+    # salary_col = col_map.get("monthly_salary") or col_map.get("monthly salary") or col_map.get("salary")
 
     total_employees = df.shape[0]
-    total_departments = df[dept_col].nunique() if dept_col else "N/A"
+    total_departments = df[dept_col].nunique() if dept_col else 0
     new_hires = 0
     if hire_col:
         try:
@@ -290,34 +202,24 @@ def page_dashboard(user):
             new_hires = df[df[hire_col] >= (pd.Timestamp.now() - pd.Timedelta(days=30))].shape[0]
         except Exception:
             new_hires = 0
+
     c1, c2, c3 = st.columns(3)
     c1.metric("Total Employees", total_employees)
     c2.metric("Departments", total_departments)
     c3.metric("New Hires (30 days)", new_hires)
 
-    # Department distribution
+    st.markdown("---")
+    st.markdown("### Employees per Department (table)")
     if dept_col:
         dept_counts = df[dept_col].fillna("Unknown").value_counts().reset_index()
-        dept_counts.columns = ["Department", "Count"]
-        fig = px.pie(dept_counts, names="Department", values="Count", title="Employees by Department")
-        st.plotly_chart(fig, use_container_width=True)
+        dept_counts.columns = ["Department", "Employee Count"]
+        # Show numeric table only (as requested)
+        st.table(dept_counts.sort_values("Employee Count", ascending=False).reset_index(drop=True))
+    else:
+        st.info("Department column not found. Please ensure there's a 'Department' column in the Excel file.")
 
-    # Salary distribution and stats
-    if salary_col:
-        try:
-            df[salary_col] = pd.to_numeric(df[salary_col], errors="coerce")
-            salary_stats = df[salary_col].describe().to_frame().reset_index()
-            st.subheader("Salary Statistics")
-            st.table(salary_stats)
-            fig2 = px.histogram(df, x=salary_col, nbins=30, title="Salary Distribution")
-            st.plotly_chart(fig2, use_container_width=True)
-        except Exception:
-            st.info("Unable to compute salary statistics.")
-
-    # Quick actions
     st.markdown("---")
-    st.markdown("### Quick Actions")
-    st.write("You can export the full employees data or trigger salary notifications (emails) if SMTP is configured.")
+    # Export and Save actions
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Employees")
@@ -336,14 +238,6 @@ def page_dashboard(user):
                     st.info("Saved locally. GitHub token not configured, so no push performed.")
         else:
             st.error("Failed to save dataset locally.")
-
-    if st.button("Send Salary Notifications (emails)"):
-        if not SMTP_HOST or not SMTP_PORT:
-            st.error("SMTP not configured. Please set SMTP settings in Streamlit secrets.")
-        else:
-            with st.spinner("Sending emails..."):
-                result = notify_all_salaries(df, actor=user.get("Employee Name","HR"))
-            st.write(result)
 
 def page_hr_manager(user):
     st.subheader("HR Manager")
@@ -377,10 +271,7 @@ def page_hr_manager(user):
         st.info("Dataset empty. Upload or load data first.")
         return
 
-    # Show table with selection for editing
-    display_df = df.copy()
-    # show preview
-    st.dataframe(display_df.head(100), use_container_width=True)
+    st.dataframe(df.head(100), use_container_width=True)
 
     col_map = {c.lower(): c for c in df.columns}
     code_col = col_map.get("employee_code") or list(df.columns)[0]
@@ -394,15 +285,17 @@ def page_hr_manager(user):
             row = matched_rows.iloc[0]
             st.markdown("#### Edit Employee")
             with st.form("edit_employee_form"):
-                # Dynamically create inputs for all columns
                 updated = {}
                 for col in df.columns:
                     val = row[col]
                     if pd.isna(val):
                         val = ""
                     if isinstance(val, (int, float)) and not isinstance(val, bool):
-                        updated[col] = st.number_input(label=str(col), value=float(val) if pd.notna(val) else 0.0, key=f"edit_{col}")
-                    elif pd.api.types.is_datetime64_any_dtype(type(val)) or "date" in str(col).lower():
+                        try:
+                            updated[col] = st.number_input(label=str(col), value=float(val) if pd.notna(val) else 0.0, key=f"edit_{col}")
+                        except Exception:
+                            updated[col] = st.text_input(label=str(col), value=str(val), key=f"edit_{col}")
+                    elif "date" in str(col).lower():
                         try:
                             date_val = pd.to_datetime(val, errors="coerce")
                             updated[col] = st.date_input(label=str(col), value=date_val.date() if pd.notna(date_val) else datetime.date.today(), key=f"edit_{col}_date")
@@ -413,9 +306,7 @@ def page_hr_manager(user):
 
                 submitted_edit = st.form_submit_button("Save Changes")
                 if submitted_edit:
-                    # Apply updates to dataframe
                     for k, v in updated.items():
-                        # convert date inputs back to datetime if needed
                         if isinstance(v, datetime.date):
                             v = pd.Timestamp(v)
                         df.loc[df[code_col].astype(str) == str(selected_code).strip(), k] = v
@@ -442,7 +333,6 @@ def page_hr_manager(user):
                 col_del1, col_del2 = st.columns(2)
                 with col_del1:
                     if st.button("Confirm Delete"):
-                        # perform deletion
                         st.session_state["df"] = df[df[code_col].astype(str) != str(selected_code).strip()].reset_index(drop=True)
                         saved, pushed = save_and_maybe_push(st.session_state["df"], actor=user.get("Employee Name","HR"))
                         st.session_state["delete_target"] = None
@@ -478,68 +368,15 @@ def page_hr_manager(user):
         else:
             st.error("Failed to save dataset locally.")
 
-    # Option to send salary notification for specific uploaded file presence
-    st.markdown("---")
-    st.markdown("### Salary Notification Trigger")
-    if st.button("Trigger Salary Notifications for all employees with email"):
-        if not SMTP_HOST or not SMTP_PORT:
-            st.error("SMTP not configured. Please configure SMTP in Streamlit secrets to send notifications.")
-        else:
-            with st.spinner("Sending notifications..."):
-                summary = notify_all_salaries(st.session_state.get("df", pd.DataFrame()), actor=user.get("Employee Name","HR"))
-            st.write(summary)
-
 def page_reports(user):
-    st.subheader("Reports")
+    st.subheader("Reports (Placeholder)")
+    st.info("Reports section - ready to be expanded with ready reports. Current placeholder shows basic info.")
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.info("No data to report.")
         return
-    col_map = {c.lower(): c for c in df.columns}
-    dept_col = col_map.get("department")
-    salary_col = col_map.get("monthly_salary") or col_map.get("monthly salary") or col_map.get("salary")
-    hire_col = col_map.get("hire date") or col_map.get("hire_date") or col_map.get("hiring date")
-    # Basic ready reports:
-    st.markdown("### 1) Headcount by Department")
-    if dept_col:
-        dept_counts = df[dept_col].fillna("Unknown").value_counts().reset_index()
-        dept_counts.columns = ["Department", "Count"]
-        st.dataframe(dept_counts)
-        fig = px.bar(dept_counts, x="Department", y="Count", title="Headcount by Department")
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("Department column not found.")
-
-    st.markdown("### 2) Salary Summary")
-    if salary_col:
-        try:
-            df[salary_col] = pd.to_numeric(df[salary_col], errors="coerce")
-            salary_summary = df.groupby(dept_col)[salary_col].agg(["count","mean","median","sum"]).reset_index() if dept_col else df[salary_col].describe().to_frame().reset_index()
-            st.dataframe(salary_summary)
-            fig2 = px.box(df, y=salary_col, title="Salary Boxplot")
-            st.plotly_chart(fig2, use_container_width=True)
-        except Exception:
-            st.info("Failed to compute salary summary.")
-    else:
-        st.info("Salary column not found.")
-
-    st.markdown("### 3) New Hires Over Time")
-    if hire_col:
-        try:
-            df[hire_col] = pd.to_datetime(df[hire_col], errors="coerce")
-            hires = df.dropna(subset=[hire_col])
-            hires["hire_month"] = hires[hire_col].dt.to_period("M").astype(str)
-            hires_counts = hires["hire_month"].value_counts().sort_index().reset_index()
-            hires_counts.columns = ["Month","Hires"]
-            st.dataframe(hires_counts)
-            fig3 = px.line(hires_counts, x="Month", y="Hires", title="Hires Over Time")
-            st.plotly_chart(fig3, use_container_width=True)
-        except Exception:
-            st.info("Failed to compute hires over time.")
-    else:
-        st.info("Hire Date column not found.")
-
-    st.markdown("---")
+    st.markdown("Basic preview of dataset:")
+    st.dataframe(df.head(200), use_container_width=True)
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Employees")
@@ -569,12 +406,10 @@ if not st.session_state["logged_in_user"]:
         if user is None:
             st.sidebar.error("Invalid credentials or required columns missing.")
         else:
-            # normalize returned user dict keys to lower-case keys
             st.session_state["logged_in_user"] = user
             st.experimental_rerun()
 else:
     user = st.session_state["logged_in_user"]
-    # determine HR role: check Title column value
     title_val = str(user.get("Title") or user.get("title") or "").strip().lower()
     is_hr = title_val == "hr" or "hr" in title_val
     st.sidebar.write(f"👋 Welcome, {user.get('Employee Name') or user.get('employee name') or user.get('name','')}")
