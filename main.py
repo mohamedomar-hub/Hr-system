@@ -112,7 +112,10 @@ def ensure_session_df():
 
 def login(df, code, password):
     df_local = df.copy()
-    col_map = {clean_column_name(c): c for c in df_local.columns}
+    col_map = 
+    for c in df_local.columns:
+    clean_name = str(c).replace("\n", " ").replace("\r", " ").strip().lower()
+        col_map[clean_name] = c
     code_col = col_map.get("employee_code")
     pass_col = col_map.get("password")
     if not code_col or not pass_col:
