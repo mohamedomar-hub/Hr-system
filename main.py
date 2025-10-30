@@ -1,4 +1,4 @@
-# hr_system_dark_mode_v3.py
+# hr_system_dark_mode_v3_fixed_login.py
 import streamlit as st
 import pandas as pd
 import requests
@@ -110,24 +110,39 @@ def ensure_session_df():
 
 def login(df, code, password):
     df_local = df.copy()
-    col_map = {c.lower(): c for c in df_local.columns}
-    code_col = col_map.get("employee_code", None)
-    pass_col = col_map.get("password", None)
-    title_col = col_map.get("Title", None)
-    name_col = col_map.get("Employee Name", None) or col_map.get("Name", None)
-    if not code_col or not pass_col or not title_col or not name_col:
+    col_map = {c.strip().lower(): c for c in df_local.columns}  # strip spaces in column names
+
+    # Find required columns with flexible matching
+    code_col = None
+    pass_col = None
+    title_col = None
+    name_col = None
+
+    for col in df_local.columns:
+        col_clean = col.strip().lower()
+        if col_clean in ["employee_code", "employee code", "emp_code", "emp code", "code"]:
+            code_col = col
+        if col_clean in ["password", "pass", "pwd"]:
+            pass_col = col
+        if col_clean in ["title", "job title", "position"]:
+            title_col = col
+        if col_clean in ["employee name", "employee_name", "name", "full name"]:
+            name_col = col
+
+    if not all([code_col, pass_col, title_col, name_col]):
         return None
 
-    # تحويل القيم إلى نص مع تنظيف المسافات وتجنب "nan"
-    def safe_str(x):
+    # Clean data: convert to string, strip, handle NaN
+    def clean_val(x):
         if pd.isna(x):
             return ""
         return str(x).strip()
 
-    df_local[code_col] = df_local[code_col].apply(safe_str)
-    df_local[pass_col] = df_local[pass_col].apply(safe_str)
-    code_s = safe_str(code)
-    pwd_s = safe_str(password)
+    df_local[code_col] = df_local[code_col].apply(clean_val)
+    df_local[pass_col] = df_local[pass_col].apply(clean_val)
+
+    code_s = clean_val(code)
+    pwd_s = clean_val(password)
 
     matched = df_local[(df_local[code_col] == code_s) & (df_local[pass_col] == pwd_s)]
     if not matched.empty:
@@ -166,12 +181,15 @@ def page_my_profile(user):
     if df.empty:
         st.info("No employee data available.")
         return
-    col_map = {c.lower(): c for c in df.columns}
-    code_col = col_map.get("employee_code")
+    col_map = {c.strip().lower(): c for c in df.columns}
+    code_col = None
+    for col in df.columns:
+        if col.strip().lower() in ["employee_code", "employee code", "code"]:
+            code_col = col
+            break
     if not code_col:
         st.error("Employee code column not found in dataset.")
         return
-    # Find the matching row by code (user dict may include original column name)
     user_code = user.get(code_col) or user.get("employee_code") or user.get("Employee Code")
     row = df[df[code_col].astype(str) == str(user_code)]
     if row.empty:
@@ -190,12 +208,17 @@ def page_dashboard(user):
     if df.empty:
         st.info("No employee data available.")
         return
-    # Normalize column names
-    col_map = {c.lower(): c for c in df.columns}
-    dept_col = col_map.get("department")
-    hire_col = col_map.get("hire date") or col_map.get("hire_date") or col_map.get("hiring date")
-    # salary_col left if needed later
-    # salary_col = col_map.get("monthly_salary") or col_map.get("monthly salary") or col_map.get("salary")
+    col_map = {c.strip().lower(): c for c in df.columns}
+    dept_col = None
+    for col in df.columns:
+        if col.strip().lower() in ["department", "dept"]:
+            dept_col = col
+            break
+    hire_col = None
+    for col in ["hiring date", "hire date", "hire_date", "hiring_date"]:
+        if col in col_map:
+            hire_col = col_map[col]
+            break
     total_employees = df.shape[0]
     total_departments = df[dept_col].nunique() if dept_col else 0
     new_hires = 0
@@ -214,12 +237,10 @@ def page_dashboard(user):
     if dept_col:
         dept_counts = df[dept_col].fillna("Unknown").value_counts().reset_index()
         dept_counts.columns = ["Department", "Employee Count"]
-        # Show numeric table only (as requested)
         st.table(dept_counts.sort_values("Employee Count", ascending=False).reset_index(drop=True))
     else:
         st.info("Department column not found. Please ensure there's a 'Department' column in the Excel file.")
     st.markdown("---")
-    # Export and Save actions
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Employees")
@@ -267,8 +288,14 @@ def page_hr_manager(user):
         st.info("Dataset empty. Upload or load data first.")
         return
     st.dataframe(df.head(100), use_container_width=True)
-    col_map = {c.lower(): c for c in df.columns}
-    code_col = col_map.get("employee_code") or list(df.columns)[0]
+    col_map = {c.strip().lower(): c for c in df.columns}
+    code_col = None
+    for col in df.columns:
+        if col.strip().lower() in ["employee_code", "employee code", "code"]:
+            code_col = col
+            break
+    if not code_col:
+        code_col = df.columns[0]
     selected_code = st.text_input("Enter employee code to edit/delete (exact match)", value="")
     if selected_code:
         matched_rows = df[df[code_col].astype(str) == str(selected_code).strip()]
@@ -381,7 +408,6 @@ st.sidebar.title("Menu")
 if "logged_in_user" not in st.session_state:
     st.session_state["logged_in_user"] = None
 
-# Login UI
 if not st.session_state["logged_in_user"]:
     st.sidebar.subheader("Login")
     with st.sidebar.form("login_form"):
