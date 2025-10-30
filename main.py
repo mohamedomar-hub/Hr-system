@@ -1,4 +1,4 @@
-# hr_system_dark_mode_v3.py
+# hr_system_dark_mode_v4.py
 import streamlit as st
 import pandas as pd
 import requests
@@ -6,7 +6,7 @@ import base64
 from io import BytesIO
 import os
 import datetime
-import plotly.express as px
+from dateutil.relativedelta import relativedelta
 
 # ============================
 # Configuration / Defaults
@@ -151,28 +151,151 @@ def render_logo_and_title():
         st.markdown("<h1 style='color:#e6eef8'>HR System — Dark Mode</h1>", unsafe_allow_html=True)
         st.markdown("<p style='color:#aab8c9'>English interface only</p>", unsafe_allow_html=True)
 
+def generate_salary_history(hire_date, monthly_salary):
+    """Generate monthly salary history from hire date until today."""
+    if pd.isna(hire_date) or pd.isna(monthly_salary):
+        return pd.DataFrame()
+    try:
+        start = pd.to_datetime(hire_date).replace(day=1)
+        end = pd.Timestamp.today().replace(day=1)
+        months = []
+        current = start
+        while current <= end:
+            months.append({
+                "Month": current.strftime("%B %Y"),
+                "Date": current,
+                "Salary": monthly_salary
+            })
+            current += relativedelta(months=1)
+        return pd.DataFrame(months)
+    except Exception:
+        return pd.DataFrame()
+
 def page_my_profile(user):
     st.subheader("My Profile")
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.info("No employee data available.")
         return
+
     col_map = {c.lower(): c for c in df.columns}
     code_col = col_map.get("employee_code")
     if not code_col:
         st.error("Employee code column not found in dataset.")
         return
+
     user_code = user.get(code_col) or user.get("employee_code") or user.get("Employee Code")
     row = df[df[code_col].astype(str) == str(user_code)]
     if row.empty:
         st.error("Your record was not found.")
         return
+
+    # Display basic profile info
+    st.markdown("### Basic Information")
     st.dataframe(row.reset_index(drop=True), use_container_width=True)
+
+    # Download button
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         row.to_excel(writer, index=False, sheet_name="MyProfile")
     buf.seek(0)
     st.download_button("Download My Profile (Excel)", data=buf, file_name="my_profile.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    st.markdown("---")
+
+    # ============================
+    # Monthly Salary Section
+    # ============================
+    st.markdown("### 💰 Monthly Salary Details")
+    salary_col = col_map.get("monthly_salary") or col_map.get("monthly salary") or col_map.get("salary")
+    if salary_col and salary_col in row.columns:
+        salary_val = row.iloc[0][salary_col]
+        if pd.notna(salary_val):
+            st.metric("Current Monthly Salary", f"${salary_val:,.0f}")
+        else:
+            st.warning("Salary information not available.")
+    else:
+        st.warning("No 'Monthly Salary' column found.")
+
+    st.markdown("---")
+
+    # ============================
+    # Salary History Section
+    # ============================
+    st.markdown("### 📊 View Salary History")
+    hire_col = col_map.get("hiring date") or col_map.get("hire date") or col_map.get("hire_date")
+    salary_col = col_map.get("monthly_salary") or col_map.get("monthly salary") or col_map.get("salary")
+    
+    if hire_col and salary_col and hire_col in row.columns and salary_col in row.columns:
+        hire_date = row.iloc[0][hire_col]
+        salary_val = row.iloc[0][salary_col]
+        salary_history_df = generate_salary_history(hire_date, salary_val)
+        if not salary_history_df.empty:
+            st.dataframe(salary_history_df[["Month", "Salary"]].sort_values("Month", ascending=False).reset_index(drop=True), use_container_width=True)
+        else:
+            st.info("No salary history available.")
+    else:
+        st.warning("Hiring date or salary column missing. Cannot generate history.")
+
+    st.markdown("---")
+
+    # ============================
+    # Leave Balance Section
+    # ============================
+    st.markdown("### 📅 Annual Leave Balance")
+    leave_col = col_map.get("annual_leave_balance") or col_map.get("leave balance") or col_map.get("annual leave")
+    if leave_col and leave_col in row.columns:
+        leave_val = row.iloc[0][leave_col]
+        if pd.notna(leave_val):
+            total_annual_leave = 30  # You can change this or make it dynamic
+            used_leave = total_annual_leave - leave_val
+            st.metric("Remaining Leave Days", int(leave_val))
+            st.metric("Used Leave Days", int(used_leave))
+            st.progress(max(0, min(1, leave_val / total_annual_leave)))
+        else:
+            st.warning("Leave balance information not available.")
+    else:
+        st.warning("No 'Annual Leave Balance' column found.")
+
+    st.markdown("---")
+
+    # ============================
+    # Request Leave Section
+    # ============================
+    st.markdown("### 📝 Request Leave")
+    if leave_col and leave_col in row.columns:
+        current_balance = row.iloc[0][leave_col]
+        if pd.isna(current_balance):
+            st.error("Cannot request leave: your leave balance is not set.")
+        else:
+            with st.form("request_leave_form"):
+                days_requested = st.number_input("Number of leave days to request", min_value=1, max_value=int(current_balance), value=1)
+                submitted = st.form_submit_button("Submit Leave Request")
+                if submitted:
+                    if days_requested > current_balance:
+                        st.error("You cannot request more days than your remaining balance.")
+                    elif days_requested <= 0:
+                        st.error("Please request at least 1 day.")
+                    else:
+                        new_balance = current_balance - days_requested
+                        # Update the DataFrame
+                        df.loc[df[code_col].astype(str) == str(user_code), leave_col] = new_balance
+                        st.session_state["df"] = df
+                        # Save
+                        saved, pushed = save_and_maybe_push(df, actor=user.get("Employee Name", "Employee"))
+                        if saved:
+                            st.success(f"✅ Leave request approved! {days_requested} day(s) deducted. New balance: {new_balance} days.")
+                            if pushed:
+                                st.success("Changes saved to GitHub.")
+                            else:
+                                if GITHUB_TOKEN:
+                                    st.warning("Saved locally but GitHub push failed.")
+                                else:
+                                    st.info("Saved locally. GitHub not configured.")
+                        else:
+                            st.error("Failed to save your leave request.")
+    else:
+        st.info("Leave requests are not available because the leave balance column is missing.")
 
 def page_dashboard(user):
     st.subheader("Dashboard")
