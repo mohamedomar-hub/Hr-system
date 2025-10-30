@@ -115,7 +115,7 @@ def login(df, code, password):
     pass_col = col_map.get("password", None)
     title_col = col_map.get("title", None)
     # التعديل الوحيد: دعم "Employee Name" صراحة
-    name_col = col_map.get("employee name", None) or col_map.get("employee_name", None) or col_map.get("name", None)
+    name_col = col_map.get("Employee Name", None) or col_map.get("Employee Name", None) or col_map.get("name", None)
     if not code_col or not pass_col or not title_col or not name_col:
         return None
     df_local[code_col] = df_local[code_col].astype(str).str.strip()
