@@ -24,7 +24,7 @@ FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FI
 # ============================
 # Styling - Dark mode CSS
 # ============================
-st.set_page_config(page_title="HR System (Dark)", page_icon="👥", layout="wide")
+st.set_page_config(page_title="HR System (Averroes Pharma)", page_icon="👥", layout="wide")
 
 dark_css = """
 <style>
@@ -188,7 +188,7 @@ def page_dashboard(user):
 
     # Normalize column names
     col_map = {c.lower(): c for c in df.columns}
-    dept_col = col_map.get("department")
+    dept_col = col_map.get("Department")
     hire_col = col_map.get("hire date") or col_map.get("hire_date") or col_map.get("hiring date")
     # salary_col left if needed later
     # salary_col = col_map.get("monthly_salary") or col_map.get("monthly salary") or col_map.get("salary")
@@ -205,7 +205,7 @@ def page_dashboard(user):
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Total Employees", total_employees)
-    c2.metric("Departments", total_departments)
+    c2.metric("Department", total_departments)
     c3.metric("New Hires (30 days)", new_hires)
 
     st.markdown("---")
