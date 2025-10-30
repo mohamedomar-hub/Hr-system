@@ -194,7 +194,7 @@ def page_dashboard(user):
     # salary_col = col_map.get("monthly_salary") or col_map.get("monthly salary") or col_map.get("salary")
 
     total_employees = df.shape[0]
-    total_departments = df[dept_col].nunique() if dept_col else 0
+    total_Department = df[dept_col].nunique() if dept_col else 0
     new_hires = 0
     if hire_col:
         try:
