@@ -24,8 +24,7 @@ FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FI
 # ============================
 # Styling - Dark mode CSS
 # ============================
-st.set_page_config(page_title="HR System (Averroes Pharma)", page_icon="👥", layout="wide")
-
+st.set_page_config(page_title="HR System (Dark)", page_icon="👥", layout="wide")
 dark_css = """
 <style>
 /* App & layout */
@@ -116,13 +115,10 @@ def login(df, code, password):
     pass_col = col_map.get("password", None)
     title_col = col_map.get("title", None)
     name_col = col_map.get("employee name", None) or col_map.get("name", None)
-
     if not code_col or not pass_col or not title_col or not name_col:
         return None
-
     df_local[code_col] = df_local[code_col].astype(str).str.strip()
     df_local[pass_col] = df_local[pass_col].astype(str).str.strip()
-
     code_s, pwd_s = str(code).strip(), str(password).strip()
     matched = df_local[(df_local[code_col] == code_s) & (df_local[pass_col] == pwd_s)]
     if not matched.empty:
@@ -166,7 +162,6 @@ def page_my_profile(user):
     if not code_col:
         st.error("Employee code column not found in dataset.")
         return
-    # Find the matching row by code (user dict may include original column name)
     user_code = user.get(code_col) or user.get("employee_code") or user.get("Employee Code")
     row = df[df[code_col].astype(str) == str(user_code)]
     if row.empty:
@@ -188,13 +183,35 @@ def page_dashboard(user):
 
     # Normalize column names
     col_map = {c.lower(): c for c in df.columns}
-    dept_col = col_map.get("Department")
+    
+    # Flexible department column detection
+    dept_possible_names = [
+        "department", 
+        "dept", 
+        "الإدارة", 
+        "إدارة",
+        "department name",
+        "dept name",
+        "section",
+        "division"
+    ]
+    dept_col = None
+    for name in dept_possible_names:
+        if name in col_map:
+            dept_col = col_map[name]
+            break
+    
+    # Fallback if no department column found
+    if not dept_col:
+        st.warning("No recognized 'Department' column found. Using 'Unknown' for all employees.")
+        df['Department'] = 'Unknown'
+        dept_col = 'Department'
+
+    # Hiring date detection
     hire_col = col_map.get("hire date") or col_map.get("hire_date") or col_map.get("hiring date")
-    # salary_col left if needed later
-    # salary_col = col_map.get("monthly_salary") or col_map.get("monthly salary") or col_map.get("salary")
 
     total_employees = df.shape[0]
-    total_departments = df[dept_col].nunique() if dept_col else 0
+    total_departments = df[dept_col].nunique()
     new_hires = 0
     if hire_col:
         try:
@@ -205,7 +222,7 @@ def page_dashboard(user):
 
     c1, c2, c3 = st.columns(3)
     c1.metric("Total Employees", total_employees)
-    c2.metric("Department", total_departments)
+    c2.metric("Departments", total_departments)
     c3.metric("New Hires (30 days)", new_hires)
 
     st.markdown("---")
@@ -213,10 +230,9 @@ def page_dashboard(user):
     if dept_col:
         dept_counts = df[dept_col].fillna("Unknown").value_counts().reset_index()
         dept_counts.columns = ["Department", "Employee Count"]
-        # Show numeric table only (as requested)
         st.table(dept_counts.sort_values("Employee Count", ascending=False).reset_index(drop=True))
     else:
-        st.info("Department column not found. Please ensure there's a 'Department' column in the Excel file.")
+        st.info("Department column not found.")
 
     st.markdown("---")
     # Export and Save actions
@@ -225,7 +241,6 @@ def page_dashboard(user):
         df.to_excel(writer, index=False, sheet_name="Employees")
     buf.seek(0)
     st.download_button("Download Full Employees Excel", data=buf, file_name="employees_export.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
     if st.button("Save & Push current dataset to GitHub"):
         saved, pushed = save_and_maybe_push(df, actor=user.get("Employee Name","HR"))
         if saved:
@@ -242,9 +257,7 @@ def page_dashboard(user):
 def page_hr_manager(user):
     st.subheader("HR Manager")
     st.info("Upload new employee sheet, manage employees, and perform administrative actions.")
-
     df = st.session_state.get("df", pd.DataFrame())
-
     st.markdown("### Upload Employees Excel (will replace current dataset)")
     uploaded_file = st.file_uploader("Upload Excel file (.xlsx) to replace the current employees dataset", type=["xlsx"])
     if uploaded_file:
@@ -264,18 +277,14 @@ def page_hr_manager(user):
                     st.info("Preview shown above.")
         except Exception as e:
             st.error(f"Failed to read uploaded file: {e}")
-
     st.markdown("---")
     st.markdown("### Manage Employees (Edit / Delete)")
     if df.empty:
         st.info("Dataset empty. Upload or load data first.")
         return
-
     st.dataframe(df.head(100), use_container_width=True)
-
     col_map = {c.lower(): c for c in df.columns}
     code_col = col_map.get("employee_code") or list(df.columns)[0]
-
     selected_code = st.text_input("Enter employee code to edit/delete (exact match)", value="")
     if selected_code:
         matched_rows = df[df[code_col].astype(str) == str(selected_code).strip()]
@@ -303,7 +312,6 @@ def page_hr_manager(user):
                             updated[col] = st.text_input(label=str(col), value=str(val), key=f"edit_{col}")
                     else:
                         updated[col] = st.text_input(label=str(col), value=str(val), key=f"edit_{col}")
-
                 submitted_edit = st.form_submit_button("Save Changes")
                 if submitted_edit:
                     for k, v in updated.items():
@@ -323,11 +331,9 @@ def page_hr_manager(user):
                                 st.info("Saved locally. GitHub not configured, so no push performed.")
                     else:
                         st.error("Failed to save changes locally.")
-
             st.markdown("#### Delete Employee")
             if st.button("Initiate Delete"):
                 st.session_state["delete_target"] = str(selected_code).strip()
-
             if st.session_state.get("delete_target") == str(selected_code).strip():
                 st.warning(f"You are about to delete employee with code: {selected_code}. This action is irreversible.")
                 col_del1, col_del2 = st.columns(2)
@@ -351,7 +357,6 @@ def page_hr_manager(user):
                     if st.button("Cancel Delete"):
                         st.session_state["delete_target"] = None
                         st.info("Deletion cancelled.")
-
     st.markdown("---")
     st.markdown("### Save / Push Dataset")
     if st.button("Save current in-memory dataset locally and optionally push to GitHub"):
@@ -388,7 +393,6 @@ def page_reports(user):
 # ============================
 ensure_session_df()
 render_logo_and_title()
-
 st.sidebar.title("Menu")
 if "logged_in_user" not in st.session_state:
     st.session_state["logged_in_user"] = None
