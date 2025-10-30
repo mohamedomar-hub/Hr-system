@@ -392,7 +392,7 @@ else:
     user = st.session_state["logged_in_user"]
     title_val = str(user.get("Title") or user.get("title") or "").strip().lower()
     is_hr = title_val == "hr" or "hr" in title_val
-    st.sidebar.write(f"👋 Welcome, {user.get('Employee Name') or user.get('employee name') or user.get('name','')}")
+    st.sidebar.write(f"👋 Welcome, {user.get('Employee Name') or user.get('Employee Name') or user.get('name','')}")
     st.sidebar.markdown("---")
     if is_hr:
         page = st.sidebar.radio("Pages", ("Dashboard","Reports","HR Manager","Logout"))
