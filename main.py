@@ -112,7 +112,7 @@ def ensure_session_df():
 
 def login(df, code, password):
     df_local = df.copy()
-    col_map = 
+    col_map ={}
     for c in df_local.columns:
     clean_name = str(c).replace("\n", " ").replace("\r", " ").strip().lower()
         col_map[clean_name] = c
