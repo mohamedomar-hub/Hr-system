@@ -113,8 +113,8 @@ def login(df, code, password):
     col_map = {c.lower(): c for c in df_local.columns}
     code_col = col_map.get("employee_code", None)
     pass_col = col_map.get("password", None)
-    title_col = col_map.get("title", None)
-    name_col = col_map.get("employee name", None) or col_map.get("name", None)
+    title_col = col_map.get("Title", None)
+    name_col = col_map.get("Employee Name", None) or col_map.get("Name", None)
     if not code_col or not pass_col or not title_col or not name_col:
         return None
 
