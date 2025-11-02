@@ -129,7 +129,6 @@ def login(df, code, password):
             name_col = col
 
     if not all([code_col, pass_col, title_col, name_col]):
-        st.sidebar.warning(f"❌ Missing required columns. Found: {list(df_local.columns)}")
         return None
 
     # تحويل الأعمدة إلى نص وتنظيفها
@@ -190,7 +189,13 @@ def page_my_profile(user):
     if row.empty:
         st.error("Your record was not found.")
         return
-    st.dataframe(row.reset_index(drop=True), use_container_width=True)
+
+    # تحويل عمود الكود لنص لتجنب ظهور .0
+    row_display = row.copy()
+    if code_col:
+        row_display[code_col] = row_display[code_col].astype(str).str.replace(".0", "", regex=False)
+
+    st.dataframe(row_display.reset_index(drop=True), use_container_width=True)
 
 def page_dashboard(user):
     st.subheader("HR Dashboard")
@@ -320,26 +325,6 @@ def page_reports(user):
 # ============================
 ensure_session_df()
 render_logo_and_title()
-
-# =============== DEBUG BLOCK ===============
-st.sidebar.divider()
-st.sidebar.write("🔍 Debug Info:")
-st.sidebar.write("Data shape:", st.session_state["df"].shape)
-if not st.session_state["df"].empty:
-    st.sidebar.write("Columns found:", list(st.session_state["df"].columns))
-    # عرض أول سجل لمساعدتك في الاختبار
-    first_row = st.session_state["df"].iloc[0]
-    code_col = next((col for col in st.session_state["df"].columns if "code" in str(col).lower() or "employee" in str(col).lower()), None)
-    pass_col = next((col for col in st.session_state["df"].columns if "pass" in str(col).lower()), None)
-    if code_col and pass_col:
-        st.sidebar.write("💡 Test with:")
-        st.sidebar.code(f"Code: {first_row[code_col]}\nPass: {first_row[pass_col]}")
-else:
-    st.sidebar.error("❌ No data loaded from GitHub or local file!")
-    st.sidebar.write("REPO:", REPO_OWNER, "/", REPO_NAME)
-    st.sidebar.write("FILE PATH:", FILE_PATH)
-    st.sidebar.write("BRANCH:", BRANCH)
-# ===========================================
 
 if "logged_in_user" not in st.session_state:
     st.session_state["logged_in_user"] = None
