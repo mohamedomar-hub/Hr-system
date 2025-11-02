@@ -99,6 +99,7 @@ def ensure_session_df():
             if os.path.exists(FILE_PATH):
                 try:
                     st.session_state["df"] = pd.read_excel(FILE_PATH)
+                    st.write("Columns in file:", st.session_state["df"].columns.tolist())
                 except Exception:
                     st.session_state["df"] = pd.DataFrame()
             else:
