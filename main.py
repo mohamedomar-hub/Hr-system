@@ -46,7 +46,7 @@ def login(df, code, password):
     if df.empty:
         return None
     col_map = {clean_col(c): c for c in df.columns}
-    code_col = col_map.get("employee code") or col_map.get("employee_code")
+    code_col = col_map.get("employee_code") or col_map.get("employee_code")
     pass_col = col_map.get("password")
     if not code_col or not pass_col:
         return None
@@ -78,7 +78,7 @@ def page_my_profile(user):
         st.info("No data available.")
         return
     col_map = {clean_col(c): c for c in df.columns}
-    code_col = col_map.get("employee code") or col_map.get("employee_code")
+    code_col = col_map.get("employee_code") or col_map.get("employee_code")
     if not code_col:
         st.error("Employee code column missing.")
         return
