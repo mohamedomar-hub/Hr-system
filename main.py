@@ -1,4 +1,3 @@
-# hr_system_dark_mode_v3_fixed_login_smart.py
 import streamlit as st
 import pandas as pd
 import requests
@@ -6,13 +5,11 @@ import base64
 from io import BytesIO
 import os
 import datetime
-import plotly.express as px
 
 # ============================
 # Configuration / Defaults
 # ============================
 DEFAULT_FILE_PATH = "Employees.xlsx"
-LOGO_PATH = "logo.jpg"
 
 # GitHub / file config stored in Streamlit secrets (optional)
 GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", None)
@@ -86,7 +83,7 @@ def upload_to_github(df, commit_message="Update employees via Streamlit"):
         if sha:
             payload["sha"] = sha
         put_resp = requests.put(url, headers=github_headers(), json=payload, timeout=60)
-        return put_resp.status_code in (200,201)
+        return put_resp.status_code in (200, 201)
     except Exception:
         return False
 
@@ -107,14 +104,13 @@ def ensure_session_df():
             else:
                 st.session_state["df"] = pd.DataFrame()
 
-# ✅ login function modified to be smarter with column matching
 def login(df, code, password):
     df_local = df.copy()
     if df_local.empty:
         return None
 
     def normalize(col):
-        return str(col).strip().lower().replace(" ", "").replace("_", "")
+        return str(col).strip().lower().replace(" ", "").replace("_", "").replace("\n", "").replace("\r", "")
 
     code_col = None
     pass_col = None
@@ -123,16 +119,17 @@ def login(df, code, password):
 
     for col in df_local.columns:
         c = normalize(col)
-        if "employeecode" in c or c == "code":
+        if "employeecode" in c or c in ["code", "employeeid", "id"]:
             code_col = col
         if "password" in c or "pass" in c or "pwd" in c:
             pass_col = col
         if "title" in c or "jobtitle" in c or "position" in c:
             title_col = col
-        if "employeename" in c or "fullname" in c or c == "name":
+        if "employeename" in c or "fullname" in c or c in ["name", "employee"]:
             name_col = col
 
     if not all([code_col, pass_col, title_col, name_col]):
+        st.sidebar.warning("Required columns missing: Code, Password, Title, or Name.")
         return None
 
     def clean_val(x):
@@ -170,12 +167,221 @@ def save_and_maybe_push(df, actor="HR"):
 # UI Components / Pages
 # ============================
 def render_logo_and_title():
-    cols = st.columns([1,6,1])
+    cols = st.columns([1, 6, 1])
     with cols[1]:
-        if os.path.exists(LOGO_PATH):
-            st.image(LOGO_PATH, width=160)
-        st.markdown("<h1 style='color:#e6eef8'>HR System — Dark Mode</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='color:#aab8c9'>English interface only</p>", unsafe_allow_html=True)
+        # تم تعطيل عرض الشعار لتجنب الخطأ لو الملف مش موجود
+        # if os.path.exists(LOGO_PATH):
+        #     st.image(LOGO_PATH, width=160)
+        st.markdown("<h1 style='color:#e6eef8;text-align:center;'>HR System — Dark Mode</h1>", unsafe_allow_html=True)
+        st.markdown("<p style='color:#aab8c9;text-align:center;'>English interface only</p>", unsafe_allow_html=True)
 
-# باقي الصفحات (Dashboard, HR Manager, Reports, My Profile) كما هي من نسختك الأصلية
-# لم يتم تغيير أي شيء آخر في باقي الكود
+def page_my_profile(user):
+    st.subheader("My Profile")
+    df = st.session_state.get("df", pd.DataFrame())
+    if df.empty:
+        st.info("No employee data available.")
+        return
+
+    def normalize(col):
+        return str(col).strip().lower().replace(" ", "").replace("_", "")
+
+    col_map = {normalize(c): c for c in df.columns}
+    code_col = None
+    for col in df.columns:
+        if normalize(col) in ["employeecode", "code", "employeeid"]:
+            code_col = col
+            break
+    if not code_col:
+        st.error("Employee code column not found.")
+        return
+
+    user_code = str(user.get(code_col) or user.get("Employee Code") or "").strip()
+    row = df[df[code_col].astype(str) == user_code]
+    if row.empty:
+        st.error("Your record was not found.")
+        return
+
+    st.dataframe(row.reset_index(drop=True), use_container_width=True)
+
+def page_dashboard(user):
+    st.subheader("HR Dashboard")
+    df = st.session_state.get("df", pd.DataFrame())
+    if df.empty:
+        st.info("No employee data available.")
+        return
+
+    def normalize(col):
+        return str(col).strip().lower().replace(" ", "").replace("_", "")
+
+    col_map = {normalize(c): c for c in df.columns}
+    dept_col = col_map.get("department")
+    hire_col = None
+    for key in ["hiringdate", "hiredate", "hiring_date", "hire_date", "dateofhire"]:
+        if key in col_map:
+            hire_col = col_map[key]
+            break
+
+    total_employees = df.shape[0]
+    total_departments = df[dept_col].nunique() if dept_col else 0
+    new_hires = 0
+    if hire_col:
+        try:
+            df[hire_col] = pd.to_datetime(df[hire_col], errors="coerce")
+            new_hires = df[df[hire_col] >= (pd.Timestamp.now() - pd.Timedelta(days=30))].shape[0]
+        except Exception:
+            new_hires = 0
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Total Employees", total_employees)
+    c2.metric("Departments", total_departments)
+    c3.metric("New Hires (30 days)", new_hires)
+
+    st.markdown("---")
+    st.markdown("### Employees per Department")
+    if dept_col:
+        dept_counts = df[dept_col].fillna("Unknown").value_counts().reset_index()
+        dept_counts.columns = ["Department", "Employee Count"]
+        st.table(dept_counts.sort_values("Employee Count", ascending=False).reset_index(drop=True))
+    else:
+        st.info("Department column not found.")
+
+def page_hr_manager(user):
+    st.subheader("HR Manager")
+    df = st.session_state.get("df", pd.DataFrame())
+    if df.empty:
+        st.info("No data. Upload or load employees first.")
+        return
+
+    uploaded_file = st.file_uploader("Upload new Employees.xlsx (replaces current data)", type=["xlsx"])
+    if uploaded_file:
+        try:
+            new_df = pd.read_excel(uploaded_file)
+            st.success("File loaded successfully.")
+            st.dataframe(new_df.head(50), use_container_width=True)
+            if st.button("✅ Replace Current Dataset"):
+                st.session_state["df"] = new_df
+                save_and_maybe_push(new_df, actor=user.get("Employee Name", "HR"))
+                st.success("Dataset replaced and saved!")
+                st.rerun()
+        except Exception as e:
+            st.error(f"Error reading file: {e}")
+
+    st.markdown("---")
+    st.write("Current Employees (first 100 rows):")
+    st.dataframe(df.head(100), use_container_width=True)
+
+    # Edit/Delete
+    def normalize(col):
+        return str(col).strip().lower().replace(" ", "").replace("_", "")
+    col_map = {normalize(c): c for c in df.columns}
+    code_col = None
+    for col in df.columns:
+        if normalize(col) in ["employeecode", "code", "employeeid"]:
+            code_col = col
+            break
+    if not code_col:
+        st.error("Employee code column not found for editing.")
+        return
+
+    emp_code = st.text_input("Enter Employee Code to Edit/Delete")
+    if emp_code:
+        matched_rows = df[df[code_col].astype(str) == emp_code.strip()]
+        if matched_rows.empty:
+            st.warning("No employee found with that code.")
+        else:
+            row = matched_rows.iloc[0]
+            st.markdown("#### Edit Employee")
+            with st.form("edit_form"):
+                updates = {}
+                for col in df.columns:
+                    val = row[col]
+                    if pd.isna(val):
+                        val = ""
+                    if isinstance(val, (int, float)) and not isinstance(val, bool):
+                        updates[col] = st.number_input(str(col), value=float(val) if pd.notna(val) else 0.0, key=f"edit_{col}")
+                    elif "date" in str(col).lower():
+                        try:
+                            d_val = pd.to_datetime(val, errors="coerce")
+                            updates[col] = st.date_input(str(col), value=d_val.date() if pd.notna(d_val) else datetime.date.today(), key=f"date_{col}")
+                        except:
+                            updates[col] = st.text_input(str(col), value=str(val), key=f"text_{col}")
+                    else:
+                        updates[col] = st.text_input(str(col), value=str(val), key=f"str_{col}")
+                if st.form_submit_button("Save Changes"):
+                    for k, v in updates.items():
+                        if isinstance(v, datetime.date):
+                            v = pd.Timestamp(v)
+                        df.loc[df[code_col].astype(str) == emp_code.strip(), k] = v
+                    st.session_state["df"] = df
+                    save_and_maybe_push(df, actor=user.get("Employee Name", "HR"))
+                    st.success("Employee updated!")
+                    st.rerun()
+
+            st.markdown("#### Delete Employee")
+            if st.button("🗑️ Delete This Employee"):
+                st.session_state["df"] = df[df[code_col].astype(str) != emp_code.strip()].reset_index(drop=True)
+                save_and_maybe_push(st.session_state["df"], actor=user.get("Employee Name", "HR"))
+                st.success("Employee deleted.")
+                st.rerun()
+
+def page_reports(user):
+    st.subheader("Reports")
+    st.info("Basic employee data export.")
+    df = st.session_state.get("df", pd.DataFrame())
+    if df.empty:
+        st.info("No data to report.")
+        return
+    st.dataframe(df, use_container_width=True)
+
+# ============================
+# Main App Flow
+# ============================
+ensure_session_df()
+render_logo_and_title()
+
+if "logged_in_user" not in st.session_state:
+    st.session_state["logged_in_user"] = None
+
+# Login Screen
+if not st.session_state["logged_in_user"]:
+    st.sidebar.subheader("🔐 Login")
+    with st.sidebar.form("login_form"):
+        uid = st.text_input("Employee Code")
+        pwd = st.text_input("Password", type="password")
+        submitted = st.form_submit_button("Sign in")
+    if submitted:
+        df = st.session_state.get("df", pd.DataFrame())
+        user = login(df, uid, pwd)
+        if user is None:
+            st.sidebar.error("❌ Invalid credentials or missing columns.")
+        else:
+            st.session_state["logged_in_user"] = user
+            st.rerun()
+
+# Logged-in View
+else:
+    user = st.session_state["logged_in_user"]
+    title_val = str(user.get("Title", "")).strip().lower()
+    is_hr = "hr" in title_val
+
+    st.sidebar.write(f"👋 Welcome, {user.get('Employee Name', 'User')}")
+    st.sidebar.markdown("---")
+
+    if is_hr:
+        page = st.sidebar.radio("Navigation", ["Dashboard", "HR Manager", "Reports", "Logout"])
+        if page == "Dashboard":
+            page_dashboard(user)
+        elif page == "HR Manager":
+            page_hr_manager(user)
+        elif page == "Reports":
+            page_reports(user)
+        elif page == "Logout":
+            st.session_state["logged_in_user"] = None
+            st.rerun()
+    else:
+        page = st.sidebar.radio("Navigation", ["My Profile", "Logout"])
+        if page == "My Profile":
+            page_my_profile(user)
+        elif page == "Logout":
+            st.session_state["logged_in_user"] = None
+            st.rerun()
