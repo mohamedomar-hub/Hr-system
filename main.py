@@ -1,7 +1,5 @@
 import streamlit as st
 import pandas as pd
-import requests
-import base64
 from io import BytesIO
 import os
 import datetime
@@ -10,13 +8,6 @@ import datetime
 # Configuration
 # ============================
 DEFAULT_FILE_PATH = "Employees.xlsx"
-
-# Streamlit secrets (for GitHub)
-GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", None)
-REPO_OWNER = st.secrets.get("REPO_OWNER", "mohamedomar-hub")
-REPO_NAME = st.secrets.get("REPO_NAME", "hr-system")
-BRANCH = st.secrets.get("BRANCH", "main")
-FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FILE_PATH") else DEFAULT_FILE_PATH
 
 # Page config
 st.set_page_config(page_title="HR System", page_icon="👥", layout="wide")
@@ -35,57 +26,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ============================
-# GitHub Functions
-# ============================
-def github_headers():
-    headers = {"Accept": "application/vnd.github.v3+json"}
-    if GITHUB_TOKEN:
-        headers["Authorization"] = f"token {GITHUB_TOKEN}"
-    return headers
-
-def load_from_github():
-    try:
-        url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}?ref={BRANCH}"
-        resp = requests.get(url, headers=github_headers(), timeout=30)
-        if resp.status_code == 200:
-            content = resp.json()
-            file_content = base64.b64decode(content["content"])
-            return pd.read_excel(BytesIO(file_content))
-    except Exception:
-        pass
-    return pd.DataFrame()
-
-def get_file_sha():
-    try:
-        url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}"
-        params = {"ref": BRANCH}
-        resp = requests.get(url, headers=github_headers(), params=params, timeout=30)
-        if resp.status_code == 200:
-            return resp.json().get("sha")
-    except Exception:
-        pass
-    return None
-
-def upload_to_github(df, commit_msg="Update via Streamlit"):
-    if not GITHUB_TOKEN:
-        return False
-    try:
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine="openpyxl") as writer:
-            df.to_excel(writer, index=False)
-        output.seek(0)
-        b64 = base64.b64encode(output.read()).decode("utf-8")
-        url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}"
-        payload = {"message": commit_msg, "content": b64, "branch": BRANCH}
-        sha = get_file_sha()
-        if sha:
-            payload["sha"] = sha
-        resp = requests.put(url, headers=github_headers(), json=payload, timeout=60)
-        return resp.status_code in (200, 201)
-    except Exception:
-        return False
-
-# ============================
 # Helpers
 # ============================
 def clean_col(name):
@@ -93,12 +33,13 @@ def clean_col(name):
 
 def ensure_df():
     if "df" not in st.session_state:
-        df = load_from_github()
-        if df.empty and os.path.exists(FILE_PATH):
+        if os.path.exists(DEFAULT_FILE_PATH):
             try:
-                df = pd.read_excel(FILE_PATH)
+                df = pd.read_excel(DEFAULT_FILE_PATH)
             except:
                 df = pd.DataFrame()
+        else:
+            df = pd.DataFrame()
         st.session_state["df"] = df if not df.empty else pd.DataFrame()
 
 def login(df, code, password):
@@ -121,18 +62,11 @@ def login(df, code, password):
 
 def save_local(df):
     try:
-        with pd.ExcelWriter(FILE_PATH, engine="openpyxl") as w:
+        with pd.ExcelWriter(DEFAULT_FILE_PATH, engine="openpyxl") as w:
             df.to_excel(w, index=False)
         return True
     except:
         return False
-
-def save_and_push(df, actor="User"):
-    saved = save_local(df)
-    pushed = False
-    if saved and GITHUB_TOKEN:
-        pushed = upload_to_github(df, f"Update by {actor}")
-    return saved, pushed
 
 # ============================
 # Pages
@@ -195,31 +129,34 @@ def page_dashboard(user):
 
 def page_hr_manager(user):
     st.subheader("HR Manager")
+
+    # ===== Upload New Data Button =====
+    with st.expander("📤 Upload New Employee Data", expanded=False):
+        uploaded_file = st.file_uploader("Upload new Employees.xlsx file", type=["xlsx"])
+        if uploaded_file:
+            try:
+                new_df = pd.read_excel(uploaded_file)
+                st.success("✅ File loaded successfully!")
+                st.dataframe(new_df.head(30), use_container_width=True)
+                if st.button("Replace Current Data"):
+                    st.session_state["df"] = new_df
+                    save_local(new_df)
+                    st.success("✅ Data replaced successfully and saved locally.")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"❌ Error reading file: {e}")
+
+    # ===== Existing Data =====
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
-        st.info("No data. Upload or load employees first.")
+        st.info("No employee data available.")
         return
-
-    # Upload
-    uploaded = st.file_uploader("Upload new Employees.xlsx", type=["xlsx"])
-    if uploaded:
-        try:
-            new_df = pd.read_excel(uploaded)
-            st.success("File loaded successfully.")
-            st.dataframe(new_df.head(50), use_container_width=True)
-            if st.button("Replace Current Data"):
-                st.session_state["df"] = new_df
-                save_and_push(new_df, user.get("Employee Name", "HR"))
-                st.success("Data replaced and saved.")
-                st.rerun()
-        except Exception as e:
-            st.error(f"Error reading file: {e}")
 
     st.markdown("---")
     st.write("Current Employees (first 100 rows):")
     st.dataframe(df.head(100), use_container_width=True)
 
-    # Edit/Delete
+    # ===== Edit/Delete =====
     col_map = {clean_col(c): c for c in df.columns}
     code_col = col_map.get("employee code") or df.columns[0]
     emp_code = st.text_input("Enter Employee Code to Edit/Delete")
@@ -253,15 +190,15 @@ def page_hr_manager(user):
                             v = pd.Timestamp(v)
                         df.loc[df[code_col].astype(str) == emp_code, k] = v
                     st.session_state["df"] = df
-                    save_and_push(df, user.get("Employee Name", "HR"))
-                    st.success("Updated successfully!")
+                    save_local(df)
+                    st.success("✅ Employee updated successfully!")
                     st.rerun()
 
             st.markdown("#### Delete Employee")
             if st.button("Delete This Employee"):
                 st.session_state["df"] = df[df[code_col].astype(str) != emp_code].reset_index(drop=True)
-                save_and_push(st.session_state["df"], user.get("Employee Name", "HR"))
-                st.success("Employee deleted.")
+                save_local(st.session_state["df"])
+                st.success("🗑️ Employee deleted successfully.")
                 st.rerun()
 
 # ============================
