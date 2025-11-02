@@ -118,11 +118,11 @@ def login(df, code, password):
 
     for col in df_local.columns:
         c = normalize(col)
-        if "employeecode" in c or c in ["code", "employeeid", "id"]:
+        if "Employee Code" in c or c in ["code", "employeeid", "id"]:
             code_col = col
-        if "password" in c or "pass" in c or "pwd" in c:
+        if "Password" in c or "pass" in c or "pwd" in c:
             pass_col = col
-        if "title" in c or "jobtitle" in c or "position" in c:
+        if "Title" in c or "jobtitle" in c or "position" in c:
             title_col = col
 
     if not all([code_col, pass_col, title_col]):
@@ -133,7 +133,7 @@ def login(df, code, password):
     df_local[pass_col] = df_local[pass_col].astype(str).str.strip()
 
     code_s = str(code).strip()
-    pwd_s = str(password).strip()
+    pwd_s = str(Password).strip()
 
     matched = df_local[(df_local[code_col] == code_s) & (df_local[pass_col] == pwd_s)]
     if not matched.empty:
@@ -180,10 +180,10 @@ def page_my_profile(user):
     col_map = {normalize(c): c for c in df.columns}
     code_col = next((col for col in df.columns if normalize(col) in ["employeecode", "code", "employeeid"]), None)
     if not code_col:
-        st.error("Employee code column not found.")
+        st.error("Employee Code column not found.")
         return
 
-    user_code = str(user.get(code_col) or user.get("employee_code") or "").strip()
+    user_code = str(user.get(code_col) or user.get("Employee Code") or "").strip()
     row = df[df[code_col].astype(str) == user_code]
     if row.empty:
         st.error("Your record was not found.")
