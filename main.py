@@ -9,7 +9,7 @@ import datetime
 # ============================
 # Configuration / Defaults
 # ============================
-DEFAULT_FILE_PATH = "Employees.xlsx"
+DEFAULT_FILE_PATH = "employees.xlsx"
 
 # GitHub / file config stored in Streamlit secrets (optional)
 GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", None)
