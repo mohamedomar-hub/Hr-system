@@ -321,7 +321,13 @@ def page_reports(user):
 # ============================
 ensure_session_df()
 render_logo_and_title()
-
+# --- DEBUG: عرض شكل البيانات ---
+st.sidebar.write("📊 Data shape:", st.session_state["df"].shape)
+if not st.session_state["df"].empty:
+    st.sidebar.write("📋 Columns:", list(st.session_state["df"].columns))
+else:
+    st.sidebar.error("⚠️ No data loaded! Check GitHub file.")
+# --------------------------------
 if "logged_in_user" not in st.session_state:
     st.session_state["logged_in_user"] = None
 
