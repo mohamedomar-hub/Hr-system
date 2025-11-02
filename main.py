@@ -9,7 +9,7 @@ import datetime
 # ============================
 # Configuration / Defaults
 # ============================
-DEFAULT_FILE_PATH = "employees.xlsx"
+DEFAULT_FILE_PATH = "Employees.xlsx"
 
 # GitHub / file config stored in Streamlit secrets (optional)
 GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", None)
@@ -129,20 +129,18 @@ def login(df, code, password):
             name_col = col
 
     if not all([code_col, pass_col, title_col, name_col]):
-        st.sidebar.warning("Required columns missing: Code, Password, Title, or Name.")
+        st.sidebar.warning(f"❌ Missing required columns. Found: {list(df_local.columns)}")
         return None
 
-    def clean_val(x):
-        if pd.isna(x):
-            return ""
-        return str(x).strip()
+    # تحويل الأعمدة إلى نص وتنظيفها
+    df_local[code_col] = df_local[code_col].astype(str).str.strip()
+    df_local[pass_col] = df_local[pass_col].astype(str).str.strip()
 
-    df_local[code_col] = df_local[code_col].apply(clean_val)
-    df_local[pass_col] = df_local[pass_col].apply(clean_val)
+    # تنظيف المدخلات
+    code_s = str(code).strip()
+    pwd_s = str(password).strip()
 
-    code_s = clean_val(code)
-    pwd_s = clean_val(password)
-
+    # تطابق صارم
     matched = df_local[(df_local[code_col] == code_s) & (df_local[pass_col] == pwd_s)]
     if not matched.empty:
         return matched.iloc[0].to_dict()
@@ -169,9 +167,6 @@ def save_and_maybe_push(df, actor="HR"):
 def render_logo_and_title():
     cols = st.columns([1, 6, 1])
     with cols[1]:
-        # تم تعطيل عرض الشعار لتجنب الخطأ لو الملف مش موجود
-        # if os.path.exists(LOGO_PATH):
-        #     st.image(LOGO_PATH, width=160)
         st.markdown("<h1 style='color:#e6eef8;text-align:center;'>HR System — Dark Mode</h1>", unsafe_allow_html=True)
         st.markdown("<p style='color:#aab8c9;text-align:center;'>English interface only</p>", unsafe_allow_html=True)
 
@@ -184,23 +179,17 @@ def page_my_profile(user):
 
     def normalize(col):
         return str(col).strip().lower().replace(" ", "").replace("_", "")
-
     col_map = {normalize(c): c for c in df.columns}
-    code_col = None
-    for col in df.columns:
-        if normalize(col) in ["employeecode", "code", "employeeid"]:
-            code_col = col
-            break
+    code_col = next((col for col in df.columns if normalize(col) in ["employeecode", "code", "employeeid"]), None)
     if not code_col:
         st.error("Employee code column not found.")
         return
 
-    user_code = str(user.get(code_col) or user.get("Employee Code") or "").strip()
+    user_code = str(user.get(code_col) or user.get("employee_code") or "").strip()
     row = df[df[code_col].astype(str) == user_code]
     if row.empty:
         st.error("Your record was not found.")
         return
-
     st.dataframe(row.reset_index(drop=True), use_container_width=True)
 
 def page_dashboard(user):
@@ -212,7 +201,6 @@ def page_dashboard(user):
 
     def normalize(col):
         return str(col).strip().lower().replace(" ", "").replace("_", "")
-
     col_map = {normalize(c): c for c in df.columns}
     dept_col = col_map.get("department")
     hire_col = None
@@ -237,7 +225,6 @@ def page_dashboard(user):
     c3.metric("New Hires (30 days)", new_hires)
 
     st.markdown("---")
-    st.markdown("### Employees per Department")
     if dept_col:
         dept_counts = df[dept_col].fillna("Unknown").value_counts().reset_index()
         dept_counts.columns = ["Department", "Employee Count"]
@@ -270,15 +257,10 @@ def page_hr_manager(user):
     st.write("Current Employees (first 100 rows):")
     st.dataframe(df.head(100), use_container_width=True)
 
-    # Edit/Delete
     def normalize(col):
         return str(col).strip().lower().replace(" ", "").replace("_", "")
     col_map = {normalize(c): c for c in df.columns}
-    code_col = None
-    for col in df.columns:
-        if normalize(col) in ["employeecode", "code", "employeeid"]:
-            code_col = col
-            break
+    code_col = next((col for col in df.columns if normalize(col) in ["employeecode", "code", "employeeid"]), None)
     if not code_col:
         st.error("Employee code column not found for editing.")
         return
@@ -338,12 +320,20 @@ def page_reports(user):
 # ============================
 ensure_session_df()
 render_logo_and_title()
+
 # =============== DEBUG BLOCK ===============
 st.sidebar.divider()
 st.sidebar.write("🔍 Debug Info:")
 st.sidebar.write("Data shape:", st.session_state["df"].shape)
 if not st.session_state["df"].empty:
     st.sidebar.write("Columns found:", list(st.session_state["df"].columns))
+    # عرض أول سجل لمساعدتك في الاختبار
+    first_row = st.session_state["df"].iloc[0]
+    code_col = next((col for col in st.session_state["df"].columns if "code" in str(col).lower() or "employee" in str(col).lower()), None)
+    pass_col = next((col for col in st.session_state["df"].columns if "pass" in str(col).lower()), None)
+    if code_col and pass_col:
+        st.sidebar.write("💡 Test with:")
+        st.sidebar.code(f"Code: {first_row[code_col]}\nPass: {first_row[pass_col]}")
 else:
     st.sidebar.error("❌ No data loaded from GitHub or local file!")
     st.sidebar.write("REPO:", REPO_OWNER, "/", REPO_NAME)
