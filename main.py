@@ -389,7 +389,7 @@ if not st.session_state["logged_in_user"]:
             st.sidebar.error("Invalid credentials or required columns missing.")
         else:
             st.session_state["logged_in_user"] = user
-            st.experimental_rerun()
+            st.rerun()
 else:
     user = st.session_state["logged_in_user"]
     title_val = str(user.get("Title") or user.get("title") or "").strip().lower()
@@ -406,11 +406,11 @@ else:
             page_hr_manager(user)
         elif page == "Logout":
             st.session_state["logged_in_user"] = None
-            st.experimental_rerun()
+            st.rerun()
     else:
         page = st.sidebar.radio("Pages", ("My Profile","Logout"))
         if page == "My Profile":
             page_my_profile(user)
         elif page == "Logout":
             st.session_state["logged_in_user"] = None
-            st.experimental_rerun()
+            st.rerun()
