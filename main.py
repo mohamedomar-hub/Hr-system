@@ -215,7 +215,7 @@ if not st.session_state["logged_in_user"]:
     st.sidebar.subheader("Login")
     with st.sidebar.form("login"):
         code = st.text_input("Employee Code")
-        pwd = st.text_input("Password (Numbers Only)", type="password")
+        pwd = st.text_input("password (Numbers Only)", type="password")
         if st.form_submit_button("Login"):
             user = login(st.session_state["df"], code, pwd)
             if user:
