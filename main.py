@@ -131,8 +131,12 @@ def login(df, code, password):
     if not all([code_col, pass_col, title_col, name_col]):
         return None
 
-    # تحويل الأعمدة إلى نص وتنظيفها
-    df_local[code_col] = df_local[code_col].astype(str).str.strip()
+    # ✅ التعديل الأساسي هنا: تحويل employee_code لأرقام صحيحة بدون .0
+    df_local[code_col] = df_local[code_col].apply(
+        lambda x: str(int(x)) if pd.notna(x) and isinstance(x, (int, float)) and x == int(x) else str(x)
+    ).str.strip()
+    
+    # الباسورد يفضل كنص عادي
     df_local[pass_col] = df_local[pass_col].astype(str).str.strip()
 
     # تنظيف المدخلات
@@ -190,10 +194,12 @@ def page_my_profile(user):
         st.error("Your record was not found.")
         return
 
-    # تحويل عمود الكود لنص لتجنب ظهور .0
+    # تحويل عمود الكود لنص لتجنب ظهور .0 في العرض
     row_display = row.copy()
     if code_col:
-        row_display[code_col] = row_display[code_col].astype(str).str.replace(".0", "", regex=False)
+        row_display[code_col] = row_display[code_col].apply(
+            lambda x: str(int(x)) if pd.notna(x) and isinstance(x, (int, float)) and x == int(x) else str(x)
+        )
 
     st.dataframe(row_display.reset_index(drop=True), use_container_width=True)
 
