@@ -338,6 +338,18 @@ def page_reports(user):
 # ============================
 ensure_session_df()
 render_logo_and_title()
+# =============== DEBUG BLOCK ===============
+st.sidebar.divider()
+st.sidebar.write("🔍 Debug Info:")
+st.sidebar.write("Data shape:", st.session_state["df"].shape)
+if not st.session_state["df"].empty:
+    st.sidebar.write("Columns found:", list(st.session_state["df"].columns))
+else:
+    st.sidebar.error("❌ No data loaded from GitHub or local file!")
+    st.sidebar.write("REPO:", REPO_OWNER, "/", REPO_NAME)
+    st.sidebar.write("FILE PATH:", FILE_PATH)
+    st.sidebar.write("BRANCH:", BRANCH)
+# ===========================================
 
 if "logged_in_user" not in st.session_state:
     st.session_state["logged_in_user"] = None
