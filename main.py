@@ -153,7 +153,6 @@ def render_logo_and_title():
     cols = st.columns([1,6,1])
     with cols[1]:
         if os.path.exists(LOGO_PATH):
-            st.image(LOGO_PATH, width=160)
         st.markdown("<h1 style='color:#e6eef8'>HR System — Dark Mode</h1>", unsafe_allow_html=True)
         st.markdown("<p style='color:#aab8c9'>English interface only</p>", unsafe_allow_html=True)
 
