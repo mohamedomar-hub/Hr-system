@@ -91,6 +91,7 @@ def upload_to_github(df, commit_message="Update employees via Streamlit"):
 # Helpers
 # ============================
 def ensure_session_df():
+    # ✅ يحمل البيانات مرة واحدة فقط عند أول تشغيل
     if "df" not in st.session_state:
         df_loaded = load_employee_data_from_github()
         if not df_loaded.empty:
@@ -131,19 +132,15 @@ def login(df, code, password):
     if not all([code_col, pass_col, title_col, name_col]):
         return None
 
-    # ✅ التعديل الأساسي هنا: تحويل employee_code لأرقام صحيحة بدون .0
+    # ✅ تحويل employee_code لأرقام صحيحة بدون .0
     df_local[code_col] = df_local[code_col].apply(
         lambda x: str(int(x)) if pd.notna(x) and isinstance(x, (int, float)) and x == int(x) else str(x)
     ).str.strip()
-    
-    # الباسورد يفضل كنص عادي
     df_local[pass_col] = df_local[pass_col].astype(str).str.strip()
 
-    # تنظيف المدخلات
     code_s = str(code).strip()
     pwd_s = str(password).strip()
 
-    # تطابق صارم
     matched = df_local[(df_local[code_col] == code_s) & (df_local[pass_col] == pwd_s)]
     if not matched.empty:
         return matched.iloc[0].to_dict()
@@ -174,7 +171,7 @@ def render_logo_and_title():
         st.markdown("<p style='color:#aab8c9;text-align:center;'>English interface only</p>", unsafe_allow_html=True)
 
 def page_my_profile(user):
-    st.subheader("My Profile")
+    st.subheader("My Profile & Leave Balance")
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.info("No employee data available.")
@@ -194,14 +191,28 @@ def page_my_profile(user):
         st.error("Your record was not found.")
         return
 
-    # تحويل عمود الكود لنص لتجنب ظهور .0 في العرض
+    # عرض البيانات
     row_display = row.copy()
     if code_col:
         row_display[code_col] = row_display[code_col].apply(
             lambda x: str(int(x)) if pd.notna(x) and isinstance(x, (int, float)) and x == int(x) else str(x)
         )
-
     st.dataframe(row_display.reset_index(drop=True), use_container_width=True)
+
+    # ✅ عرض رصيد الإجازات
+    balance_col = next((col for col in df.columns if normalize(col) in ["annualleavebalance", "leavebalance", "totalleave"]), None)
+    used_col = next((col for col in df.columns if normalize(col) in ["usedleave", "leavetaken", "takenleave"]), None)
+
+    if balance_col and used_col:
+        balance = row[balance_col].iloc[0]
+        used = row[used_col].iloc[0]
+        remaining = balance - used if pd.notna(balance) and pd.notna(used) else "N/A"
+        st.markdown("### 📅 Leave Summary")
+        st.metric("Total Annual Leave", f"{balance} days" if pd.notna(balance) else "N/A")
+        st.metric("Used Leave", f"{used} days" if pd.notna(used) else "N/A")
+        st.metric("Remaining Leave", f"{remaining} days" if isinstance(remaining, (int, float)) else "N/A")
+    else:
+        st.warning("Leave balance columns not found. Expected: 'Annual Leave Balance', 'Used Leave'.")
 
 def page_dashboard(user):
     st.subheader("HR Dashboard")
@@ -318,13 +329,31 @@ def page_hr_manager(user):
                 st.rerun()
 
 def page_reports(user):
-    st.subheader("Reports")
-    st.info("Basic employee data export.")
+    st.subheader("Leave Usage Report")
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.info("No data to report.")
         return
-    st.dataframe(df, use_container_width=True)
+
+    def normalize(col):
+        return str(col).strip().lower().replace(" ", "").replace("_", "")
+
+    col_map = {normalize(c): c for c in df.columns}
+    name_col = next((col for col in df.columns if normalize(col) in ["employeename", "name", "fullname"]), None)
+    balance_col = next((col for col in df.columns if normalize(col) in ["annualleavebalance", "leavebalance"]), None)
+    used_col = next((col for col in df.columns if normalize(col) in ["usedleave", "leavetaken"]), None)
+
+    if not all([name_col, balance_col, used_col]):
+        st.error("Required columns for leave report not found.")
+        st.write("Expected columns: Employee Name, Annual Leave Balance, Used Leave")
+        return
+
+    report_df = df[[name_col, balance_col, used_col]].copy()
+    report_df.columns = ["Employee Name", "Total Leave", "Used Leave"]
+    report_df["Remaining"] = report_df["Total Leave"] - report_df["Used Leave"]
+    report_df = report_df.sort_values("Used Leave", ascending=False).reset_index(drop=True)
+
+    st.dataframe(report_df, use_container_width=True)
 
 # ============================
 # Main App Flow
