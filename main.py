@@ -1,4 +1,4 @@
-# hr_system_dark_mode_v3.py
+# hr_system_dark_mode_v3.py (Full Version with Integrated Debug)
 import streamlit as st
 import pandas as pd
 import requests
@@ -28,7 +28,6 @@ st.set_page_config(page_title="HR System (Dark)", page_icon="👥", layout="wide
 
 dark_css = """
 <style>
-/* App & layout */
 [data-testid="stAppViewContainer"] {background-color: #0f1724; color: #e6eef8;}
 [data-testid="stHeader"], [data-testid="stToolbar"] {background-color: #0b1220;}
 .stButton>button {background-color: #0b72b9; color: white; border-radius: 8px; padding: 6px 12px;}
@@ -37,6 +36,24 @@ dark_css = """
 </style>
 """
 st.markdown(dark_css, unsafe_allow_html=True)
+
+# ============================
+# Debug Helpers
+# ============================
+def debug_log(msg):
+    if "debug_logs" not in st.session_state:
+        st.session_state["debug_logs"] = []
+    timestamp = pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")
+    st.session_state["debug_logs"].append(f"[{timestamp}] {msg}")
+
+def show_debug_sidebar():
+    st.sidebar.markdown("### Debug Logs")
+    logs = st.session_state.get("debug_logs", [])
+    if logs:
+        for l in logs[-25:][::-1]:
+            st.sidebar.text(l)
+    else:
+        st.sidebar.text("No debug logs yet.")
 
 # ============================
 # GitHub helpers
@@ -50,15 +67,19 @@ def github_headers():
 def load_employee_data_from_github():
     try:
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}?ref={BRANCH}"
+        debug_log(f"Loading data from GitHub: {url}")
         resp = requests.get(url, headers=github_headers(), timeout=30)
         if resp.status_code == 200:
             content = resp.json()
             file_content = base64.b64decode(content["content"])
             df = pd.read_excel(BytesIO(file_content))
+            debug_log(f"Loaded {len(df)} rows from GitHub")
             return df
         else:
+            debug_log(f"GitHub load failed with status {resp.status_code}")
             return pd.DataFrame()
-    except Exception:
+    except Exception as e:
+        debug_log(f"GitHub load exception: {e}")
         return pd.DataFrame()
 
 def get_file_sha():
@@ -67,14 +88,19 @@ def get_file_sha():
         params = {"ref": BRANCH}
         resp = requests.get(url, headers=github_headers(), params=params, timeout=30)
         if resp.status_code == 200:
-            return resp.json().get("sha")
+            sha = resp.json().get("sha")
+            debug_log(f"Retrieved file SHA: {sha}")
+            return sha
         else:
+            debug_log(f"SHA fetch failed with status {resp.status_code}")
             return None
-    except Exception:
+    except Exception as e:
+        debug_log(f"Error getting file SHA: {e}")
         return None
 
 def upload_to_github(df, commit_message="Update employees via Streamlit"):
     if not GITHUB_TOKEN:
+        debug_log("No GitHub token configured; skipping upload")
         return False
     try:
         output = BytesIO()
@@ -87,9 +113,13 @@ def upload_to_github(df, commit_message="Update employees via Streamlit"):
         payload = {"message": commit_message, "content": file_content_b64, "branch": BRANCH}
         if sha:
             payload["sha"] = sha
+        debug_log(f"Uploading to GitHub: {commit_message}")
         put_resp = requests.put(url, headers=github_headers(), json=payload, timeout=60)
-        return put_resp.status_code in (200,201)
-    except Exception:
+        ok = put_resp.status_code in (200,201)
+        debug_log(f"Upload status: {put_resp.status_code}")
+        return ok
+    except Exception as e:
+        debug_log(f"Upload exception: {e}")
         return False
 
 # ============================
@@ -97,44 +127,77 @@ def upload_to_github(df, commit_message="Update employees via Streamlit"):
 # ============================
 def ensure_session_df():
     if "df" not in st.session_state:
-        df_loaded = load_employee_data_from_github()
-        if not df_loaded.empty:
-            st.session_state["df"] = df_loaded
-        else:
-            if os.path.exists(FILE_PATH):
-                try:
-                    st.session_state["df"] = pd.read_excel(FILE_PATH)
-                except Exception:
-                    st.session_state["df"] = pd.DataFrame()
+        try:
+            df_loaded = load_employee_data_from_github()
+            if not df_loaded.empty:
+                st.session_state["df"] = df_loaded
+                debug_log("Dataset loaded from GitHub.")
             else:
-                st.session_state["df"] = pd.DataFrame()
+                if os.path.exists(FILE_PATH):
+                    st.session_state["df"] = pd.read_excel(FILE_PATH)
+                    debug_log(f"Dataset loaded from local file {FILE_PATH}.")
+                else:
+                    st.session_state["df"] = pd.DataFrame()
+                    debug_log("No data file found; created empty dataset.")
+        except Exception as e:
+            debug_log(f"ensure_session_df error: {e}")
+            st.session_state["df"] = pd.DataFrame()
 
+        df = st.session_state["df"]
+        if not df.empty:
+            df.columns = [str(c).strip() for c in df.columns]
+            for col in df.columns:
+                if "code" in col.lower() or "pass" in col.lower():
+                    df[col] = df[col].astype(str).fillna("").apply(lambda x: x.strip().replace(".0", ""))
+            st.session_state["df"] = df
+            debug_log(f"Columns normalized: {list(df.columns)}")
+
+# Login with Debug
 def login(df, code, password):
-    df_local = df.copy()
-    col_map = {c.lower(): c for c in df_local.columns}
-    code_col = col_map.get("employee_code", None)
-    pass_col = col_map.get("password", None)
-    title_col = col_map.get("title", None)
-    name_col = col_map.get("employee name", None) or col_map.get("name", None)
-
-    if not code_col or not pass_col or not title_col or not name_col:
+    debug_log("Login attempt started.")
+    if df is None or df.empty:
+        debug_log("Login failed: empty dataframe.")
         return None
 
-    df_local[code_col] = df_local[code_col].astype(str).str.strip()
+    col_map = {c.lower().strip(): c for c in df.columns}
+    debug_log(f"Columns: {list(col_map.keys())}")
+
+    code_col = None
+    pass_col = None
+    for c in df.columns:
+        if "code" in c.lower():
+            code_col = c
+        if "pass" in c.lower():
+            pass_col = c
+
+    if not code_col or not pass_col:
+        debug_log("Login failed: required columns missing.")
+        return None
+
+    df_local = df.copy()
+    df_local[code_col] = df_local[code_col].astype(str).str.strip().replace(".0", "")
     df_local[pass_col] = df_local[pass_col].astype(str).str.strip()
 
     code_s, pwd_s = str(code).strip(), str(password).strip()
+    debug_log(f"Trying credentials: code={code_s}")
+
     matched = df_local[(df_local[code_col] == code_s) & (df_local[pass_col] == pwd_s)]
+    debug_log(f"Matched rows: {len(matched)}")
+
     if not matched.empty:
+        debug_log("Login success.")
         return matched.iloc[0].to_dict()
+    debug_log("Login failed: no match found.")
     return None
 
 def save_df_to_local(df):
     try:
         with pd.ExcelWriter(FILE_PATH, engine="openpyxl") as writer:
             df.to_excel(writer, index=False)
+        debug_log(f"Saved dataset locally to {FILE_PATH}")
         return True
-    except Exception:
+    except Exception as e:
+        debug_log(f"Local save failed: {e}")
         return False
 
 def save_and_maybe_push(df, actor="HR"):
@@ -166,7 +229,6 @@ def page_my_profile(user):
     if not code_col:
         st.error("Employee code column not found in dataset.")
         return
-    # Find the matching row by code (user dict may include original column name)
     user_code = user.get(code_col) or user.get("employee_code") or user.get("Employee Code")
     row = df[df[code_col].astype(str) == str(user_code)]
     if row.empty:
@@ -186,12 +248,9 @@ def page_dashboard(user):
         st.info("No employee data available.")
         return
 
-    # Normalize column names
     col_map = {c.lower(): c for c in df.columns}
     dept_col = col_map.get("department")
     hire_col = col_map.get("hire date") or col_map.get("hire_date") or col_map.get("hiring date")
-    # salary_col left if needed later
-    # salary_col = col_map.get("monthly_salary") or col_map.get("monthly salary") or col_map.get("salary")
 
     total_employees = df.shape[0]
     total_departments = df[dept_col].nunique() if dept_col else 0
@@ -213,13 +272,11 @@ def page_dashboard(user):
     if dept_col:
         dept_counts = df[dept_col].fillna("Unknown").value_counts().reset_index()
         dept_counts.columns = ["Department", "Employee Count"]
-        # Show numeric table only (as requested)
         st.table(dept_counts.sort_values("Employee Count", ascending=False).reset_index(drop=True))
     else:
         st.info("Department column not found. Please ensure there's a 'Department' column in the Excel file.")
 
     st.markdown("---")
-    # Export and Save actions
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Employees")
@@ -235,7 +292,7 @@ def page_dashboard(user):
                 if GITHUB_TOKEN:
                     st.warning("Saved locally but GitHub push failed.")
                 else:
-                    st.info("Saved locally. GitHub token not configured, so no push performed.")
+                    st.info("Saved locally. GitHub token not configured.")
         else:
             st.error("Failed to save dataset locally.")
 
@@ -253,7 +310,6 @@ def page_hr_manager(user):
             st.session_state["uploaded_df_preview"] = new_df.copy()
             st.success("File loaded. Preview below.")
             st.dataframe(new_df.head(50), use_container_width=True)
-            st.markdown("**Note:** Uploading will replace the current dataset in-memory. You must Save to persist changes locally and optionally push to GitHub.")
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("Replace In-Memory Dataset with Uploaded File"):
@@ -311,124 +367,4 @@ def page_hr_manager(user):
                             v = pd.Timestamp(v)
                         df.loc[df[code_col].astype(str) == str(selected_code).strip(), k] = v
                     st.session_state["df"] = df
-                    saved, pushed = save_and_maybe_push(df, actor=user.get("Employee Name","HR"))
-                    if saved:
-                        st.success("Employee updated and saved locally.")
-                        if pushed:
-                            st.success("Changes pushed to GitHub.")
-                        else:
-                            if GITHUB_TOKEN:
-                                st.warning("Saved locally but GitHub push failed.")
-                            else:
-                                st.info("Saved locally. GitHub not configured, so no push performed.")
-                    else:
-                        st.error("Failed to save changes locally.")
-
-            st.markdown("#### Delete Employee")
-            if st.button("Initiate Delete"):
-                st.session_state["delete_target"] = str(selected_code).strip()
-
-            if st.session_state.get("delete_target") == str(selected_code).strip():
-                st.warning(f"You are about to delete employee with code: {selected_code}. This action is irreversible.")
-                col_del1, col_del2 = st.columns(2)
-                with col_del1:
-                    if st.button("Confirm Delete"):
-                        st.session_state["df"] = df[df[code_col].astype(str) != str(selected_code).strip()].reset_index(drop=True)
-                        saved, pushed = save_and_maybe_push(st.session_state["df"], actor=user.get("Employee Name","HR"))
-                        st.session_state["delete_target"] = None
-                        if saved:
-                            st.success("Employee deleted and dataset saved locally.")
-                            if pushed:
-                                st.success("Deletion pushed to GitHub.")
-                            else:
-                                if GITHUB_TOKEN:
-                                    st.warning("Saved locally but GitHub push failed.")
-                                else:
-                                    st.info("Saved locally. GitHub not configured, so no push performed.")
-                        else:
-                            st.error("Failed to save after deletion.")
-                with col_del2:
-                    if st.button("Cancel Delete"):
-                        st.session_state["delete_target"] = None
-                        st.info("Deletion cancelled.")
-
-    st.markdown("---")
-    st.markdown("### Save / Push Dataset")
-    if st.button("Save current in-memory dataset locally and optionally push to GitHub"):
-        df_current = st.session_state.get("df", pd.DataFrame())
-        saved, pushed = save_and_maybe_push(df_current, actor=user.get("Employee Name","HR"))
-        if saved:
-            if pushed:
-                st.success("Saved locally and pushed to GitHub.")
-            else:
-                if GITHUB_TOKEN:
-                    st.warning("Saved locally but GitHub push failed.")
-                else:
-                    st.info("Saved locally. GitHub not configured, so no push performed.")
-        else:
-            st.error("Failed to save dataset locally.")
-
-def page_reports(user):
-    st.subheader("Reports (Placeholder)")
-    st.info("Reports section - ready to be expanded with ready reports. Current placeholder shows basic info.")
-    df = st.session_state.get("df", pd.DataFrame())
-    if df.empty:
-        st.info("No data to report.")
-        return
-    st.markdown("Basic preview of dataset:")
-    st.dataframe(df.head(200), use_container_width=True)
-    buf = BytesIO()
-    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Employees")
-    buf.seek(0)
-    st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
-# ============================
-# Main App Flow
-# ============================
-ensure_session_df()
-render_logo_and_title()
-
-st.sidebar.title("Menu")
-if "logged_in_user" not in st.session_state:
-    st.session_state["logged_in_user"] = None
-
-# Login UI
-if not st.session_state["logged_in_user"]:
-    st.sidebar.subheader("Login")
-    with st.sidebar.form("login_form"):
-        uid = st.text_input("Employee Code")
-        pwd = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Sign in")
-    if submitted:
-        df = st.session_state.get("df", pd.DataFrame())
-        user = login(df, uid, pwd)
-        if user is None:
-            st.sidebar.error("Invalid credentials or required columns missing.")
-        else:
-            st.session_state["logged_in_user"] = user
-            st.experimental_rerun()
-else:
-    user = st.session_state["logged_in_user"]
-    title_val = str(user.get("Title") or user.get("title") or "").strip().lower()
-    is_hr = title_val == "hr" or "hr" in title_val
-    st.sidebar.write(f"👋 Welcome, {user.get('Employee Name') or user.get('employee name') or user.get('name','')}")
-    st.sidebar.markdown("---")
-    if is_hr:
-        page = st.sidebar.radio("Pages", ("Dashboard","Reports","HR Manager","Logout"))
-        if page == "Dashboard":
-            page_dashboard(user)
-        elif page == "Reports":
-            page_reports(user)
-        elif page == "HR Manager":
-            page_hr_manager(user)
-        elif page == "Logout":
-            st.session_state["logged_in_user"] = None
-            st.experimental_rerun()
-    else:
-        page = st.sidebar.radio("Pages", ("My Profile","Logout"))
-        if page == "My Profile":
-            page_my_profile(user)
-        elif page == "Logout":
-            st.session_state["logged_in_user"] = None
-            st.experimental_rerun()
+                    saved,
