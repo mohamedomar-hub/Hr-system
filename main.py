@@ -14,7 +14,7 @@ import plotly.express as px
 DEFAULT_FILE_PATH = "Employees.xlsx"
 LOGO_PATH = "logo.jpg"
 
-GitHub / file config stored in Streamlit secrets (optional)
+#GitHub / file config stored in Streamlit secrets (optional)
 GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", None)
 REPO_OWNER = st.secrets.get("REPO_OWNER", "mohamedomar-hub")
 REPO_NAME = st.secrets.get("REPO_NAME", "Hr-system")
