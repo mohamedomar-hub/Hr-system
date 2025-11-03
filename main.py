@@ -108,40 +108,28 @@ def ensure_session_df():
             else:
                 st.session_state["df"] = pd.DataFrame()
 
-def find_column(df, candidates):
-    """Try to find a column by checking case-insensitive and space/underscore normalized names."""
-    normalized_cols = {col.lower().replace("_", " ").replace("-", " ").strip(): col for col in df.columns}
-    for cand in candidates:
-        key = cand.lower().replace("_", " ").replace("-", " ").strip()
-        if key in normalized_cols:
-            return normalized_cols[key]
-    return None
-
 def login(df, code, password):
     if df is None or df.empty:
         return None
 
-    code_col = find_column(df, ["Employee Code", "employee code", "EmployeeCode", "Emp Code", "emp_code"])
-    pass_col = find_column(df, ["Password", "password"])
-    name_col = find_column(df, ["Employee Name", "employee name", "Name", "name"])
-    title_col = find_column(df, ["Title", "title"])
+    col_map = {c.lower().strip(): c for c in df.columns}
+    code_col = col_map.get("employee_code") or col_map.get("employee code")
+    pass_col = col_map.get("password")
+    title_col = col_map.get("title")
+    name_col = col_map.get("employee name") or col_map.get("name")
 
     if not code_col or not pass_col:
         return None
 
     df_local = df.copy()
-    # تأكد من معالجة الأرقام مثل 1234.0 → "1234"
-    df_local[code_col] = df_local[code_col].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
+    # Remove .0 from numeric-looking strings
+    df_local[code_col] = df_local[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     df_local[pass_col] = df_local[pass_col].astype(str).str.strip()
 
-    code_s = str(code).replace(r'\.0$', '', regex=True).strip()
-    pwd_s = str(password).strip()
-
+    code_s, pwd_s = str(code).strip(), str(password).strip()
     matched = df_local[(df_local[code_col] == code_s) & (df_local[pass_col] == pwd_s)]
     if not matched.empty:
-        record = matched.iloc[0].to_dict()
-        # Ensure original column names are preserved in user dict
-        return record
+        return matched.iloc[0].to_dict()
     return None
 
 def save_df_to_local(df):
@@ -162,6 +150,7 @@ def save_and_maybe_push(df, actor="HR"):
 # ============================
 # UI Components / Pages
 # ============================
+
 def render_logo_and_title():
     cols = st.columns([1,6,1])
     with cols[1]:
@@ -179,26 +168,35 @@ def page_my_profile(user):
         st.info("No employee data available.")
         return
 
-    code_col = find_column(df, ["Employee Code", "employee code", "EmployeeCode", "Emp Code", "emp_code"])
+    # Normalize column names for lookup
+    col_map = {c.lower().strip(): c for c in df.columns}
+    code_col = col_map.get("employee_code") or col_map.get("employee code")
     if not code_col:
         st.error("Employee code column not found in dataset. Please ensure your Excel file has a column named 'Employee Code'.")
         return
 
-    # Get the employee code from the user dict using the actual column name
+    # Extract the user's employee code from their session data
     user_code = None
     for key in user.keys():
-        if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code", "empcode"]:
-            user_code = str(user[key]).replace(r'\.0$', '', regex=True).strip()
+        clean_key = key.lower().strip().replace(" ", "").replace("_", "")
+        if clean_key in ["employeecode", "employee_code", "empcode"]:
+            val = str(user[key]).strip()
+            # Remove trailing .0 if present (e.g., "1234.0" → "1234")
+            if val.endswith('.0'):
+                val = val[:-2]
+            user_code = val
             break
 
     if user_code is None:
         st.error("Your session does not contain a valid Employee Code.")
         return
 
-    # Filter exact match
-    df[code_col] = df[code_col].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
-    row = df[df[code_col] == user_code]
+    # Normalize the code column in the DataFrame
+    df[code_col] = df[code_col].astype(str).str.strip()
+    df.loc[df[code_col].str.endswith('.0'), code_col] = df.loc[df[code_col].str.endswith('.0'), code_col].str[:-2]
 
+    # Find the matching row
+    row = df[df[code_col] == user_code]
     if row.empty:
         st.error("Your record was not found.")
         return
@@ -298,16 +296,14 @@ def page_hr_manager(user):
 
     st.dataframe(df.head(100), use_container_width=True)
 
-    code_col = find_column(df, ["Employee Code", "employee code", "EmployeeCode", "Emp Code", "emp_code"])
-    if not code_col:
-        st.error("Employee Code column missing. Cannot edit/delete.")
-        return
+    col_map = {c.lower().strip(): c for c in df.columns}
+    code_col = col_map.get("employee_code") or col_map.get("employee code") or list(df.columns)[0]
 
     selected_code = st.text_input("Enter employee code to edit/delete (exact match)", value="")
     if selected_code:
-        # Normalize input
-        clean_input = str(selected_code).replace(r'\.0$', '', regex=True).strip()
-        df[code_col] = df[code_col].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
+        clean_input = str(selected_code).strip()
+        df[code_col] = df[code_col].astype(str).str.strip()
+        df.loc[df[code_col].str.endswith('.0'), code_col] = df.loc[df[code_col].str.endswith('.0'), code_col].str[:-2]
         matched_rows = df[df[code_col] == clean_input]
 
         if matched_rows.empty:
@@ -418,6 +414,7 @@ def page_reports(user):
 # ============================
 # Main App Flow
 # ============================
+
 ensure_session_df()
 render_logo_and_title()
 
