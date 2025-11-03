@@ -14,14 +14,12 @@ import plotly.express as px
 DEFAULT_FILE_PATH = "Employees.xlsx"
 LOGO_PATH = "logo.jpg"
 
-# GitHub / file config stored in Streamlit secrets (optional)
-#GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", None)
-#REPO_OWNER = st.secrets.get("REPO_OWNER", "mohamedomar-hub")
-#REPO_NAME = st.secrets.get("REPO_NAME", "hr-system")
-#BRANCH = st.secrets.get("BRANCH", "main")
-#FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FILE_PATH") else DEFAULT_FILE_PATH
-FILE_PATH = "Employees.xlsx"
-GITHUB_TOKEN = None  # تعطيل GitHub تمامًا
+GitHub / file config stored in Streamlit secrets (optional)
+GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", None)
+REPO_OWNER = st.secrets.get("REPO_OWNER", "mohamedomar-hub")
+REPO_NAME = st.secrets.get("REPO_NAME", "Hr-system")
+BRANCH = st.secrets.get("BRANCH", "main")
+FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FILE_PATH") else DEFAULT_FILE_PATH
 # ============================
 # Styling - Dark mode CSS
 # ============================
