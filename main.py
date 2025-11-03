@@ -25,16 +25,14 @@ FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FI
 # Styling - Dark mode CSS
 # ============================
 st.set_page_config(page_title="HR System (Dark)", page_icon="👥", layout="wide")
-
 dark_css = """
 <style>
+/* App & layout */
 [data-testid="stAppViewContainer"] {background-color: #0f1724; color: #e6eef8;}
 [data-testid="stHeader"], [data-testid="stToolbar"] {background-color: #0b1220;}
 .stButton>button {background-color: #0b72b9; color: white; border-radius: 8px; padding: 6px 12px;}
 [data-testid="stSidebar"] {background-color: #071226;}
-.stTextInput>div>div>input, .stNumberInput>div>input, .stSelectbox>div>div>div {
-    background-color: #071226; color: #e6eef8;
-}
+.stTextInput>div>div>input, .stNumberInput>div>input, .stSelectbox>div>div>div {background-color: #071226; color: #e6eef8;}
 </style>
 """
 st.markdown(dark_css, unsafe_allow_html=True)
@@ -89,9 +87,10 @@ def upload_to_github(df, commit_message="Update employees via Streamlit"):
         if sha:
             payload["sha"] = sha
         put_resp = requests.put(url, headers=github_headers(), json=payload, timeout=60)
-        return put_resp.status_code in (200, 201)
+        return put_resp.status_code in (200,201)
     except Exception:
         return False
+
 # ============================
 # Helpers
 # ============================
@@ -109,23 +108,40 @@ def ensure_session_df():
             else:
                 st.session_state["df"] = pd.DataFrame()
 
+def find_column(df, candidates):
+    """Try to find a column by checking case-insensitive and space/underscore normalized names."""
+    normalized_cols = {col.lower().replace("_", " ").replace("-", " ").strip(): col for col in df.columns}
+    for cand in candidates:
+        key = cand.lower().replace("_", " ").replace("-", " ").strip()
+        if key in normalized_cols:
+            return normalized_cols[key]
+    return None
+
 def login(df, code, password):
     if df is None or df.empty:
         return None
-    col_map = {c.lower().strip(): c for c in df.columns}
-    code_col = col_map.get("employee_code") or col_map.get("employee code") or col_map.get("code")
-    pass_col = col_map.get("password") or col_map.get("pass") or col_map.get("pwd")
-    title_col = col_map.get("title")
-    name_col = col_map.get("employee name") or col_map.get("name")
+
+    code_col = find_column(df, ["Employee Code", "employee code", "EmployeeCode", "Emp Code", "emp_code"])
+    pass_col = find_column(df, ["Password", "password"])
+    name_col = find_column(df, ["Employee Name", "employee name", "Name", "name"])
+    title_col = find_column(df, ["Title", "title"])
+
     if not code_col or not pass_col:
         return None
+
     df_local = df.copy()
-    df_local[code_col] = df_local[code_col].astype(str).str.strip().replace(".0", "")
+    # تأكد من معالجة الأرقام مثل 1234.0 → "1234"
+    df_local[code_col] = df_local[code_col].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
     df_local[pass_col] = df_local[pass_col].astype(str).str.strip()
-    code_s, pwd_s = str(code).strip(), str(password).strip()
+
+    code_s = str(code).replace(r'\.0$', '', regex=True).strip()
+    pwd_s = str(password).strip()
+
     matched = df_local[(df_local[code_col] == code_s) & (df_local[pass_col] == pwd_s)]
     if not matched.empty:
-        return matched.iloc[0].to_dict()
+        record = matched.iloc[0].to_dict()
+        # Ensure original column names are preserved in user dict
+        return record
     return None
 
 def save_df_to_local(df):
@@ -157,45 +173,44 @@ def render_logo_and_title():
 def page_my_profile(user):
     st.subheader("My Profile")
     st.markdown(f"### 👋 Welcome, {user.get('Employee Name', 'User')}")
+
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.info("No employee data available.")
         return
 
-    # normalize columns
-    col_map = {c.lower().strip(): c for c in df.columns}
-    possible_keys = ["employee code", "employee_code", "code"]
-    code_col = None
-    for key in possible_keys:
-        if key in col_map:
-            code_col = col_map[key]
-            break
+    code_col = find_column(df, ["Employee Code", "employee code", "EmployeeCode", "Emp Code", "emp_code"])
     if not code_col:
-        st.error("Employee code column not found in dataset.")
+        st.error("Employee code column not found in dataset. Please ensure your Excel file has a column named 'Employee Code'.")
         return
 
-    # Find row by employee code
-    user_code = str(user.get("Employee Code") or user.get("employee_code") or user.get(code_col)).strip()
-    row = df[df[code_col].astype(str).str.strip() == user_code]
+    # Get the employee code from the user dict using the actual column name
+    user_code = None
+    for key in user.keys():
+        if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code", "empcode"]:
+            user_code = str(user[key]).replace(r'\.0$', '', regex=True).strip()
+            break
+
+    if user_code is None:
+        st.error("Your session does not contain a valid Employee Code.")
+        return
+
+    # Filter exact match
+    df[code_col] = df[code_col].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
+    row = df[df[code_col] == user_code]
+
     if row.empty:
-        st.error("Your record was not found in the dataset.")
+        st.error("Your record was not found.")
         return
 
-    record = row.iloc[0].to_dict()
-    st.markdown("### Your Information:")
-    for key, value in record.items():
-        st.markdown(f"**{key}:** {value if pd.notna(value) else ''}")
+    st.dataframe(row.reset_index(drop=True), use_container_width=True)
 
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         row.to_excel(writer, index=False, sheet_name="MyProfile")
     buf.seek(0)
-    st.download_button(
-        "Download My Profile (Excel)",
-        data=buf,
-        file_name="my_profile.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    st.download_button("Download My Profile (Excel)", data=buf, file_name="my_profile.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
 def page_dashboard(user):
     st.subheader("Dashboard")
     df = st.session_state.get("df", pd.DataFrame())
@@ -223,21 +238,20 @@ def page_dashboard(user):
     c3.metric("New Hires (30 days)", new_hires)
 
     st.markdown("---")
-    st.markdown("### Employees per Department")
+    st.markdown("### Employees per Department (table)")
     if dept_col:
         dept_counts = df[dept_col].fillna("Unknown").value_counts().reset_index()
         dept_counts.columns = ["Department", "Employee Count"]
         st.table(dept_counts.sort_values("Employee Count", ascending=False).reset_index(drop=True))
     else:
-        st.info("Department column not found in the dataset.")
+        st.info("Department column not found. Please ensure there's a 'Department' column in the Excel file.")
 
     st.markdown("---")
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Employees")
     buf.seek(0)
-    st.download_button("Download Full Employees Excel", data=buf, file_name="employees_export.xlsx",
-                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.download_button("Download Full Employees Excel", data=buf, file_name="employees_export.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
     if st.button("Save & Push current dataset to GitHub"):
         saved, pushed = save_and_maybe_push(df, actor=user.get("Employee Name","HR"))
@@ -248,27 +262,31 @@ def page_dashboard(user):
                 if GITHUB_TOKEN:
                     st.warning("Saved locally but GitHub push failed.")
                 else:
-                    st.info("Saved locally. GitHub token not configured.")
+                    st.info("Saved locally. GitHub token not configured, so no push performed.")
         else:
             st.error("Failed to save dataset locally.")
-
 
 def page_hr_manager(user):
     st.subheader("HR Manager")
     st.info("Upload new employee sheet, manage employees, and perform administrative actions.")
     df = st.session_state.get("df", pd.DataFrame())
-
-    st.markdown("### Upload Employees Excel (Replace Current Dataset)")
-    uploaded_file = st.file_uploader("Upload Excel file (.xlsx)", type=["xlsx"])
+    st.markdown("### Upload Employees Excel (will replace current dataset)")
+    uploaded_file = st.file_uploader("Upload Excel file (.xlsx) to replace the current employees dataset", type=["xlsx"])
     if uploaded_file:
         try:
             new_df = pd.read_excel(uploaded_file)
             st.session_state["uploaded_df_preview"] = new_df.copy()
-            st.success("File loaded successfully.")
+            st.success("File loaded. Preview below.")
             st.dataframe(new_df.head(50), use_container_width=True)
-            if st.button("Replace In-Memory Dataset"):
-                st.session_state["df"] = new_df.copy()
-                st.success("Dataset replaced successfully.")
+            st.markdown("**Note:** Uploading will replace the current dataset in-memory. You must Save to persist changes locally and optionally push to GitHub.")
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Replace In-Memory Dataset with Uploaded File"):
+                    st.session_state["df"] = new_df.copy()
+                    st.success("In-memory dataset replaced.")
+            with col2:
+                if st.button("Preview only (do not replace)"):
+                    st.info("Preview shown above.")
         except Exception as e:
             st.error(f"Failed to read uploaded file: {e}")
 
@@ -279,16 +297,24 @@ def page_hr_manager(user):
         return
 
     st.dataframe(df.head(100), use_container_width=True)
-    col_map = {c.lower(): c for c in df.columns}
-    code_col = col_map.get("employee_code") or list(df.columns)[0]
 
-    selected_code = st.text_input("Enter employee code to edit/delete", value="")
+    code_col = find_column(df, ["Employee Code", "employee code", "EmployeeCode", "Emp Code", "emp_code"])
+    if not code_col:
+        st.error("Employee Code column missing. Cannot edit/delete.")
+        return
+
+    selected_code = st.text_input("Enter employee code to edit/delete (exact match)", value="")
     if selected_code:
-        matched_rows = df[df[code_col].astype(str) == str(selected_code).strip()]
+        # Normalize input
+        clean_input = str(selected_code).replace(r'\.0$', '', regex=True).strip()
+        df[code_col] = df[code_col].astype(str).str.replace(r'\.0$', '', regex=True).str.strip()
+        matched_rows = df[df[code_col] == clean_input]
+
         if matched_rows.empty:
             st.warning("No employee found with that code.")
         else:
             row = matched_rows.iloc[0]
+            st.markdown("#### Edit Employee")
             with st.form("edit_employee_form"):
                 updated = {}
                 for col in df.columns:
@@ -296,13 +322,17 @@ def page_hr_manager(user):
                     if pd.isna(val):
                         val = ""
                     if isinstance(val, (int, float)) and not isinstance(val, bool):
-                        updated[col] = st.number_input(label=str(col), value=float(val) if pd.notna(val) else 0.0, key=f"edit_{col}")
+                        try:
+                            updated[col] = st.number_input(label=str(col), value=float(val) if pd.notna(val) else 0.0, key=f"edit_{col}")
+                        except Exception:
+                            updated[col] = st.text_input(label=str(col), value=str(val), key=f"edit_{col}")
                     elif "date" in str(col).lower():
                         try:
                             date_val = pd.to_datetime(val, errors="coerce")
-                            updated[col] = st.date_input(label=str(col),
-                                                         value=date_val.date() if pd.notna(date_val) else datetime.date.today(),
-                                                         key=f"edit_{col}_date")
+                        except Exception:
+                            date_val = None
+                        try:
+                            updated[col] = st.date_input(label=str(col), value=date_val.date() if date_val is not None and pd.notna(date_val) else datetime.date.today(), key=f"edit_{col}_date")
                         except Exception:
                             updated[col] = st.text_input(label=str(col), value=str(val), key=f"edit_{col}")
                     else:
@@ -312,17 +342,51 @@ def page_hr_manager(user):
                     for k, v in updated.items():
                         if isinstance(v, datetime.date):
                             v = pd.Timestamp(v)
-                        df.loc[df[code_col].astype(str) == str(selected_code).strip(), k] = v
+                        df.loc[df[code_col] == clean_input, k] = v
                     st.session_state["df"] = df
                     saved, pushed = save_and_maybe_push(df, actor=user.get("Employee Name","HR"))
                     if saved:
-                        st.success("Employee updated successfully.")
+                        st.success("Employee updated and saved locally.")
+                        if pushed:
+                            st.success("Changes pushed to GitHub.")
+                        else:
+                            if GITHUB_TOKEN:
+                                st.warning("Saved locally but GitHub push failed.")
+                            else:
+                                st.info("Saved locally. GitHub not configured, so no push performed.")
                     else:
-                        st.error("Failed to save changes.")
+                        st.error("Failed to save changes locally.")
+
+            st.markdown("#### Delete Employee")
+            if st.button("Initiate Delete"):
+                st.session_state["delete_target"] = clean_input
+            if st.session_state.get("delete_target") == clean_input:
+                st.warning(f"You are about to delete employee with code: {clean_input}. This action is irreversible.")
+                col_del1, col_del2 = st.columns(2)
+                with col_del1:
+                    if st.button("Confirm Delete"):
+                        st.session_state["df"] = df[df[code_col] != clean_input].reset_index(drop=True)
+                        saved, pushed = save_and_maybe_push(st.session_state["df"], actor=user.get("Employee Name","HR"))
+                        st.session_state["delete_target"] = None
+                        if saved:
+                            st.success("Employee deleted and dataset saved locally.")
+                            if pushed:
+                                st.success("Deletion pushed to GitHub.")
+                            else:
+                                if GITHUB_TOKEN:
+                                    st.warning("Saved locally but GitHub push failed.")
+                                else:
+                                    st.info("Saved locally. GitHub not configured, so no push performed.")
+                        else:
+                            st.error("Failed to save after deletion.")
+                with col_del2:
+                    if st.button("Cancel Delete"):
+                        st.session_state["delete_target"] = None
+                        st.info("Deletion cancelled.")
 
     st.markdown("---")
     st.markdown("### Save / Push Dataset")
-    if st.button("Save current dataset locally and optionally push to GitHub"):
+    if st.button("Save current in-memory dataset locally and optionally push to GitHub"):
         df_current = st.session_state.get("df", pd.DataFrame())
         saved, pushed = save_and_maybe_push(df_current, actor=user.get("Employee Name","HR"))
         if saved:
@@ -332,26 +396,24 @@ def page_hr_manager(user):
                 if GITHUB_TOKEN:
                     st.warning("Saved locally but GitHub push failed.")
                 else:
-                    st.info("Saved locally. GitHub token not configured.")
+                    st.info("Saved locally. GitHub not configured, so no push performed.")
         else:
             st.error("Failed to save dataset locally.")
 
-
 def page_reports(user):
     st.subheader("Reports (Placeholder)")
-    st.info("Reports section - can be expanded later.")
+    st.info("Reports section - ready to be expanded with ready reports. Current placeholder shows basic info.")
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.info("No data to report.")
         return
+    st.markdown("Basic preview of dataset:")
     st.dataframe(df.head(200), use_container_width=True)
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Employees")
     buf.seek(0)
-    st.download_button("Export Report Data (Excel)", data=buf,
-                       file_name="report_employees.xlsx",
-                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument-spreadsheetml.sheet")
 
 # ============================
 # Main App Flow
@@ -363,6 +425,7 @@ st.sidebar.title("Menu")
 if "logged_in_user" not in st.session_state:
     st.session_state["logged_in_user"] = None
 
+# Login UI
 if not st.session_state["logged_in_user"]:
     st.sidebar.subheader("Login")
     with st.sidebar.form("login_form"):
@@ -384,9 +447,8 @@ else:
     is_hr = title_val == "hr" or "hr" in title_val
     st.sidebar.write(f"👋 Welcome, {user.get('Employee Name') or user.get('employee name') or user.get('name','')}")
     st.sidebar.markdown("---")
-
     if is_hr:
-        page = st.sidebar.radio("Pages", ("Dashboard", "Reports", "HR Manager", "Logout"))
+        page = st.sidebar.radio("Pages", ("Dashboard","Reports","HR Manager","Logout"))
         if page == "Dashboard":
             page_dashboard(user)
         elif page == "Reports":
@@ -398,7 +460,7 @@ else:
             st.success("You have been logged out successfully.")
             st.stop()
     else:
-        page = st.sidebar.radio("Pages", ("My Profile", "Logout"))
+        page = st.sidebar.radio("Pages", ("My Profile","Logout"))
         if page == "My Profile":
             page_my_profile(user)
         elif page == "Logout":
