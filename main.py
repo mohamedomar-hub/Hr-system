@@ -26,6 +26,7 @@ FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FI
 st.set_page_config(page_title="HR System (Dark)", page_icon="👥", layout="wide")
 dark_css = """
 <style>
+/* App & layout */
 [data-testid="stAppViewContainer"] {background-color: #0f1724; color: #e6eef8;}
 [data-testid="stHeader"], [data-testid="stToolbar"] {background-color: #0b1220;}
 .stButton>button {background-color: #0b72b9; color: white; border-radius: 8px; padding: 6px 12px;}
@@ -36,7 +37,7 @@ dark_css = """
 st.markdown(dark_css, unsafe_allow_html=True)
 
 # ============================
-# GitHub helpers (unchanged)
+# GitHub helpers
 # ============================
 def github_headers():
     headers = {"Accept": "application/vnd.github.v3+json"}
@@ -222,7 +223,6 @@ def page_leave_request(user):
         st.error("Employee data not loaded.")
         return
 
-    # Get user's Employee Code
     user_code = None
     for key, val in user.items():
         if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
@@ -234,7 +234,6 @@ def page_leave_request(user):
         st.error("Your Employee Code not found.")
         return
 
-    # Get Manager Code from employee sheet
     col_map = {c.lower().strip(): c for c in df_emp.columns}
     emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
     mgr_code_col = col_map.get("manager_code") or col_map.get("manager code")
@@ -257,10 +256,8 @@ def page_leave_request(user):
     if manager_code.endswith('.0'):
         manager_code = manager_code[:-2]
 
-    # Load leaves
     leaves_df = load_leaves_data()
 
-    # Submit form
     with st.form("leave_form"):
         start_date = st.date_input("Start Date")
         end_date = st.date_input("End Date")
@@ -290,7 +287,6 @@ def page_leave_request(user):
             else:
                 st.error("❌ Failed to save leave request.")
 
-    # Show user's leave history
     st.markdown("### Your Leave Requests")
     if not leaves_df.empty:
         user_leaves = leaves_df[leaves_df["Employee Code"].astype(str) == user_code].copy()
@@ -308,7 +304,6 @@ def page_leave_request(user):
 def page_manager_leaves(user):
     st.subheader("Leave Requests from Your Team")
 
-    # Get manager's Employee Code
     manager_code = None
     for key, val in user.items():
         if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
@@ -325,33 +320,51 @@ def page_manager_leaves(user):
         st.info("No leave requests found.")
         return
 
-    # Filter leaves where Manager Code == current user
-    pending_leaves = leaves_df[
-        (leaves_df["Manager Code"].astype(str) == manager_code) &
-        (leaves_df["Status"] == "Pending")
-    ].copy()
+    team_leaves = leaves_df[leaves_df["Manager Code"].astype(str) == manager_code].copy()
+    if team_leaves.empty:
+        st.info("No leave requests from your team.")
+        return
 
-    all_leaves = leaves_df[
-        leaves_df["Manager Code"].astype(str) == manager_code
-    ].copy()
+    # Merge with employee names
+    df_emp = st.session_state.get("df", pd.DataFrame())
+    name_col_to_use = "Employee Code"
+    if not df_emp.empty:
+        col_map = {c.lower().strip(): c for c in df_emp.columns}
+        emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
+        emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
+
+        if emp_code_col and emp_name_col:
+            df_emp[emp_code_col] = df_emp[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+            team_leaves["Employee Code"] = team_leaves["Employee Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+            team_leaves = team_leaves.merge(
+                df_emp[[emp_code_col, emp_name_col]],
+                left_on="Employee Code",
+                right_on=emp_code_col,
+                how="left"
+            )
+            name_col_to_use = emp_name_col
+
+    pending_leaves = team_leaves[team_leaves["Status"] == "Pending"].reset_index(drop=True)
+    all_leaves = team_leaves.copy()
 
     st.markdown("### 🟡 Pending Requests")
     if not pending_leaves.empty:
-        pending_leaves = pending_leaves.reset_index()
         for idx, row in pending_leaves.iterrows():
-            st.markdown(f"**Employee**: {row['Employee Code']} | **Dates**: {row['Start Date'].strftime('%d-%m-%Y')} → {row['End Date'].strftime('%d-%m-%Y')} | **Type**: {row['Leave Type']}")
+            emp_name = row.get(name_col_to_use, "") if name_col_to_use in row else ""
+            emp_display = f"{emp_name} ({row['Employee Code']})" if emp_name else row['Employee Code']
+            st.markdown(f"**Employee**: {emp_display} | **Dates**: {row['Start Date'].strftime('%d-%m-%Y')} → {row['End Date'].strftime('%d-%m-%Y')} | **Type**: {row['Leave Type']}")
             st.write(f"**Reason**: {row['Reason']}")
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("✅ Approve", key=f"app_{idx}"):
+                if st.button("✅ Approve", key=f"app_{idx}_{row['Employee Code']}"):
                     leaves_df.at[row.name, "Status"] = "Approved"
                     leaves_df.at[row.name, "Decision Date"] = pd.Timestamp.now()
                     save_leaves_data(leaves_df)
                     st.success("Approved!")
                     st.rerun()
             with col2:
-                if st.button("❌ Reject", key=f"rej_{idx}"):
-                    comment = st.text_input("Comment (optional)", key=f"com_{idx}")
+                if st.button("❌ Reject", key=f"rej_{idx}_{row['Employee Code']}"):
+                    comment = st.text_input("Comment (optional)", key=f"com_{idx}_{row['Employee Code']}")
                     leaves_df.at[row.name, "Status"] = "Rejected"
                     leaves_df.at[row.name, "Decision Date"] = pd.Timestamp.now()
                     leaves_df.at[row.name, "Comment"] = comment
@@ -364,10 +377,16 @@ def page_manager_leaves(user):
 
     st.markdown("### 📋 All Team Leave History")
     if not all_leaves.empty:
+        if name_col_to_use in all_leaves.columns:
+            all_leaves["Employee Name"] = all_leaves[name_col_to_use]
+        else:
+            all_leaves["Employee Name"] = all_leaves["Employee Code"]
+
         all_leaves["Start Date"] = pd.to_datetime(all_leaves["Start Date"]).dt.strftime("%d-%m-%Y")
         all_leaves["End Date"] = pd.to_datetime(all_leaves["End Date"]).dt.strftime("%d-%m-%Y")
+
         st.dataframe(all_leaves[[
-            "Employee Code", "Start Date", "End Date", "Leave Type", "Status", "Comment"
+            "Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"
         ]], use_container_width=True)
     else:
         st.info("No leave history for your team.")
@@ -587,7 +606,7 @@ else:
     user = st.session_state["logged_in_user"]
     title_val = str(user.get("Title") or user.get("title") or "").strip().upper()
     is_hr = "HR" in title_val
-    is_manager = title_val in ["AM", "DM"]  # فقط AM و DM يُعتبروا مديرين
+    is_manager = title_val in ["AM", "DM"]
 
     st.sidebar.write(f"👋 Welcome, {user.get('Employee Name') or user.get('employee name') or user.get('name','')}")
     st.sidebar.markdown("---")
@@ -618,7 +637,7 @@ else:
             st.success("You have been logged out successfully.")
             st.stop()
 
-    else:  # MR or any non-manager, non-HR
+    else:  # MR or other non-manager roles
         page = st.sidebar.radio("Pages", ("My Profile", "Leave Request", "Logout"))
         if page == "My Profile":
             page_my_profile(user)
