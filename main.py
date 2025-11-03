@@ -1,6 +1,7 @@
 # hr_system_dark_mode_v3.py
 import streamlit as st
 import pandas as pd
+import openpyxl
 import requests
 import base64
 from io import BytesIO
