@@ -380,7 +380,7 @@ def page_leave_request(user):
         st.info("No leave requests found.")
 
 # ============================
-# FIXED: page_manager_leaves — now correctly hides approved/rejected requests
+# FIXED: page_manager_leaves — now correctly reloads data and hides processed requests
 # ============================
 def page_manager_leaves(user):
     st.subheader("Leave Requests from Your Team")
@@ -395,13 +395,13 @@ def page_manager_leaves(user):
         st.error("Your Employee Code not found.")
         return
 
-    # === RELOAD leaves from file to get latest state ===
+    # === CRITICAL: Reload leaves data from file to get latest state ===
     leaves_df = load_leaves_data()
     if leaves_df.empty:
         st.info("No leave requests found.")
         return
 
-    # === FILTER ONLY PENDING REQUESTS ===
+    # === Filter ONLY pending requests ===
     pending_leaves = leaves_df[
         (leaves_df["Manager Code"].astype(str) == manager_code) &
         (leaves_df["Status"] == "Pending")
