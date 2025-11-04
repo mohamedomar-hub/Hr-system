@@ -162,6 +162,103 @@ def save_leaves_data(df):
         return False
 
 # ============================
+# NEW: Team Hierarchy with Exact Column Name
+# ============================
+def build_team_hierarchy(df, manager_code, manager_title="AM"):
+    """
+    Builds team under a manager (AM or DM).
+    Uses exact column name: 'Address as 702 bricks'
+    """
+    emp_code_col = "Employee Code"
+    emp_name_col = "Employee Name"
+    mgr_code_col = "Manager Code"
+    title_col = "Title"
+    addr_col = "Address as 702 bricks"
+    required_cols = [emp_code_col, emp_name_col, mgr_code_col, title_col]
+    if not all(col in df.columns for col in required_cols):
+        missing = [col for col in required_cols if col not in df.columns]
+        st.warning(f"Missing required columns: {missing}")
+        return {}
+    df = df.copy()
+    df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    df[mgr_code_col] = df[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    df[title_col] = df[title_col].astype(str).str.strip().str.upper()
+    hierarchy = {"Manager": None, "Team": []}
+    mgr_row = df[df[emp_code_col] == str(manager_code)]
+    if not mgr_row.empty:
+        mgr_name = mgr_row.iloc[0][emp_name_col]
+        hierarchy["Manager"] = f"{mgr_name} ({manager_title})"
+    if manager_title == "AM":
+        dms = df[(df[mgr_code_col] == str(manager_code)) & (df[title_col] == "DM")]
+        for _, dm_row in dms.iterrows():
+            dm_code = dm_row[emp_code_col]
+            dm_name = dm_row[emp_name_col]
+            dm_addr = dm_row.get(addr_col, "") if addr_col in df.columns else ""
+            mrs = df[(df[mgr_code_col] == dm_code) & (df[title_col] == "MR")]
+            mr_list = []
+            for _, mr_row in mrs.iterrows():
+                mr_list.append({
+                    "Code": mr_row[emp_code_col],
+                    "Name": mr_row[emp_name_col],
+                    "Address": mr_row.get(addr_col, "") if addr_col in df.columns else ""
+                })
+            hierarchy["Team"].append({
+                "Type": "DM",
+                "Code": dm_code,
+                "Name": dm_name,
+                "Address": dm_addr,
+                "Subordinates": mr_list
+            })
+    elif manager_title == "DM":
+        mrs = df[(df[mgr_code_col] == str(manager_code)) & (df[title_col] == "MR")]
+        for _, mr_row in mrs.iterrows():
+            hierarchy["Team"].append({
+                "Type": "MR",
+                "Code": mr_row[emp_code_col],
+                "Name": mr_row[emp_name_col],
+                "Address": mr_row.get(addr_col, "") if addr_col in df.columns else ""
+            })
+    return hierarchy
+
+# ============================
+# NEW: Page to show team with address
+# ============================
+def page_my_team(user, role="AM"):
+    st.subheader("My Team")
+    user_code = None
+    for key, val in user.items():
+        if key == "Employee Code":
+            user_code = str(val).strip().replace(".0", "")
+            break
+    if not user_code:
+        st.error("Your Employee Code not found.")
+        return
+    df = st.session_state.get("df", pd.DataFrame())
+    if df.empty:
+        st.error("Employee data not loaded.")
+        return
+    hierarchy = build_team_hierarchy(df, user_code, manager_title=role)
+    if not hierarchy["Team"]:
+        st.info(f"No team members found under your supervision.")
+        return
+    st.markdown(f"### 👤 {hierarchy['Manager']}")
+    if role == "AM":
+        for member in hierarchy["Team"]:
+            addr = f" — {member['Address']}" if member['Address'] else ""
+            st.markdown(f"#### 🧑‍💼 {member['Name']}{addr} — DM")
+            if member["Subordinates"]:
+                for mr in member["Subordinates"]:
+                    mr_addr = f" ({mr['Address']})" if mr['Address'] else ""
+                    st.markdown(f"- 👤 {mr['Name']}{mr_addr}")
+            else:
+                st.markdown("_No MRs under this DM._")
+            st.markdown("---")
+    elif role == "DM":
+        for mr in hierarchy["Team"]:
+            mr_addr = f" ({mr['Address']})" if mr['Address'] else ""
+            st.markdown(f"- 👤 {mr['Name']}{mr_addr}")
+
+# ============================
 # UI Components / Pages
 # ============================
 def render_logo_and_title():
@@ -283,7 +380,7 @@ def page_leave_request(user):
         st.info("No leave requests found.")
 
 # ============================
-# UPDATED: page_manager_leaves (FIXED PENDING REQUESTS FILTER)
+# FIXED: page_manager_leaves — now correctly hides approved/rejected requests
 # ============================
 def page_manager_leaves(user):
     st.subheader("Leave Requests from Your Team")
@@ -298,6 +395,7 @@ def page_manager_leaves(user):
         st.error("Your Employee Code not found.")
         return
 
+    # === RELOAD leaves from file to get latest state ===
     leaves_df = load_leaves_data()
     if leaves_df.empty:
         st.info("No leave requests found.")
@@ -309,26 +407,28 @@ def page_manager_leaves(user):
         (leaves_df["Status"] == "Pending")
     ].copy()
 
-    # Merge with employee names (for pending only)
-    df_emp = st.session_state.get("df", pd.DataFrame())
-    name_col_to_use = "Employee Code"
-    if not df_emp.empty and not pending_leaves.empty:
-        col_map = {c.lower().strip(): c for c in df_emp.columns}
-        emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
-        emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
-        if emp_code_col and emp_name_col:
-            df_emp[emp_code_col] = df_emp[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-            pending_leaves["Employee Code"] = pending_leaves["Employee Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-            pending_leaves = pending_leaves.merge(
-                df_emp[[emp_code_col, emp_name_col]],
-                left_on="Employee Code",
-                right_on=emp_code_col,
-                how="left"
-            )
-            name_col_to_use = emp_name_col
+    if pending_leaves.empty:
+        st.info("No pending requests from your team.")
+    else:
+        # Merge with employee names
+        df_emp = st.session_state.get("df", pd.DataFrame())
+        name_col_to_use = "Employee Code"
+        if not df_emp.empty:
+            col_map = {c.lower().strip(): c for c in df_emp.columns}
+            emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
+            emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
+            if emp_code_col and emp_name_col:
+                df_emp[emp_code_col] = df_emp[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+                pending_leaves["Employee Code"] = pending_leaves["Employee Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+                pending_leaves = pending_leaves.merge(
+                    df_emp[[emp_code_col, emp_name_col]],
+                    left_on="Employee Code",
+                    right_on=emp_code_col,
+                    how="left"
+                )
+                name_col_to_use = emp_name_col
 
-    st.markdown("### 🟡 Pending Requests")
-    if not pending_leaves.empty:
+        st.markdown("### 🟡 Pending Requests")
         for idx, row in pending_leaves.iterrows():
             emp_name = row.get(name_col_to_use, "") if name_col_to_use in row else ""
             emp_display = f"{emp_name} ({row['Employee Code']})" if emp_name else row['Employee Code']
@@ -352,13 +452,12 @@ def page_manager_leaves(user):
                     st.success("Rejected!")
                     st.rerun()
             st.markdown("---")
-    else:
-        st.info("No pending requests.")
 
-    # === SHOW ALL HISTORY (APPROVED/REJECTED/PENDING) ===
+    # Show full history (including approved/rejected)
     st.markdown("### 📋 All Team Leave History")
     all_leaves = leaves_df[leaves_df["Manager Code"].astype(str) == manager_code].copy()
     if not all_leaves.empty:
+        df_emp = st.session_state.get("df", pd.DataFrame())
         if not df_emp.empty:
             col_map = {c.lower().strip(): c for c in df_emp.columns}
             emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
@@ -600,7 +699,8 @@ else:
     user = st.session_state["logged_in_user"]
     title_val = str(user.get("Title") or user.get("title") or "").strip().upper()
     is_hr = "HR" in title_val
-    is_manager = title_val in ["AM", "DM"]
+    is_am = title_val == "AM"
+    is_dm = title_val == "DM"
 
     st.sidebar.write(f"👋 Welcome, {user.get('Employee Name') or user.get('employee name') or user.get('name','')}")
     st.sidebar.markdown("---")
@@ -618,10 +718,12 @@ else:
             st.success("You have been logged out successfully.")
             st.stop()
 
-    elif is_manager:
-        page = st.sidebar.radio("Pages", ("My Profile", "Team Leaves", "Leave Request", "Logout"))
+    elif is_am:
+        page = st.sidebar.radio("Pages", ("My Profile", "Team Structure", "Team Leaves", "Leave Request", "Logout"))
         if page == "My Profile":
             page_my_profile(user)
+        elif page == "Team Structure":
+            page_my_team(user, role="AM")
         elif page == "Team Leaves":
             page_manager_leaves(user)
         elif page == "Leave Request":
@@ -631,7 +733,22 @@ else:
             st.success("You have been logged out successfully.")
             st.stop()
 
-    else:  # MR or other non-manager roles
+    elif is_dm:
+        page = st.sidebar.radio("Pages", ("My Profile", "My Team", "Team Leaves", "Leave Request", "Logout"))
+        if page == "My Profile":
+            page_my_profile(user)
+        elif page == "My Team":
+            page_my_team(user, role="DM")
+        elif page == "Team Leaves":
+            page_manager_leaves(user)
+        elif page == "Leave Request":
+            page_leave_request(user)
+        elif page == "Logout":
+            st.session_state["logged_in_user"] = None
+            st.success("You have been logged out successfully.")
+            st.stop()
+
+    else:  # MR
         page = st.sidebar.radio("Pages", ("My Profile", "Leave Request", "Logout"))
         if page == "My Profile":
             page_my_profile(user)
