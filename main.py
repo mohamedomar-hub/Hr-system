@@ -12,6 +12,7 @@ import datetime
 # ============================
 DEFAULT_FILE_PATH = "Employees.xlsx"
 LEAVES_FILE_PATH = "Leaves.xlsx"
+NOTIFICATIONS_FILE_PATH = "Notifications.xlsx"  # <-- NEW
 LOGO_PATH = "logo.jpg"
 GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", None)
 REPO_OWNER = st.secrets.get("REPO_OWNER", "mohamedomar-hub")
@@ -20,20 +21,84 @@ BRANCH = st.secrets.get("BRANCH", "main")
 FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FILE_PATH") else DEFAULT_FILE_PATH
 
 # ============================
-# Styling - Dark mode CSS
+# Styling - Enhanced Dark Mode CSS (NEW)
 # ============================
 st.set_page_config(page_title="HR System (Dark)", page_icon="👥", layout="wide")
-dark_css = """
+enhanced_dark_css = """
 <style>
-/* App & layout */
-[data-testid="stAppViewContainer"] {background-color: #0f1724; color: #e6eef8;}
-[data-testid="stHeader"], [data-testid="stToolbar"] {background-color: #0b1220;}
-.stButton>button {background-color: #0b72b9; color: white; border-radius: 8px; padding: 6px 12px;}
-[data-testid="stSidebar"] {background-color: #071226;}
-.stTextInput>div>div>input, .stNumberInput>div>input, .stSelectbox>div>div>div {background-color: #071226; color: #e6eef8;}
+/* Fonts */
+body, h1, h2, h3, h4, h5, p, div, span, li {
+    font-family: 'Segoe UI', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+/* App background */
+[data-testid="stAppViewContainer"] {
+    background-color: #0f1724;
+    color: #e6eef8;
+}
+/* Header & Toolbar */
+[data-testid="stHeader"], [data-testid="stToolbar"] {
+    background-color: #0b1220;
+}
+/* Sidebar */
+[data-testid="stSidebar"] {
+    background-color: #071226;
+}
+/* Inputs */
+.stTextInput>div>div>input,
+.stNumberInput>div>input,
+.stSelectbox>div>div>div {
+    background-color: #071226;
+    color: #e6eef8;
+    border: 1px solid #1e293b;
+}
+/* Buttons */
+.stButton>button {
+    background-color: #0b72b9;
+    color: white;
+    border-radius: 8px;
+    padding: 8px 16px;
+    border: none;
+    transition: all 0.2s ease;
+}
+.stButton>button:hover {
+    background-color: #0a5aa0;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+/* Dataframes */
+.stDataFrame > div > div {
+    background-color: #111827 !important;
+    border-radius: 8px;
+}
+.stDataFrame table {
+    color: #e6eef8 !important;
+}
+.stDataFrame tr:nth-child(even) {
+    background-color: #182133 !important;
+}
+.stDataFrame tr:hover {
+    background-color: #1e293b !important;
+}
+/* Notification Bell */
+.notification-bell {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    background: #0b72b9;
+    color: white;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
 </style>
 """
-st.markdown(dark_css, unsafe_allow_html=True)
+st.markdown(enhanced_dark_css, unsafe_allow_html=True)
 
 # ============================
 # GitHub helpers
@@ -162,38 +227,146 @@ def save_leaves_data(df):
         return False
 
 # ============================
+# NEW: Notifications System
+# ============================
+def load_notifications():
+    if os.path.exists(NOTIFICATIONS_FILE_PATH):
+        try:
+            df = pd.read_excel(NOTIFICATIONS_FILE_PATH)
+            if "Timestamp" in df.columns:
+                df["Timestamp"] = pd.to_datetime(df["Timestamp"], errors="coerce")
+            return df
+        except Exception:
+            return pd.DataFrame()
+    else:
+        return pd.DataFrame(columns=[
+            "Recipient Code", "Recipient Title", "Message", "Timestamp", "Is Read"
+        ])
+
+def save_notifications(df):
+    try:
+        with pd.ExcelWriter(NOTIFICATIONS_FILE_PATH, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False)
+        return True
+    except Exception:
+        return False
+
+def add_notification(recipient_code, recipient_title, message):
+    notifications = load_notifications()
+    new_row = pd.DataFrame([{
+        "Recipient Code": str(recipient_code),
+        "Recipient Title": str(recipient_title),
+        "Message": message,
+        "Timestamp": pd.Timestamp.now(),
+        "Is Read": False
+    }])
+    notifications = pd.concat([notifications, new_row], ignore_index=True)
+    save_notifications(notifications)
+
+def get_unread_count(user):
+    notifications = load_notifications()
+    if notifications.empty:
+        return 0
+    user_code = None
+    user_title = None
+    for key, val in user.items():
+        if key == "Employee Code":
+            user_code = str(val).strip().replace(".0", "")
+        if key == "Title":
+            user_title = str(val).strip().upper()
+    if not user_code and not user_title:
+        return 0
+    # Filter by code OR title
+    mask = (
+        (notifications["Recipient Code"].astype(str) == user_code) |
+        (notifications["Recipient Title"].astype(str).str.upper() == user_title)
+    )
+    unread = notifications[mask & (~notifications["Is Read"])]
+    return len(unread)
+
+def mark_all_as_read(user):
+    notifications = load_notifications()
+    if notifications.empty:
+        return
+    user_code = None
+    user_title = None
+    for key, val in user.items():
+        if key == "Employee Code":
+            user_code = str(val).strip().replace(".0", "")
+        if key == "Title":
+            user_title = str(val).strip().upper()
+    mask = (
+        (notifications["Recipient Code"].astype(str) == user_code) |
+        (notifications["Recipient Title"].astype(str).str.upper() == user_title)
+    )
+    notifications.loc[mask, "Is Read"] = True
+    save_notifications(notifications)
+
+def page_notifications(user):
+    st.subheader("🔔 Notifications")
+    notifications = load_notifications()
+    if notifications.empty:
+        st.info("No notifications.")
+        return
+
+    user_code = None
+    user_title = None
+    for key, val in user.items():
+        if key == "Employee Code":
+            user_code = str(val).strip().replace(".0", "")
+        if key == "Title":
+            user_title = str(val).strip().upper()
+
+    # Filter notifications for this user
+    user_notifs = notifications[
+        (notifications["Recipient Code"].astype(str) == user_code) |
+        (notifications["Recipient Title"].astype(str).str.upper() == user_title)
+    ].copy()
+
+    if user_notifs.empty:
+        st.info("No notifications for you.")
+        return
+
+    # Sort by timestamp (newest first)
+    user_notifs = user_notifs.sort_values("Timestamp", ascending=False).reset_index(drop=True)
+
+    col1, col2 = st.columns([4,1])
+    with col2:
+        if st.button("Mark all as read"):
+            mark_all_as_read(user)
+            st.success("All notifications marked as read.")
+            st.rerun()
+
+    for idx, row in user_notifs.iterrows():
+        status = "✅" if row["Is Read"] else "🆕"
+        time_str = row["Timestamp"].strftime("%d-%m-%Y %H:%M") if pd.notna(row["Timestamp"]) else "N/A"
+        st.markdown(f"**{status} {row['Message']}**")
+        st.caption(f"• {time_str}")
+        st.markdown("---")
+
+# ============================
 # NEW: Team Hierarchy with Exact Column Name
 # ============================
 def build_team_hierarchy(df, manager_code, manager_title="AM"):
-    """
-    Builds team under a manager (AM or DM).
-    Uses exact column name: 'Address as 702 bricks'
-    """
-    # Use exact column names
     emp_code_col = "Employee Code"
     emp_name_col = "Employee Name"
     mgr_code_col = "Manager Code"
     title_col = "Title"
-    addr_col = "Address as 702 bricks"  # <-- EXACT NAME
-
+    addr_col = "Address as 702 bricks"
     required_cols = [emp_code_col, emp_name_col, mgr_code_col, title_col]
     if not all(col in df.columns for col in required_cols):
         missing = [col for col in required_cols if col not in df.columns]
         st.warning(f"Missing required columns: {missing}")
         return {}
-
     df = df.copy()
-    # Normalize codes (remove .0)
     df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     df[mgr_code_col] = df[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     df[title_col] = df[title_col].astype(str).str.strip().str.upper()
-
     hierarchy = {"Manager": None, "Team": []}
     mgr_row = df[df[emp_code_col] == str(manager_code)]
     if not mgr_row.empty:
         mgr_name = mgr_row.iloc[0][emp_name_col]
         hierarchy["Manager"] = f"{mgr_name} ({manager_title})"
-
     if manager_title == "AM":
         dms = df[(df[mgr_code_col] == str(manager_code)) & (df[title_col] == "DM")]
         for _, dm_row in dms.iterrows():
@@ -224,12 +397,8 @@ def build_team_hierarchy(df, manager_code, manager_title="AM"):
                 "Name": mr_row[emp_name_col],
                 "Address": mr_row.get(addr_col, "") if addr_col in df.columns else ""
             })
-
     return hierarchy
 
-# ============================
-# NEW: Page to show team with address
-# ============================
 def page_my_team(user, role="AM"):
     st.subheader("My Team")
     user_code = None
@@ -240,20 +409,15 @@ def page_my_team(user, role="AM"):
     if not user_code:
         st.error("Your Employee Code not found.")
         return
-
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.error("Employee data not loaded.")
         return
-
     hierarchy = build_team_hierarchy(df, user_code, manager_title=role)
-
     if not hierarchy["Team"]:
         st.info(f"No team members found under your supervision.")
         return
-
     st.markdown(f"### 👤 {hierarchy['Manager']}")
-
     if role == "AM":
         for member in hierarchy["Team"]:
             addr = f" — {member['Address']}" if member['Address'] else ""
@@ -280,6 +444,12 @@ def render_logo_and_title():
             st.image(LOGO_PATH, width=160)
         st.markdown("<h1 style='color:#e6eef8'>HR System — Dark Mode</h1>", unsafe_allow_html=True)
         st.markdown("<p style='color:#aab8c9'>English interface only</p>", unsafe_allow_html=True)
+    # Add notification bell
+    user = st.session_state.get("logged_in_user")
+    if user:
+        unread = get_unread_count(user)
+        if unread > 0:
+            st.markdown(f'<div class="notification-bell">{unread}</div>', unsafe_allow_html=True)
 
 def page_my_profile(user):
     st.subheader("My Profile")
@@ -374,6 +544,8 @@ def page_leave_request(user):
             leaves_df = pd.concat([leaves_df, new_row], ignore_index=True)
             if save_leaves_data(leaves_df):
                 st.success("✅ Leave request submitted successfully to your manager.")
+                # ADD NOTIFICATION
+                add_notification(manager_code, "", f"New leave request from {user_code}")
                 st.balloons()
             else:
                 st.error("❌ Failed to save leave request.")
@@ -443,6 +615,8 @@ def page_manager_leaves(user):
                     leaves_df.at[row.name, "Status"] = "Approved"
                     leaves_df.at[row.name, "Decision Date"] = pd.Timestamp.now()
                     save_leaves_data(leaves_df)
+                    # ADD NOTIFICATION
+                    add_notification(row['Employee Code'], "", "Your leave request has been approved!")
                     st.success("Approved!")
                     st.rerun()
             with col2:
@@ -452,6 +626,9 @@ def page_manager_leaves(user):
                     leaves_df.at[row.name, "Decision Date"] = pd.Timestamp.now()
                     leaves_df.at[row.name, "Comment"] = comment
                     save_leaves_data(leaves_df)
+                    # ADD NOTIFICATION
+                    msg = f"Your leave request was rejected. Comment: {comment}" if comment else "Your leave request was rejected."
+                    add_notification(row['Employee Code'], "", msg)
                     st.success("Rejected!")
                     st.rerun()
             st.markdown("---")
@@ -655,7 +832,7 @@ def page_reports(user):
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Employees")
     buf.seek(0)
-    st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument-spreadsheetml.sheet")
 
 # ============================
 # Main App Flow
@@ -692,56 +869,38 @@ else:
     st.sidebar.write(f"👋 Welcome, {user.get('Employee Name') or user.get('employee name') or user.get('name','')}")
     st.sidebar.markdown("---")
 
+    # Add Notifications to all users
+    pages = ["My Profile", "Notifications"]
     if is_hr:
-        page = st.sidebar.radio("Pages", ("Dashboard", "Reports", "HR Manager", "Logout"))
-        if page == "Dashboard":
-            page_dashboard(user)
-        elif page == "Reports":
-            page_reports(user)
-        elif page == "HR Manager":
-            page_hr_manager(user)
-        elif page == "Logout":
-            st.session_state["logged_in_user"] = None
-            st.success("You have been logged out successfully.")
-            st.stop()
-
+        pages = ["Dashboard", "Reports", "HR Manager", "Notifications", "Logout"]
     elif is_am:
-        page = st.sidebar.radio("Pages", ("My Profile", "Team Structure", "Team Leaves", "Leave Request", "Logout"))
-        if page == "My Profile":
-            page_my_profile(user)
-        elif page == "Team Structure":
-            page_my_team(user, role="AM")
-        elif page == "Team Leaves":
-            page_manager_leaves(user)
-        elif page == "Leave Request":
-            page_leave_request(user)
-        elif page == "Logout":
-            st.session_state["logged_in_user"] = None
-            st.success("You have been logged out successfully.")
-            st.stop()
-
+        pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Notifications", "Logout"]
     elif is_dm:
-        page = st.sidebar.radio("Pages", ("My Profile", "My Team", "Team Leaves", "Leave Request", "Logout"))
-        if page == "My Profile":
-            page_my_profile(user)
-        elif page == "My Team":
-            page_my_team(user, role="DM")
-        elif page == "Team Leaves":
-            page_manager_leaves(user)
-        elif page == "Leave Request":
-            page_leave_request(user)
-        elif page == "Logout":
-            st.session_state["logged_in_user"] = None
-            st.success("You have been logged out successfully.")
-            st.stop()
+        pages = ["My Profile", "My Team", "Team Leaves", "Leave Request", "Notifications", "Logout"]
+    else:
+        pages = ["My Profile", "Leave Request", "Notifications", "Logout"]
 
-    else:  # MR
-        page = st.sidebar.radio("Pages", ("My Profile", "Leave Request", "Logout"))
-        if page == "My Profile":
-            page_my_profile(user)
-        elif page == "Leave Request":
-            page_leave_request(user)
-        elif page == "Logout":
-            st.session_state["logged_in_user"] = None
-            st.success("You have been logged out successfully.")
-            st.stop()
+    page = st.sidebar.radio("Pages", pages)
+
+    if page == "My Profile":
+        page_my_profile(user)
+    elif page == "Notifications":
+        page_notifications(user)
+    elif page == "Leave Request":
+        page_leave_request(user)
+    elif page == "Team Leaves":
+        page_manager_leaves(user)
+    elif page == "Dashboard":
+        page_dashboard(user)
+    elif page == "Reports":
+        page_reports(user)
+    elif page == "HR Manager":
+        page_hr_manager(user)
+    elif page == "Team Structure":
+        page_my_team(user, role="AM")
+    elif page == "My Team":
+        page_my_team(user, role="DM")
+    elif page == "Logout":
+        st.session_state["logged_in_user"] = None
+        st.success("You have been logged out successfully.")
+        st.stop()
