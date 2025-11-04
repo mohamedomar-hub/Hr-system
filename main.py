@@ -125,204 +125,23 @@ def ensure_session_df():
             else:
                 st.session_state["df"] = pd.DataFrame()
 
-# ----------------------------
-# Notifications helpers
-# ----------------------------
-
-def ensure_notifications_file_exists():
-    """Ensure Notifications.xlsx exists with headers. Returns DataFrame."""
-    if os.path.exists(NOTIFICATIONS_FILE_PATH):
-        try:
-            df = pd.read_excel(NOTIFICATIONS_FILE_PATH)
-            # normalize
-            if "Is_Read" not in df.columns:
-                df["Is_Read"] = False
-            return df
-        except Exception:
-            return pd.DataFrame(columns=["Timestamp","Title","Message","Target_Title","Target_Code","Is_Read"])
-    else:
-        df = pd.DataFrame(columns=["Timestamp","Title","Message","Target_Title","Target_Code","Is_Read"])
-        try:
-            with pd.ExcelWriter(NOTIFICATIONS_FILE_PATH, engine="openpyxl") as writer:
-                df.to_excel(writer, index=False)
-        except Exception:
-            pass
-        return df
-
-
-def load_notifications_data():
-    try:
-        if os.path.exists(NOTIFICATIONS_FILE_PATH):
-            df = pd.read_excel(NOTIFICATIONS_FILE_PATH)
-            return df
-        else:
-            return ensure_notifications_file_exists()
-    except Exception:
-        return ensure_notifications_file_exists()
-
-
-def save_notifications_data(df):
-    try:
-        with pd.ExcelWriter(NOTIFICATIONS_FILE_PATH, engine="openpyxl") as writer:
-            df.to_excel(writer, index=False)
-        return True
-    except Exception:
-        return False
-
-
-def create_notification(title, message, target_title="ALL", target_code="-"):
-    """Append a notification to the notifications file."""
-    df = load_notifications_data()
-    new_row = {
-        "Timestamp": pd.Timestamp.now(),
-        "Title": title,
-        "Message": message,
-        "Target_Title": target_title,
-        "Target_Code": str(target_code),
-        "Is_Read": False
-    }
-    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-    save_notifications_data(df)
-    return True
-
-
-def get_user_notifications(user):
-    df = load_notifications_data()
-    if df.empty:
-        return pd.DataFrame()
-    # find user's title and code
-    user_title = str(user.get("Title") or user.get("title") or "").strip().upper()
-    user_code = None
-    for key, val in user.items():
-        if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
-            user_code = str(val).strip().replace('.0','')
-            break
-    # filter where Target_Title matches or Target_Code matches or Target_Title == ALL
-    df["Target_Title"] = df["Target_Title"].astype(str).str.upper()
-    df["Target_Code"] = df["Target_Code"].astype(str)
-    mask = (df["Target_Title"] == "ALL") | (df["Target_Title"] == user_title)
-    if user_code:
-        mask = mask | (df["Target_Code"] == user_code)
-    user_df = df[mask].copy()
-    # sort desc
-    try:
-        user_df["Timestamp"] = pd.to_datetime(user_df["Timestamp"], errors="coerce")
-        user_df = user_df.sort_values("Timestamp", ascending=False).reset_index(drop=True)
-    except Exception:
-        pass
-    return user_df
-
-
-def mark_notifications_as_read_for_user(user, indices=None):
-    df = load_notifications_data()
-    if df.empty:
-        return False
-    user_df = get_user_notifications(user)
-    if user_df.empty:
-        return False
-    # If indices is None -> mark all for this user
-    if indices is None:
-        # mark all rows that match the user's filter
-        user_title = str(user.get("Title") or user.get("title") or "").strip().upper()
-        user_code = None
-        for key, val in user.items():
-            if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
-                user_code = str(val).strip().replace('.0','')
-                break
-        df_idx_mask = ((df["Target_Title"].astype(str).str.upper() == "ALL") | (df["Target_Title"].astype(str).str.upper() == user_title))
-        if user_code:
-            df_idx_mask = df_idx_mask | (df["Target_Code"].astype(str) == user_code)
-        df.loc[df_idx_mask, "Is_Read"] = True
-    else:
-        # indices are positions relative to user_df
-        user_df = user_df.reset_index()
-        to_mark = []
-        for i in indices:
-            if i in user_df["index"].values:
-                to_mark.append(i)
-        df.loc[to_mark, "Is_Read"] = True
-    save_notifications_data(df)
-    return True
-
-# ============================
-# Team Hierarchy with Exact Column Name (unchanged)
-# ============================
-def build_team_hierarchy(df, manager_code, manager_title="AM"):
-    """
-    Builds team under a manager (AM or DM).
-    Uses exact column name: 'Address as 702 bricks'
-    """
-    # Use exact column names
-    emp_code_col = "Employee Code"
-    emp_name_col = "Employee Name"
-    mgr_code_col = "Manager Code"
-    title_col = "Title"
-    addr_col = "Address as 702 bricks"  # <-- EXACT NAME
-
-    required_cols = [emp_code_col, emp_name_col, mgr_code_col, title_col]
-    if not all(col in df.columns for col in required_cols):
-        missing = [col for col in required_cols if col not in df.columns]
-        st.warning(f"Missing required columns: {missing}")
-        return {}
-
-    df = df.copy()
-    # Normalize codes (remove .0)
-    df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-    df[mgr_code_col] = df[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-    df[title_col] = df[title_col].astype(str).str.strip().str.upper()
-
-    hierarchy = {"Manager": None, "Team": []}
-    mgr_row = df[df[emp_code_col] == str(manager_code)]
-    if not mgr_row.empty:
-        mgr_name = mgr_row.iloc[0][emp_name_col]
-        hierarchy["Manager"] = f"{mgr_name} ({manager_title})"
-
-    if manager_title == "AM":
-        dms = df[(df[mgr_code_col] == str(manager_code)) & (df[title_col] == "DM")]
-        for _, dm_row in dms.iterrows():
-            dm_code = dm_row[emp_code_col]
-            dm_name = dm_row[emp_name_col]
-            dm_addr = dm_row.get(addr_col, "") if addr_col in df.columns else ""
-            mrs = df[(df[mgr_code_col] == dm_code) & (df[title_col] == "MR")]
-            mr_list = []
-            for _, mr_row in mrs.iterrows():
-                mr_list.append({
-                    "Code": mr_row[emp_code_col],
-                    "Name": mr_row[emp_name_col],
-                    "Address": mr_row.get(addr_col, "") if addr_col in df.columns else ""
-                })
-            hierarchy["Team"].append({
-                "Type": "DM",
-                "Code": dm_code,
-                "Name": dm_name,
-                "Address": dm_addr,
-                "Subordinates": mr_list
-            })
-    elif manager_title == "DM":
-        mrs = df[(df[mgr_code_col] == str(manager_code)) & (df[title_col] == "MR")]
-        for _, mr_row in mrs.iterrows():
-            hierarchy["Team"].append({
-                "Type": "MR",
-                "Code": mr_row[emp_code_col],
-                "Name": mr_row[emp_name_col],
-                "Address": mr_row.get(addr_col, "") if addr_col in df.columns else ""
-            })
-
-    return hierarchy
-
-# ============================
-# NEW: Page to show team with address (unchanged)
-# ============================
-def page_my_team(user, role="AM"):
-    st.subheader("My Team")
-    user_code = None
-    for key, val in user.items():
-        if key == "Employee Code":
-            user_code = str(val).strip().replace(".0", "")
-            break
-    if not user_code:
-        st.error("Your Employee Code not found.")
-        return
+# Login function moved earlier to ensure it's defined before use in the main flow
+def login(df, code, password):
+    if df is None or df.empty:
+        return None
+    col_map = {c.lower().strip(): c for c in df.columns}
+    code_col = col_map.get("employee_code") or col_map.get("employee code")
+    pass_col = col_map.get("password")
+    if not code_col or not pass_col:
+        return None
+    df_local = df.copy()
+    df_local[code_col] = df_local[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    df_local[pass_col] = df_local[pass_col].astype(str).str.strip()
+    code_s, pwd_s = str(code).strip(), str(password).strip()
+    matched = df_local[(df_local[code_col] == code_s) & (df_local[pass_col] == pwd_s)]
+    if not matched.empty:
+        return matched.iloc[0].to_dict()
+    return None
 
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
