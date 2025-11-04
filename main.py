@@ -109,6 +109,72 @@ def upload_to_github(df, commit_message="Update employees via Streamlit"):
         return False
 
 # ============================
+# Notification System
+# ============================
+def load_notifications_data():
+    if os.path.exists(NOTIFICATIONS_FILE_PATH):
+        try:
+            return pd.read_excel(NOTIFICATIONS_FILE_PATH)
+        except Exception:
+            return pd.DataFrame()
+    else:
+        return pd.DataFrame(columns=["Title", "Message", "Timestamp", "Is_Read", "Target_Title", "Target_Code"])
+
+def save_notifications_data(df):
+    try:
+        with pd.ExcelWriter(NOTIFICATIONS_FILE_PATH, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False)
+        return True
+    except Exception:
+        return False
+
+def ensure_notifications_file_exists():
+    if not os.path.exists(NOTIFICATIONS_FILE_PATH):
+        df = pd.DataFrame(columns=["Title", "Message", "Timestamp", "Is_Read", "Target_Title", "Target_Code"])
+        save_notifications_data(df)
+
+def create_notification(title, message, target_title="ALL", target_code="-"):
+    notif_df = load_notifications_data()
+    new_row = pd.DataFrame([{
+        "Title": title,
+        "Message": message,
+        "Timestamp": pd.Timestamp.now(),
+        "Is_Read": False,
+        "Target_Title": target_title,
+        "Target_Code": target_code
+    }])
+    notif_df = pd.concat([notif_df, new_row], ignore_index=True)
+    save_notifications_data(notif_df)
+
+def get_user_notifications(user):
+    notif_df = load_notifications_data()
+    if notif_df.empty:
+        return notif_df
+    user_title = str(user.get("Title", "")).strip().upper()
+    user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
+    # Show if target is ALL, or matches title, or matches code
+    mask = (
+        (notif_df["Target_Title"] == "ALL") |
+        (notif_df["Target_Title"] == user_title) |
+        (notif_df["Target_Code"] == user_code)
+    )
+    return notif_df[mask].sort_values("Timestamp", ascending=False).reset_index(drop=True)
+
+def mark_notifications_as_read_for_user(user):
+    notif_df = load_notifications_data()
+    if notif_df.empty:
+        return
+    user_title = str(user.get("Title", "")).strip().upper()
+    user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
+    mask = (
+        (notif_df["Target_Title"] == "ALL") |
+        (notif_df["Target_Title"] == user_title) |
+        (notif_df["Target_Code"] == user_code)
+    )
+    notif_df.loc[mask, "Is_Read"] = True
+    save_notifications_data(notif_df)
+
+# ============================
 # Helpers (kept intact and extended)
 # ============================
 def ensure_session_df():
@@ -125,7 +191,6 @@ def ensure_session_df():
             else:
                 st.session_state["df"] = pd.DataFrame()
 
-# Login function moved earlier to ensure it's defined before use in the main flow
 def login(df, code, password):
     if df is None or df.empty:
         return None
@@ -143,19 +208,118 @@ def login(df, code, password):
         return matched.iloc[0].to_dict()
     return None
 
+def save_df_to_local(df):
+    try:
+        with pd.ExcelWriter(FILE_PATH, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False)
+        return True
+    except Exception:
+        return False
+
+def save_and_maybe_push(df, actor="HR"):
+    saved = save_df_to_local(df)
+    pushed = False
+    if saved and GITHUB_TOKEN:
+        pushed = upload_to_github(df, commit_message=f"Update {FILE_PATH} via Streamlit by {actor}")
+    return saved, pushed
+
+def load_leaves_data():
+    if os.path.exists(LEAVES_FILE_PATH):
+        try:
+            df = pd.read_excel(LEAVES_FILE_PATH)
+            if "Decision Date" in df.columns:
+                df["Decision Date"] = pd.to_datetime(df["Decision Date"], errors="coerce")
+            return df
+        except Exception:
+            return pd.DataFrame()
+    else:
+        return pd.DataFrame(columns=[
+            "Employee Code", "Manager Code", "Start Date", "End Date",
+            "Leave Type", "Reason", "Status", "Decision Date", "Comment"
+        ])
+
+def save_leaves_data(df):
+    try:
+        with pd.ExcelWriter(LEAVES_FILE_PATH, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False)
+        return True
+    except Exception:
+        return False
+
+# ============================
+# Team Hierarchy
+# ============================
+def build_team_hierarchy(df, manager_code, manager_title="AM"):
+    emp_code_col = "Employee Code"
+    emp_name_col = "Employee Name"
+    mgr_code_col = "Manager Code"
+    title_col = "Title"
+    addr_col = "Address as 702 bricks"
+    required_cols = [emp_code_col, emp_name_col, mgr_code_col, title_col]
+    if not all(col in df.columns for col in required_cols):
+        missing = [col for col in required_cols if col not in df.columns]
+        st.warning(f"Missing required columns: {missing}")
+        return {}
+    df = df.copy()
+    df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    df[mgr_code_col] = df[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    df[title_col] = df[title_col].astype(str).str.strip().str.upper()
+    hierarchy = {"Manager": None, "Team": []}
+    mgr_row = df[df[emp_code_col] == str(manager_code)]
+    if not mgr_row.empty:
+        mgr_name = mgr_row.iloc[0][emp_name_col]
+        hierarchy["Manager"] = f"{mgr_name} ({manager_title})"
+    if manager_title == "AM":
+        dms = df[(df[mgr_code_col] == str(manager_code)) & (df[title_col] == "DM")]
+        for _, dm_row in dms.iterrows():
+            dm_code = dm_row[emp_code_col]
+            dm_name = dm_row[emp_name_col]
+            dm_addr = dm_row.get(addr_col, "") if addr_col in df.columns else ""
+            mrs = df[(df[mgr_code_col] == dm_code) & (df[title_col] == "MR")]
+            mr_list = []
+            for _, mr_row in mrs.iterrows():
+                mr_list.append({
+                    "Code": mr_row[emp_code_col],
+                    "Name": mr_row[emp_name_col],
+                    "Address": mr_row.get(addr_col, "") if addr_col in df.columns else ""
+                })
+            hierarchy["Team"].append({
+                "Type": "DM",
+                "Code": dm_code,
+                "Name": dm_name,
+                "Address": dm_addr,
+                "Subordinates": mr_list
+            })
+    elif manager_title == "DM":
+        mrs = df[(df[mgr_code_col] == str(manager_code)) & (df[title_col] == "MR")]
+        for _, mr_row in mrs.iterrows():
+            hierarchy["Team"].append({
+                "Type": "MR",
+                "Code": mr_row[emp_code_col],
+                "Name": mr_row[emp_name_col],
+                "Address": mr_row.get(addr_col, "") if addr_col in df.columns else ""
+            })
+    return hierarchy
+
+def page_my_team(user, role="AM"):
+    st.subheader("My Team")
+    user_code = None
+    for key, val in user.items():
+        if key == "Employee Code":
+            user_code = str(val).strip().replace(".0", "")
+            break
+    if not user_code:
+        st.error("Your Employee Code not found.")
+        return
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.error("Employee data not loaded.")
         return
-
     hierarchy = build_team_hierarchy(df, user_code, manager_title=role)
-
     if not hierarchy["Team"]:
         st.info(f"No team members found under your supervision.")
         return
-
     st.markdown(f"### 👤 {hierarchy['Manager']}")
-
     if role == "AM":
         for member in hierarchy["Team"]:
             addr = f" — {member['Address']}" if member['Address'] else ""
@@ -173,7 +337,7 @@ def login(df, code, password):
             st.markdown(f"- 👤 {mr['Name']}{mr_addr}")
 
 # ============================
-# UI Components / Pages (mostly unchanged but extended)
+# UI Components / Pages
 # ============================
 
 def render_logo_and_title():
@@ -184,28 +348,24 @@ def render_logo_and_title():
         st.markdown("<h1 style='color:#e6eef8'>HR System — Dark Mode</h1>", unsafe_allow_html=True)
         st.markdown("<p style='color:#aab8c9'>English interface only</p>", unsafe_allow_html=True)
 
-# Add a top-right bell when user is logged in
 def render_notification_bell(user):
     if not user:
         return
-    # compute unread count
     user_notifs = get_user_notifications(user)
     if user_notifs.empty:
         unread = 0
     else:
         unread = int(user_notifs[user_notifs["Is_Read"] == False].shape[0])
-    # place in a small column at top-right
     cols = st.columns([6,1])
     with cols[1]:
         if unread > 0:
-            if st.button(f"🔔  ", key="bell_btn"):
+            if st.button(f"🔔", key="bell_btn"):
                 st.session_state["show_notifications"] = True
         else:
             if st.button("🔔", key="bell_btn2"):
                 st.session_state["show_notifications"] = True
         if unread > 0:
             st.markdown(f"<div style='text-align:right; margin-top:-28px; font-weight:600;'><span class='notification-badge'>{unread}</span></div>", unsafe_allow_html=True)
-
 
 def page_my_profile(user):
     st.subheader("My Profile")
@@ -241,7 +401,6 @@ def page_my_profile(user):
         row.to_excel(writer, index=False, sheet_name="MyProfile")
     buf.seek(0)
     st.download_button("Download My Profile (Excel)", data=buf, file_name="my_profile.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
 
 def page_leave_request(user):
     st.subheader("Request Leave")
@@ -302,12 +461,11 @@ def page_leave_request(user):
             if save_leaves_data(leaves_df):
                 st.success("✅ Leave request submitted successfully to your manager.")
                 st.balloons()
-                # Notify manager of new leave request
                 create_notification(
                     title="New Leave Request",
                     message=f"Employee {user_code} submitted a leave request ({start_date} → {end_date}).",
                     target_title="DM",
-                    target_code="-"
+                    target_code=manager_code
                 )
             else:
                 st.error("❌ Failed to save leave request.")
@@ -325,7 +483,9 @@ def page_leave_request(user):
     else:
         st.info("No leave requests found.")
 
-
+# ============================
+# UPDATED: page_manager_leaves from edit code.txt
+# ============================
 def page_manager_leaves(user):
     st.subheader("Leave Requests from Your Team")
     manager_code = None
@@ -342,9 +502,13 @@ def page_manager_leaves(user):
     if leaves_df.empty:
         st.info("No leave requests found.")
         return
-    team_leaves = leaves_df[leaves_df["Manager Code"].astype(str) == manager_code].copy()
-    if team_leaves.empty:
-        st.info("No leave requests from your team.")
+    # Filter pending requests only for display
+    pending_leaves = leaves_df[
+        (leaves_df["Manager Code"].astype(str) == manager_code) &
+        (leaves_df["Status"] == "Pending")
+    ].copy()
+    if pending_leaves.empty:
+        st.info("No pending requests from your team.")
         return
     # Merge with employee names
     df_emp = st.session_state.get("df", pd.DataFrame())
@@ -355,55 +519,81 @@ def page_manager_leaves(user):
         emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
         if emp_code_col and emp_name_col:
             df_emp[emp_code_col] = df_emp[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-            team_leaves["Employee Code"] = team_leaves["Employee Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-            team_leaves = team_leaves.merge(
+            pending_leaves["Employee Code"] = pending_leaves["Employee Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+            pending_leaves = pending_leaves.merge(
                 df_emp[[emp_code_col, emp_name_col]],
                 left_on="Employee Code",
                 right_on=emp_code_col,
                 how="left"
             )
             name_col_to_use = emp_name_col
-    pending_leaves = team_leaves[team_leaves["Status"] == "Pending"].reset_index(drop=True)
-    all_leaves = team_leaves.copy()
     st.markdown("### 🟡 Pending Requests")
-    if not pending_leaves.empty:
-        for idx, row in pending_leaves.iterrows():
-            emp_name = row.get(name_col_to_use, "") if name_col_to_use in row else ""
-            emp_display = f"{emp_name} ({row['Employee Code']})" if emp_name else row['Employee Code']
-            st.markdown(f"**Employee**: {emp_display} | **Dates**: {row['Start Date'].strftime('%d-%m-%Y')} → {row['End Date'].strftime('%d-%m-%Y')} | **Type**: {row['Leave Type']}")
-            st.write(f"**Reason**: {row['Reason']}")
-            col1, col2 = st.columns(2)
-            with col1:
+    for idx, row in pending_leaves.iterrows():
+        emp_name = row.get(name_col_to_use, "") if name_col_to_use in row else ""
+        emp_display = f"{emp_name} ({row['Employee Code']})" if emp_name else row['Employee Code']
+        # Format dates safely
+        try:
+            start_str = pd.to_datetime(row['Start Date']).strftime('%d-%m-%Y')
+        except Exception:
+            start_str = str(row['Start Date'])
+        try:
+            end_str = pd.to_datetime(row['End Date']).strftime('%d-%m-%Y')
+        except Exception:
+            end_str = str(row['End Date'])
+        st.markdown(f"**Employee**: {emp_display} | **Dates**: {start_str} → {end_str} | **Type**: {row['Leave Type']}")
+        st.write(f"**Reason**: {row['Reason']}")
+        col1, col2 = st.columns(2)
+        # Approve button and handler
+        with col1:
             if st.button("✅ Approve", key=f"app_{idx}_{row['Employee Code']}"):
-                leaves_df.at[row.name, "Status"] = "Approved"
-                leaves_df.at[row.name, "Decision Date"] = pd.Timestamp.now()
+                # Update the main leaves_df (not only pending_leaves)
+                leaves_df.loc[row.name, "Status"] = "Approved"
+                leaves_df.loc[row.name, "Decision Date"] = pd.Timestamp.now()
                 save_leaves_data(leaves_df)
-                # reload leaves and recompute pending after save
+                # reload leaves and recompute pending (ensures UI shows updated state)
                 leaves_df = load_leaves_data()
-                pending_leaves = leaves_df[(leaves_df["Manager Code"].astype(str) == manager_code) & (leaves_df["Status"] == "Pending")].copy()
+                pending_leaves = leaves_df[
+                    (leaves_df["Manager Code"].astype(str) == manager_code) &
+                    (leaves_df["Status"] == "Pending")
+                ].copy()
                 # ADD NOTIFICATION
-                add_notification(row['Employee Code'], "", "Your leave request has been approved!")
+                create_notification(
+                    title="Leave Approved",
+                    message=f"Your leave request ({start_str} → {end_str}) has been approved.",
+                    target_title="",
+                    target_code=row['Employee Code']
+                )
                 st.success("Approved!")
-                st.experimental_rerun()
+                st.rerun()
+        # Reject button and handler
         with col2:
             if st.button("❌ Reject", key=f"rej_{idx}_{row['Employee Code']}"):
                 comment = st.text_input("Comment (optional)", key=f"com_{idx}_{row['Employee Code']}")
-                leaves_df.at[row.name, "Status"] = "Rejected"
-                leaves_df.at[row.name, "Decision Date"] = pd.Timestamp.now()
-                leaves_df.at[row.name, "Comment"] = comment
+                # update main dataframe
+                leaves_df.loc[row.name, "Status"] = "Rejected"
+                leaves_df.loc[row.name, "Decision Date"] = pd.Timestamp.now()
+                leaves_df.loc[row.name, "Comment"] = comment
                 save_leaves_data(leaves_df)
-                # reload leaves and recompute pending after save
+                # reload leaves and recompute pending
                 leaves_df = load_leaves_data()
-                pending_leaves = leaves_df[(leaves_df["Manager Code"].astype(str) == manager_code) & (leaves_df["Status"] == "Pending")].copy()
+                pending_leaves = leaves_df[
+                    (leaves_df["Manager Code"].astype(str) == manager_code) &
+                    (leaves_df["Status"] == "Pending")
+                ].copy()
                 # ADD NOTIFICATION
                 msg = f"Your leave request was rejected. Comment: {comment}" if comment else "Your leave request was rejected."
-                add_notification(row['Employee Code'], "", msg)
+                create_notification(
+                    title="Leave Rejected",
+                    message=msg,
+                    target_title="",
+                    target_code=row['Employee Code']
+                )
                 st.success("Rejected!")
-                st.experimental_rerun()
+                st.rerun()
         st.markdown("---")
-    else:
-        st.info("No pending requests.")
+    # After listing pending, show full history
     st.markdown("### 📋 All Team Leave History")
+    all_leaves = leaves_df[leaves_df["Manager Code"].astype(str) == manager_code].copy()
     if not all_leaves.empty:
         if name_col_to_use in all_leaves.columns:
             all_leaves["Employee Name"] = all_leaves[name_col_to_use]
@@ -416,7 +606,6 @@ def page_manager_leaves(user):
         ]], use_container_width=True)
     else:
         st.info("No leave history for your team.")
-
 
 def page_dashboard(user):
     st.subheader("Dashboard")
@@ -457,7 +646,6 @@ def page_dashboard(user):
     if st.button("Save & Push current dataset to GitHub"):
         saved, pushed = save_and_maybe_push(df, actor=user.get("Employee Name","HR"))
         if saved:
-            # create notification that dataset saved (for AM/DM/MR)
             create_notification(
                 title="Dataset Updated",
                 message="The employee dataset was updated. Please review any changes (salaries, assignments, etc.).",
@@ -473,7 +661,6 @@ def page_dashboard(user):
                     st.info("Saved locally. GitHub token not configured.")
         else:
             st.error("Failed to save dataset locally.")
-
 
 def page_hr_manager(user):
     st.subheader("HR Manager")
@@ -493,7 +680,6 @@ def page_hr_manager(user):
                 if st.button("Replace In-Memory Dataset with Uploaded File"):
                     st.session_state["df"] = new_df.copy()
                     st.success("In-memory dataset replaced.")
-                    # create notification to all AM/DM/MR about salaries or dataset update
                     create_notification(
                         title="Salaries / Dataset Updated",
                         message="HR replaced the employees dataset — please review salary and assignment changes.",
@@ -594,7 +780,6 @@ def page_hr_manager(user):
         df_current = st.session_state.get("df", pd.DataFrame())
         saved, pushed = save_and_maybe_push(df_current, actor=user.get("Employee Name","HR"))
         if saved:
-            # also notify all AM/DM/MR about dataset changes
             create_notification(
                 title="Dataset Saved",
                 message="HR saved the in-memory dataset. Please review changes.",
@@ -610,7 +795,6 @@ def page_hr_manager(user):
                     st.info("Saved locally. GitHub not configured.")
         else:
             st.error("Failed to save dataset locally.")
-
 
 def page_reports(user):
     st.subheader("Reports (Placeholder)")
@@ -628,10 +812,57 @@ def page_reports(user):
     st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # ============================
+# Notifications Page (UI)
+# ============================
+
+def page_notifications(user):
+    st.subheader("Notifications")
+    df = get_user_notifications(user)
+    if df.empty:
+        st.markdown("🎉 You are all caught up!")
+        return
+    # show mark all as read
+    col1, col2 = st.columns([1,1])
+    with col1:
+        if st.button("Mark all as read"):
+            mark_notifications_as_read_for_user(user)
+            st.rerun()
+    with col2:
+        if st.button("Refresh"):
+            st.rerun()
+
+    # display notifications with mark-as-read buttons
+    for idx, row in df.iterrows():
+        is_read = bool(row.get("Is_Read", False))
+        ts = row.get("Timestamp")
+        try:
+            ts_disp = pd.to_datetime(ts).strftime('%d-%m-%Y %H:%M')
+        except Exception:
+            ts_disp = str(ts)
+        st.markdown(f"**{row.get('Title','(No title)')}**  —  _{ts_disp}_")
+        st.write(row.get('Message',''))
+        if not is_read:
+            if st.button(f"Mark as read", key=f"mark_{idx}"):
+                # mark that single notification as read (use dataframe index)
+                # We'll find the absolute index in the notifications file
+                notif_df = load_notifications_data()
+                # find the matching row by Timestamp & Title & Message (best-effort)
+                try:
+                    mask = (notif_df['Timestamp'].astype(str) == str(row['Timestamp'])) & (notif_df['Title'] == row['Title']) & (notif_df['Message'] == row['Message'])
+                    notif_idxs = notif_df[mask].index.tolist()
+                    if notif_idxs:
+                        notif_idx = notif_idxs[0]
+                        notif_df.loc[notif_idx, 'Is_Read'] = True
+                        save_notifications_data(notif_df)
+                except Exception:
+                    pass
+                st.rerun()
+        st.markdown('---')
+
+# ============================
 # Main App Flow
 # ============================
 ensure_session_df()
-# ensure notifications file exists in case it's missing
 ensure_notifications_file_exists()
 render_logo_and_title()
 
@@ -733,116 +964,3 @@ else:
             st.session_state["logged_in_user"] = None
             st.success("You have been logged out successfully.")
             st.stop()
-
-# ============================
-# Notifications Page (UI)
-# ============================
-
-def page_notifications(user):
-    st.subheader("Notifications")
-    df = get_user_notifications(user)
-    if df.empty:
-        st.markdown("🎉 You are all caught up!")
-        return
-    # show mark all as read
-    col1, col2 = st.columns([1,1])
-    with col1:
-        if st.button("Mark all as read"):
-            mark_notifications_as_read_for_user(user)
-            st.experimental_rerun()
-    with col2:
-        if st.button("Refresh"):
-            st.experimental_rerun()
-
-    # display notifications with mark-as-read buttons
-    for idx, row in df.iterrows():
-        is_read = bool(row.get("Is_Read", False))
-        ts = row.get("Timestamp")
-        try:
-            ts_disp = pd.to_datetime(ts).strftime('%d-%m-%Y %H:%M')
-        except Exception:
-            ts_disp = str(ts)
-        st.markdown(f"**{row.get('Title','(No title)')}**  —  _{ts_disp}_")
-        st.write(row.get('Message',''))
-        if not is_read:
-            if st.button(f"Mark as read", key=f"mark_{idx}"):
-                # mark that single notification as read (use dataframe index)
-                # We'll find the absolute index in the notifications file
-                notif_df = load_notifications_data()
-                # find the matching row by Timestamp & Title & Message (best-effort)
-                try:
-                    mask = (notif_df['Timestamp'].astype(str) == str(row['Timestamp'])) & (notif_df['Title'] == row['Title']) & (notif_df['Message'] == row['Message'])
-                    notif_idxs = notif_df[mask].index.tolist()
-                    if notif_idxs:
-                        notif_idx = notif_idxs[0]
-                        notif_df.loc[notif_idx, 'Is_Read'] = True
-                        save_notifications_data(notif_df)
-                except Exception:
-                    pass
-                st.experimental_rerun()
-        st.markdown('---')
-
-# ============================
-# Retained functions from original file that were referenced earlier
-# (login, save_df_to_local, save_and_maybe_push, load_leaves_data, save_leaves_data)
-# These are included below unchanged to preserve original behavior.
-# ============================
-
-def login(df, code, password):
-    if df is None or df.empty:
-        return None
-    col_map = {c.lower().strip(): c for c in df.columns}
-    code_col = col_map.get("employee_code") or col_map.get("employee code")
-    pass_col = col_map.get("password")
-    if not code_col or not pass_col:
-        return None
-    df_local = df.copy()
-    df_local[code_col] = df_local[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-    df_local[pass_col] = df_local[pass_col].astype(str).str.strip()
-    code_s, pwd_s = str(code).strip(), str(password).strip()
-    matched = df_local[(df_local[code_col] == code_s) & (df_local[pass_col] == pwd_s)]
-    if not matched.empty:
-        return matched.iloc[0].to_dict()
-    return None
-
-
-def save_df_to_local(df):
-    try:
-        with pd.ExcelWriter(FILE_PATH, engine="openpyxl") as writer:
-            df.to_excel(writer, index=False)
-        return True
-    except Exception:
-        return False
-
-
-def save_and_maybe_push(df, actor="HR"):
-    saved = save_df_to_local(df)
-    pushed = False
-    if saved and GITHUB_TOKEN:
-        pushed = upload_to_github(df, commit_message=f"Update {FILE_PATH} via Streamlit by {actor}")
-    return saved, pushed
-
-
-def load_leaves_data():
-    if os.path.exists(LEAVES_FILE_PATH):
-        try:
-            df = pd.read_excel(LEAVES_FILE_PATH)
-            if "Decision Date" in df.columns:
-                df["Decision Date"] = pd.to_datetime(df["Decision Date"], errors="coerce")
-            return df
-        except Exception:
-            return pd.DataFrame()
-    else:
-        return pd.DataFrame(columns=[
-            "Employee Code", "Manager Code", "Start Date", "End Date",
-            "Leave Type", "Reason", "Status", "Decision Date", "Comment"
-        ])
-
-
-def save_leaves_data(df):
-    try:
-        with pd.ExcelWriter(LEAVES_FILE_PATH, engine="openpyxl") as writer:
-            df.to_excel(writer, index=False)
-        return True
-    except Exception:
-        return False
