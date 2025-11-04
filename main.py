@@ -13,7 +13,6 @@ import datetime
 DEFAULT_FILE_PATH = "Employees.xlsx"
 LEAVES_FILE_PATH = "Leaves.xlsx"
 LOGO_PATH = "logo.jpg"
-
 GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", None)
 REPO_OWNER = st.secrets.get("REPO_OWNER", "mohamedomar-hub")
 REPO_NAME = st.secrets.get("REPO_NAME", "hr-system")
@@ -163,6 +162,49 @@ def save_leaves_data(df):
         return False
 
 # ============================
+# NEW: Team Hierarchy Helper (Added as requested)
+# ============================
+def build_team_hierarchy(df, am_code):
+    """
+    Builds a hierarchical dict: AM → [DMs] → each DM has [MRs]
+    """
+    col_map = {c.lower().strip(): c for c in df.columns}
+    emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
+    emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
+    mgr_code_col = col_map.get("manager_code") or col_map.get("manager code")
+    title_col = col_map.get("title")
+
+    if not all([emp_code_col, emp_name_col, mgr_code_col, title_col]):
+        return {}
+
+    # Normalize data
+    df = df.copy()
+    df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    df[mgr_code_col] = df[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    df[title_col] = df[title_col].astype(str).str.strip().str.upper()
+
+    # Get direct DMs under this AM
+    dms = df[(df[mgr_code_col] == str(am_code)) & (df[title_col] == "DM")].copy()
+    hierarchy = {"AM": None, "DMs": []}
+
+    am_row = df[df[emp_code_col] == str(am_code)]
+    if not am_row.empty:
+        hierarchy["AM"] = am_row.iloc[0][emp_name_col]
+
+    for _, dm_row in dms.iterrows():
+        dm_code = dm_row[emp_code_col]
+        dm_name = dm_row[emp_name_col]
+        # Get MRs under this DM
+        mrs = df[(df[mgr_code_col] == dm_code) & (df[title_col] == "MR")][[emp_code_col, emp_name_col]].to_dict('records')
+        hierarchy["DMs"].append({
+            "DM Code": dm_code,
+            "DM Name": dm_name,
+            "MRs": mrs
+        })
+
+    return hierarchy
+
+# ============================
 # UI Components / Pages
 # ============================
 def render_logo_and_title():
@@ -176,18 +218,15 @@ def render_logo_and_title():
 def page_my_profile(user):
     st.subheader("My Profile")
     st.markdown(f"### 👋 Welcome, {user.get('Employee Name', 'User')}")
-
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.info("No employee data available.")
         return
-
     col_map = {c.lower().strip(): c for c in df.columns}
     code_col = col_map.get("employee_code") or col_map.get("employee code")
     if not code_col:
         st.error("Employee code column not found in dataset.")
         return
-
     user_code = None
     for key in user.keys():
         if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
@@ -196,19 +235,15 @@ def page_my_profile(user):
                 val = val[:-2]
             user_code = val
             break
-
     if user_code is None:
         st.error("Your Employee Code not found in session.")
         return
-
     df[code_col] = df[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     row = df[df[code_col] == user_code]
     if row.empty:
         st.error("Your record was not found.")
         return
-
     st.dataframe(row.reset_index(drop=True), use_container_width=True)
-
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         row.to_excel(writer, index=False, sheet_name="MyProfile")
@@ -217,12 +252,10 @@ def page_my_profile(user):
 
 def page_leave_request(user):
     st.subheader("Request Leave")
-
     df_emp = st.session_state.get("df", pd.DataFrame())
     if df_emp.empty:
         st.error("Employee data not loaded.")
         return
-
     user_code = None
     for key, val in user.items():
         if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
@@ -233,38 +266,30 @@ def page_leave_request(user):
     if not user_code:
         st.error("Your Employee Code not found.")
         return
-
     col_map = {c.lower().strip(): c for c in df_emp.columns}
     emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
     mgr_code_col = col_map.get("manager_code") or col_map.get("manager code")
-
     if not mgr_code_col:
         st.error("Column 'Manager Code' is missing in employee sheet.")
         return
-
     emp_row = df_emp[df_emp[emp_code_col].astype(str).str.replace('.0', '', regex=False) == user_code]
     if emp_row.empty:
         st.error("Your record not found in employee sheet.")
         return
-
     manager_code = emp_row.iloc[0][mgr_code_col]
     if pd.isna(manager_code) or str(manager_code).strip() == "":
         st.warning("You have no manager assigned. Contact HR.")
         return
-
     manager_code = str(manager_code).strip()
     if manager_code.endswith('.0'):
         manager_code = manager_code[:-2]
-
     leaves_df = load_leaves_data()
-
     with st.form("leave_form"):
         start_date = st.date_input("Start Date")
         end_date = st.date_input("End Date")
         leave_type = st.selectbox("Leave Type", ["Annual", "Sick", "Emergency", "Unpaid"])
         reason = st.text_area("Reason")
         submitted = st.form_submit_button("Submit Leave Request")
-
     if submitted:
         if end_date < start_date:
             st.error("End date cannot be before start date.")
@@ -286,7 +311,6 @@ def page_leave_request(user):
                 st.balloons()
             else:
                 st.error("❌ Failed to save leave request.")
-
     st.markdown("### Your Leave Requests")
     if not leaves_df.empty:
         user_leaves = leaves_df[leaves_df["Employee Code"].astype(str) == user_code].copy()
@@ -303,7 +327,6 @@ def page_leave_request(user):
 
 def page_manager_leaves(user):
     st.subheader("Leave Requests from Your Team")
-
     manager_code = None
     for key, val in user.items():
         if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
@@ -314,17 +337,14 @@ def page_manager_leaves(user):
     if not manager_code:
         st.error("Your Employee Code not found.")
         return
-
     leaves_df = load_leaves_data()
     if leaves_df.empty:
         st.info("No leave requests found.")
         return
-
     team_leaves = leaves_df[leaves_df["Manager Code"].astype(str) == manager_code].copy()
     if team_leaves.empty:
         st.info("No leave requests from your team.")
         return
-
     # Merge with employee names
     df_emp = st.session_state.get("df", pd.DataFrame())
     name_col_to_use = "Employee Code"
@@ -332,7 +352,6 @@ def page_manager_leaves(user):
         col_map = {c.lower().strip(): c for c in df_emp.columns}
         emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
         emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
-
         if emp_code_col and emp_name_col:
             df_emp[emp_code_col] = df_emp[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
             team_leaves["Employee Code"] = team_leaves["Employee Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
@@ -343,10 +362,8 @@ def page_manager_leaves(user):
                 how="left"
             )
             name_col_to_use = emp_name_col
-
     pending_leaves = team_leaves[team_leaves["Status"] == "Pending"].reset_index(drop=True)
     all_leaves = team_leaves.copy()
-
     st.markdown("### 🟡 Pending Requests")
     if not pending_leaves.empty:
         for idx, row in pending_leaves.iterrows():
@@ -374,17 +391,14 @@ def page_manager_leaves(user):
             st.markdown("---")
     else:
         st.info("No pending requests.")
-
     st.markdown("### 📋 All Team Leave History")
     if not all_leaves.empty:
         if name_col_to_use in all_leaves.columns:
             all_leaves["Employee Name"] = all_leaves[name_col_to_use]
         else:
             all_leaves["Employee Name"] = all_leaves["Employee Code"]
-
         all_leaves["Start Date"] = pd.to_datetime(all_leaves["Start Date"]).dt.strftime("%d-%m-%Y")
         all_leaves["End Date"] = pd.to_datetime(all_leaves["End Date"]).dt.strftime("%d-%m-%Y")
-
         st.dataframe(all_leaves[[
             "Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"
         ]], use_container_width=True)
@@ -578,6 +592,49 @@ def page_reports(user):
     st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # ============================
+# NEW: Page for AM Team Structure (Added as requested)
+# ============================
+def page_team_structure(user):
+    st.subheader("My Team Structure")
+
+    # Get current user's Employee Code
+    user_code = None
+    for key, val in user.items():
+        if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
+            user_code = str(val).strip()
+            if user_code.endswith('.0'):
+                user_code = user_code[:-2]
+            break
+
+    if not user_code:
+        st.error("Your Employee Code not found.")
+        return
+
+    df = st.session_state.get("df", pd.DataFrame())
+    if df.empty:
+        st.error("Employee data not loaded.")
+        return
+
+    hierarchy = build_team_hierarchy(df, user_code)
+
+    if not hierarchy["DMs"]:
+        st.info("No DMs found under your supervision.")
+        return
+
+    st.markdown(f"### 👑 {hierarchy['AM']} (AM)")
+
+    for dm in hierarchy["DMs"]:
+        st.markdown(f"#### 🧑‍💼 {dm['DM Name']} (DM)")
+        if dm["MRs"]:
+            for mr in dm["MRs"]:
+                emp_name = mr.get('Employee Name') or mr.get('employee name') or mr.get('name', 'N/A')
+                emp_code = mr.get('Employee Code') or mr.get('employee code') or mr.get(list(mr.keys())[0], 'N/A')
+                st.markdown(f"- 👤 {emp_name} ({emp_code})")
+        else:
+            st.markdown("_No MRs under this DM._")
+        st.markdown("---")
+
+# ============================
 # Main App Flow
 # ============================
 ensure_session_df()
@@ -606,7 +663,8 @@ else:
     user = st.session_state["logged_in_user"]
     title_val = str(user.get("Title") or user.get("title") or "").strip().upper()
     is_hr = "HR" in title_val
-    is_manager = title_val in ["AM", "DM"]
+    is_am = title_val == "AM"
+    is_dm = title_val == "DM"
 
     st.sidebar.write(f"👋 Welcome, {user.get('Employee Name') or user.get('employee name') or user.get('name','')}")
     st.sidebar.markdown("---")
@@ -624,7 +682,24 @@ else:
             st.success("You have been logged out successfully.")
             st.stop()
 
-    elif is_manager:
+    elif is_am:
+        # AM sees: My Profile, Team Structure, Team Leaves, Leave Request
+        page = st.sidebar.radio("Pages", ("My Profile", "Team Structure", "Team Leaves", "Leave Request", "Logout"))
+        if page == "My Profile":
+            page_my_profile(user)
+        elif page == "Team Structure":
+            page_team_structure(user)
+        elif page == "Team Leaves":
+            page_manager_leaves(user)
+        elif page == "Leave Request":
+            page_leave_request(user)
+        elif page == "Logout":
+            st.session_state["logged_in_user"] = None
+            st.success("You have been logged out successfully.")
+            st.stop()
+
+    elif is_dm:
+        # DM sees: My Profile, Team Leaves, Leave Request
         page = st.sidebar.radio("Pages", ("My Profile", "Team Leaves", "Leave Request", "Logout"))
         if page == "My Profile":
             page_my_profile(user)
