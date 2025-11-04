@@ -162,50 +162,116 @@ def save_leaves_data(df):
         return False
 
 # ============================
-# NEW: Team Hierarchy Helper (Added as requested)
+# NEW: Team Hierarchy with Exact Column Name
 # ============================
-def build_team_hierarchy(df, am_code):
+def build_team_hierarchy(df, manager_code, manager_title="AM"):
     """
-    Builds a hierarchical dict: AM → [DMs] → each DM has [MRs]
+    Builds team under a manager (AM or DM).
+    Uses exact column name: 'Address as 702 bricks'
     """
-    col_map = {c.lower().strip(): c for c in df.columns}
-    emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
-    emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
-    mgr_code_col = col_map.get("manager_code") or col_map.get("manager code")
-    title_col = col_map.get("title")
+    # Use exact column names
+    emp_code_col = "Employee Code"
+    emp_name_col = "Employee Name"
+    mgr_code_col = "Manager Code"
+    title_col = "Title"
+    addr_col = "Address as 702 bricks"  # <-- EXACT NAME
 
-    if not all([emp_code_col, emp_name_col, mgr_code_col, title_col]):
+    required_cols = [emp_code_col, emp_name_col, mgr_code_col, title_col]
+    if not all(col in df.columns for col in required_cols):
+        missing = [col for col in required_cols if col not in df.columns]
+        st.warning(f"Missing required columns: {missing}")
         return {}
 
-    # Normalize data
     df = df.copy()
+    # Normalize codes (remove .0)
     df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     df[mgr_code_col] = df[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     df[title_col] = df[title_col].astype(str).str.strip().str.upper()
 
-    # Get direct DMs under this AM
-    dms = df[(df[mgr_code_col] == str(am_code)) & (df[title_col] == "DM")].copy()
-    hierarchy = {"AM": None, "DMs": []}
+    hierarchy = {"Manager": None, "Team": []}
+    mgr_row = df[df[emp_code_col] == str(manager_code)]
+    if not mgr_row.empty:
+        mgr_name = mgr_row.iloc[0][emp_name_col]
+        hierarchy["Manager"] = f"{mgr_name} ({manager_title})"
 
-    am_row = df[df[emp_code_col] == str(am_code)]
-    if not am_row.empty:
-        hierarchy["AM"] = am_row.iloc[0][emp_name_col]
-
-    for _, dm_row in dms.iterrows():
-        dm_code = dm_row[emp_code_col]
-        dm_name = dm_row[emp_name_col]
-        # Get MRs under this DM
-        mrs = df[(df[mgr_code_col] == dm_code) & (df[title_col] == "MR")][[emp_code_col, emp_name_col]].to_dict('records')
-        hierarchy["DMs"].append({
-            "DM Code": dm_code,
-            "DM Name": dm_name,
-            "MRs": mrs
-        })
+    if manager_title == "AM":
+        dms = df[(df[mgr_code_col] == str(manager_code)) & (df[title_col] == "DM")]
+        for _, dm_row in dms.iterrows():
+            dm_code = dm_row[emp_code_col]
+            dm_name = dm_row[emp_name_col]
+            dm_addr = dm_row.get(addr_col, "") if addr_col in df.columns else ""
+            mrs = df[(df[mgr_code_col] == dm_code) & (df[title_col] == "MR")]
+            mr_list = []
+            for _, mr_row in mrs.iterrows():
+                mr_list.append({
+                    "Code": mr_row[emp_code_col],
+                    "Name": mr_row[emp_name_col],
+                    "Address": mr_row.get(addr_col, "") if addr_col in df.columns else ""
+                })
+            hierarchy["Team"].append({
+                "Type": "DM",
+                "Code": dm_code,
+                "Name": dm_name,
+                "Address": dm_addr,
+                "Subordinates": mr_list
+            })
+    elif manager_title == "DM":
+        mrs = df[(df[mgr_code_col] == str(manager_code)) & (df[title_col] == "MR")]
+        for _, mr_row in mrs.iterrows():
+            hierarchy["Team"].append({
+                "Type": "MR",
+                "Code": mr_row[emp_code_col],
+                "Name": mr_row[emp_name_col],
+                "Address": mr_row.get(addr_col, "") if addr_col in df.columns else ""
+            })
 
     return hierarchy
 
 # ============================
-# UI Components / Pages
+# NEW: Page to show team with address
+# ============================
+def page_my_team(user, role="AM"):
+    st.subheader("My Team")
+    user_code = None
+    for key, val in user.items():
+        if key == "Employee Code":
+            user_code = str(val).strip().replace(".0", "")
+            break
+    if not user_code:
+        st.error("Your Employee Code not found.")
+        return
+
+    df = st.session_state.get("df", pd.DataFrame())
+    if df.empty:
+        st.error("Employee data not loaded.")
+        return
+
+    hierarchy = build_team_hierarchy(df, user_code, manager_title=role)
+
+    if not hierarchy["Team"]:
+        st.info(f"No team members found under your supervision.")
+        return
+
+    st.markdown(f"### 👤 {hierarchy['Manager']}")
+
+    if role == "AM":
+        for member in hierarchy["Team"]:
+            addr = f" — {member['Address']}" if member['Address'] else ""
+            st.markdown(f"#### 🧑‍💼 {member['Name']}{addr} — DM")
+            if member["Subordinates"]:
+                for mr in member["Subordinates"]:
+                    mr_addr = f" ({mr['Address']})" if mr['Address'] else ""
+                    st.markdown(f"- 👤 {mr['Name']}{mr_addr}")
+            else:
+                st.markdown("_No MRs under this DM._")
+            st.markdown("---")
+    elif role == "DM":
+        for mr in hierarchy["Team"]:
+            mr_addr = f" ({mr['Address']})" if mr['Address'] else ""
+            st.markdown(f"- 👤 {mr['Name']}{mr_addr}")
+
+# ============================
+# UI Components / Pages (unchanged from your file)
 # ============================
 def render_logo_and_title():
     cols = st.columns([1,6,1])
@@ -592,49 +658,6 @@ def page_reports(user):
     st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # ============================
-# NEW: Page for AM Team Structure (Added as requested)
-# ============================
-def page_team_structure(user):
-    st.subheader("My Team Structure")
-
-    # Get current user's Employee Code
-    user_code = None
-    for key, val in user.items():
-        if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
-            user_code = str(val).strip()
-            if user_code.endswith('.0'):
-                user_code = user_code[:-2]
-            break
-
-    if not user_code:
-        st.error("Your Employee Code not found.")
-        return
-
-    df = st.session_state.get("df", pd.DataFrame())
-    if df.empty:
-        st.error("Employee data not loaded.")
-        return
-
-    hierarchy = build_team_hierarchy(df, user_code)
-
-    if not hierarchy["DMs"]:
-        st.info("No DMs found under your supervision.")
-        return
-
-    st.markdown(f"### 👑 {hierarchy['AM']} (AM)")
-
-    for dm in hierarchy["DMs"]:
-        st.markdown(f"#### 🧑‍💼 {dm['DM Name']} (DM)")
-        if dm["MRs"]:
-            for mr in dm["MRs"]:
-                emp_name = mr.get('Employee Name') or mr.get('employee name') or mr.get('name', 'N/A')
-                emp_code = mr.get('Employee Code') or mr.get('employee code') or mr.get(list(mr.keys())[0], 'N/A')
-                st.markdown(f"- 👤 {emp_name} ({emp_code})")
-        else:
-            st.markdown("_No MRs under this DM._")
-        st.markdown("---")
-
-# ============================
 # Main App Flow
 # ============================
 ensure_session_df()
@@ -683,12 +706,11 @@ else:
             st.stop()
 
     elif is_am:
-        # AM sees: My Profile, Team Structure, Team Leaves, Leave Request
         page = st.sidebar.radio("Pages", ("My Profile", "Team Structure", "Team Leaves", "Leave Request", "Logout"))
         if page == "My Profile":
             page_my_profile(user)
         elif page == "Team Structure":
-            page_team_structure(user)
+            page_my_team(user, role="AM")
         elif page == "Team Leaves":
             page_manager_leaves(user)
         elif page == "Leave Request":
@@ -699,10 +721,11 @@ else:
             st.stop()
 
     elif is_dm:
-        # DM sees: My Profile, Team Leaves, Leave Request
-        page = st.sidebar.radio("Pages", ("My Profile", "Team Leaves", "Leave Request", "Logout"))
+        page = st.sidebar.radio("Pages", ("My Profile", "My Team", "Team Leaves", "Leave Request", "Logout"))
         if page == "My Profile":
             page_my_profile(user)
+        elif page == "My Team":
+            page_my_team(user, role="DM")
         elif page == "Team Leaves":
             page_manager_leaves(user)
         elif page == "Leave Request":
@@ -712,7 +735,7 @@ else:
             st.success("You have been logged out successfully.")
             st.stop()
 
-    else:  # MR or other non-manager roles
+    else:  # MR
         page = st.sidebar.radio("Pages", ("My Profile", "Leave Request", "Logout"))
         if page == "My Profile":
             page_my_profile(user)
