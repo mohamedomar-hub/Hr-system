@@ -725,6 +725,14 @@ def page_manager_leaves(user):
 
     all_leaves["Start Date"] = pd.to_datetime(all_leaves["Start Date"], errors="coerce").dt.strftime("%d-%m-%Y")
     all_leaves["End Date"] = pd.to_datetime(all_leaves["End Date"], errors="coerce").dt.strftime("%d-%m-%Y")
+    # Filter by status
+    status_filter = st.selectbox("Filter by Status", ["All", "Approved", "Rejected", "Pending"])
+    if status_filter != "All":
+        all_leaves = all_leaves[all_leaves["Status"] == status_filter]
+
+st.dataframe(all_leaves[[
+    "Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"
+]], use_container_width=True)
 
     if "Decision Date" in all_leaves.columns:
         try:
