@@ -173,23 +173,17 @@ def add_notification(recipient_code, recipient_title, message):
 # NEW: Team Hierarchy with Exact Column Name
 # ============================
 def build_team_hierarchy(df, manager_code, manager_title="AM"):
-    """
-    Builds team under a manager (AM or DM).
-    Uses exact column name: 'Address as 702 bricks'
-    """
-    # Use exact column names
     emp_code_col = "Employee Code"
     emp_name_col = "Employee Name"
     mgr_code_col = "Manager Code"
     title_col = "Title"
-    addr_col = "Address as 702 bricks"  # <-- EXACT NAME
+    addr_col = "Address as 702 bricks"
     required_cols = [emp_code_col, emp_name_col, mgr_code_col, title_col]
     if not all(col in df.columns for col in required_cols):
         missing = [col for col in required_cols if col not in df.columns]
         st.warning(f"Missing required columns: {missing}")
         return {}
     df = df.copy()
-    # Normalize codes (remove .0)
     df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     df[mgr_code_col] = df[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     df[title_col] = df[title_col].astype(str).str.strip().str.upper()
@@ -269,7 +263,7 @@ def page_my_team(user, role="AM"):
             st.markdown(f"- 👤 {mr['Name']}{mr_addr}")
 
 # ============================
-# UI Components / Pages (unchanged from your file)
+# UI Components / Pages
 # ============================
 def render_logo_and_title():
     cols = st.columns([1,6,1])
@@ -373,7 +367,6 @@ def page_leave_request(user):
             if save_leaves_data(leaves_df):
                 st.success("✅ Leave request submitted successfully to your manager.")
                 st.balloons()
-                # Notification call (will work if system exists, or safely ignored)
                 try:
                     add_notification(manager_code, "", f"New leave request from {user_code}")
                 except:
@@ -395,7 +388,7 @@ def page_leave_request(user):
         st.info("No leave requests found.")
 
 # ============================
-# UPDATED: page_manager_leaves with session cache clear and reload
+# ✅ UPDATED: page_manager_leaves with cache clear and st.rerun()
 # ============================
 def page_manager_leaves(user):
     st.subheader("Leave Requests from Your Team")
@@ -415,7 +408,7 @@ def page_manager_leaves(user):
         st.info("No leave requests found.")
         return
 
-    # Filter pending requests only
+    # Filter ONLY pending requests
     pending_leaves = leaves_df[
         (leaves_df["Manager Code"].astype(str) == manager_code) &
         (leaves_df["Status"] == "Pending")
@@ -474,7 +467,7 @@ def page_manager_leaves(user):
                 except:
                     pass
                 st.success("Approved!")
-                st.experimental_rerun()
+                st.rerun()
         with col2:
             if st.button("❌ Reject", key=f"rej_{idx}_{row['Employee Code']}"):
                 comment = st.text_input("Comment (optional)", key=f"com_{idx}_{row['Employee Code']}")
@@ -494,7 +487,7 @@ def page_manager_leaves(user):
                 except:
                     pass
                 st.success("Rejected!")
-                st.experimental_rerun()
+                st.rerun()
         st.markdown("---")
 
     st.markdown("### 📋 All Team Leave History")
