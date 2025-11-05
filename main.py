@@ -632,7 +632,7 @@ def page_manager_leaves(user):
             name_col_to_use = emp_name_col
 
     # --- Display Pending Requests ---
-    if pending_leaves.empty:
+     if pending_leaves.empty:
         st.info("No pending requests from your team.")
         return
 
@@ -678,18 +678,11 @@ def page_manager_leaves(user):
     all_leaves = leaves_df[leaves_df["Manager Code"].astype(str) == manager_code].copy()
 
     if not all_leaves.empty:
+        # Ensure employee name column exists
         if not df_emp.empty and name_col_to_use in all_leaves.columns:
             all_leaves["Employee Name"] = all_leaves[name_col_to_use]
         else:
-            if emp_code_col and emp_name_col:
-                all_leaves = all_leaves.merge(
-                    df_emp[[emp_code_col, emp_name_col]],
-                    left_on="Employee Code",
-                    right_on=emp_code_col,
-                    how="left"
-                )
-                all_leaves["Employee Name"] = all_leaves[emp_name_col].fillna(all_leaves["Employee Code"])
-            else:
+            if 'Employee Name' not in all_leaves.columns:
                 all_leaves["Employee Name"] = all_leaves["Employee Code"]
 
         all_leaves["Start Date"] = pd.to_datetime(all_leaves["Start Date"]).dt.strftime("%d-%m-%Y")
@@ -701,7 +694,6 @@ def page_manager_leaves(user):
         )
     else:
         st.info("No leave history for your team.")
-
 def page_dashboard(user):
     st.subheader("Dashboard")
     df = st.session_state.get("df", pd.DataFrame())
