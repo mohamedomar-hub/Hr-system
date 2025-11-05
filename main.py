@@ -882,15 +882,27 @@ def page_hr_inbox(user):
         pass
 
     for idx, row in hr_df.iterrows():
-        emp_code = row.get("Employee Code", "")
-        emp_name = row.get("Employee Name", "")
-        subj = row.get("Subject", "")
+        emp_code = str(row['Employee Code'])
+        emp_name = row.get('Employee Name', '')
+        subj = row['Subject']
         msg = row.get("Message", "")
-        status = row.get("Status", "")
+        status = row['Status']
         date_sent = row.get("Date Sent", "")
         reply_existing = row.get("Reply", "")
 
-        with st.expander(f"📨 [{status}] {subj} — {emp_name} ({emp_code})"):
+    # تحديد اللون بناءً على الحالة
+    if status == "Pending":
+        status_color = "🟡 Pending"
+    elif status == "Replied":
+        status_color = "🟢 Replied"
+    elif status == "Closed":
+        status_color = "⚫ Closed"
+    else:
+        status_color = f"🔘 {status}"
+
+    # عرض العنوان بشكل منسق وواضح
+    exp_title = f"📩 {subj} — {emp_name} ({emp_code}) | {status_color}"
+    with st.expander(exp_title):
             st.markdown(f"**From:** {emp_name} — {emp_code}")
             st.caption(f"Sent: {pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M') if pd.notna(pd.to_datetime(date_sent, errors='coerce')) else date_sent}")
             st.write(msg)
