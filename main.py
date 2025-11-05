@@ -730,9 +730,9 @@ def page_manager_leaves(user):
     if status_filter != "All":
         all_leaves = all_leaves[all_leaves["Status"] == status_filter]
 
-st.dataframe(all_leaves[[
-    "Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"
-]], use_container_width=True)
+    st.dataframe(all_leaves[[
+        "Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"
+    ]], use_container_width=True)
 
     if "Decision Date" in all_leaves.columns:
         try:
