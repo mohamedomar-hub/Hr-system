@@ -1,4 +1,3 @@
-# hr_system_dark_mode_v3.py
 import streamlit as st
 import pandas as pd
 import requests
@@ -21,7 +20,7 @@ BRANCH = st.secrets.get("BRANCH", "main")
 FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FILE_PATH") else DEFAULT_FILE_PATH
 
 # ============================
-# Styling - Enhanced Dark Mode CSS with Bell & Fonts
+# Styling - Enhanced Dark Mode CSS
 # ============================
 st.set_page_config(page_title="HR System (Dark)", page_icon="👥", layout="wide")
 
@@ -102,7 +101,6 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     background: #0a5aa0;
     transform: scale(1.1);
 }
-/* Notification Badge */
 .notification-badge {
     position: absolute;
     top: -2px;
@@ -249,7 +247,7 @@ def save_leaves_data(df):
         return False
 
 # ============================
-# NEW: Notifications System
+# Notifications System
 # ============================
 def load_notifications():
     if os.path.exists(NOTIFICATIONS_FILE_PATH):
@@ -367,7 +365,7 @@ def page_notifications(user):
         st.markdown("---")
 
 # ============================
-# NEW: Team Hierarchy with Exact Column Name
+# Team Hierarchy
 # ============================
 def build_team_hierarchy(df, manager_code, manager_title="AM"):
     emp_code_col = "Employee Code"
@@ -457,7 +455,7 @@ def page_my_team(user, role="AM"):
             st.markdown(f"- 👤 {mr['Name']}{mr_addr}")
 
 # ============================
-# UI Components / Pages (unchanged from your file)
+# UI Components / Pages
 # ============================
 def render_logo_and_title():
     cols = st.columns([1,6,1])
@@ -566,7 +564,6 @@ def page_leave_request(user):
             leaves_df = pd.concat([leaves_df, new_row], ignore_index=True)
             if save_leaves_data(leaves_df):
                 st.success("✅ Leave request submitted successfully to your manager.")
-                # ADD NOTIFICATION
                 add_notification(manager_code, "", f"New leave request from {user_code}")
                 st.balloons()
             else:
@@ -585,8 +582,10 @@ def page_leave_request(user):
     else:
         st.info("No leave requests found.")
 
+# ============================
+# <<-- REPLACED FUNCTION: page_manager_leaves -->> 
+# This is the updated, indentation-safe, name-display version requested.
 def page_manager_leaves(user):
-    def page_manager_leaves(user):
     st.subheader("Leave Requests from Your Team")
 
     # --- Get Manager Code ---
@@ -608,13 +607,11 @@ def page_manager_leaves(user):
         return
 
     # --- Ensure columns exist and clean codes ---
-    # normalize Manager Code and Employee Code columns to string
     if "Manager Code" not in leaves_df.columns or "Employee Code" not in leaves_df.columns:
         st.error("Leaves dataset missing required columns ('Manager Code' or 'Employee Code').")
         return
     leaves_df["Manager Code"] = leaves_df["Manager Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     leaves_df["Employee Code"] = leaves_df["Employee Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-    # Fill Status with Pending if missing
     if "Status" not in leaves_df.columns:
         leaves_df["Status"] = "Pending"
     leaves_df["Status"] = leaves_df["Status"].astype(str).str.strip()
@@ -637,9 +634,7 @@ def page_manager_leaves(user):
         emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
         emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
         if emp_code_col and emp_name_col:
-            # normalize employee codes in employees sheet
             df_emp[emp_code_col] = df_emp[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-            # merge; keep orig index column
             pending_leaves = pending_leaves.merge(
                 df_emp[[emp_code_col, emp_name_col]],
                 left_on="Employee Code",
@@ -655,14 +650,12 @@ def page_manager_leaves(user):
     st.markdown("### 🟡 Pending Requests")
 
     for i, row in pending_leaves.iterrows():
-        # get original index to update the master leaves_df
         orig_idx = row.get("_orig_index", None)
         emp_name = ""
         if emp_name_col and emp_name_col in row:
             emp_name = row.get(emp_name_col) or ""
         emp_display = emp_name if emp_name else row.get("Employee Code", "")
 
-        # safe parsing of dates (in case stored as strings)
         try:
             start_display = pd.to_datetime(row.get("Start Date")).strftime("%d-%m-%Y")
         except Exception:
@@ -688,13 +681,12 @@ def page_manager_leaves(user):
                     save_leaves_data(leaves_df)
                     add_notification(row.get("Employee Code", ""), "", "Your leave request has been approved!")
                     st.success("Approved successfully!")
-                    st.experimental_rerun()
+                    st.rerun()
                 else:
                     st.error("Unable to locate the leave record to approve.")
 
         with col2:
             if st.button("❌ Reject", key=f"rej_{manager_code}_{orig_idx}"):
-                # show a small input for comment right after pressing reject
                 comment_key = f"com_{manager_code}_{orig_idx}"
                 comment = st.text_input("Comment (optional)", key=comment_key)
                 if st.button("Confirm Reject", key=f"confirm_rej_{manager_code}_{orig_idx}"):
@@ -706,7 +698,7 @@ def page_manager_leaves(user):
                         msg = f"Your leave request was rejected. Comment: {comment}" if comment else "Your leave request was rejected."
                         add_notification(row.get("Employee Code", ""), "", msg)
                         st.success("Rejected.")
-                        st.experimental_rerun()
+                        st.rerun()
                     else:
                         st.error("Unable to locate the leave record to reject.")
 
@@ -720,9 +712,7 @@ def page_manager_leaves(user):
         st.info("No leave history for your team.")
         return
 
-    # Attach employee names if possible
     if not df_emp.empty and emp_code_col and emp_name_col and emp_code_col in df_emp.columns:
-        # ensure employees codes normalized (already done above, but safe)
         df_emp[emp_code_col] = df_emp[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
         all_leaves = all_leaves.merge(
             df_emp[[emp_code_col, emp_name_col]],
@@ -734,11 +724,9 @@ def page_manager_leaves(user):
     else:
         all_leaves["Employee Name"] = all_leaves["Employee Code"]
 
-    # format dates for display
     all_leaves["Start Date"] = pd.to_datetime(all_leaves["Start Date"], errors="coerce").dt.strftime("%d-%m-%Y")
     all_leaves["End Date"] = pd.to_datetime(all_leaves["End Date"], errors="coerce").dt.strftime("%d-%m-%Y")
 
-    # show newest first (optional)
     if "Decision Date" in all_leaves.columns:
         try:
             all_leaves["Decision Date_tmp"] = pd.to_datetime(all_leaves["Decision Date"], errors="coerce")
@@ -750,6 +738,11 @@ def page_manager_leaves(user):
         all_leaves[["Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"]],
         use_container_width=True
     )
+
+# ============================
+# Remaining pages: Dashboard / HR Manager / Reports etc.
+# (Keep original implementations — trimmed here for brevity if needed)
+# ============================
 
 def page_dashboard(user):
     st.subheader("Dashboard")
@@ -972,7 +965,6 @@ else:
     st.sidebar.write(f"👋 Welcome, {user.get('Employee Name') or user.get('employee name') or user.get('name','')}")
     st.sidebar.markdown("---")
 
-    # Add Notifications to all users
     pages = ["My Profile", "Notifications"]
     if is_hr:
         pages = ["Dashboard", "Reports", "HR Manager", "Notifications", "Logout"]
