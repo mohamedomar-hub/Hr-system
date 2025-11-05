@@ -890,7 +890,7 @@ def page_hr_inbox(user):
         date_sent = row.get("Date Sent", "")
         reply_existing = row.get("Reply", "")
 
-        with st.expander(f"{emp_code} — {subj} ({status})"):
+        with st.expander(f"📨 [{status}] {subj} — {emp_name} ({emp_code})"):
             st.markdown(f"**From:** {emp_name} — {emp_code}")
             st.caption(f"Sent: {pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M') if pd.notna(pd.to_datetime(date_sent, errors='coerce')) else date_sent}")
             st.write(msg)
