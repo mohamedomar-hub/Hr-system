@@ -586,6 +586,7 @@ def page_leave_request(user):
         st.info("No leave requests found.")
 
 def page_manager_leaves(user):
+    def page_manager_leaves(user):
     st.subheader("Leave Requests from Your Team")
 
     # --- Get Manager Code ---
@@ -602,98 +603,154 @@ def page_manager_leaves(user):
 
     # --- Load Leave Data ---
     leaves_df = load_leaves_data()
-    if leaves_df.empty:
+    if leaves_df is None or leaves_df.empty:
         st.info("No leave requests found.")
         return
 
+    # --- Ensure columns exist and clean codes ---
+    # normalize Manager Code and Employee Code columns to string
+    if "Manager Code" not in leaves_df.columns or "Employee Code" not in leaves_df.columns:
+        st.error("Leaves dataset missing required columns ('Manager Code' or 'Employee Code').")
+        return
+    leaves_df["Manager Code"] = leaves_df["Manager Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    leaves_df["Employee Code"] = leaves_df["Employee Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    # Fill Status with Pending if missing
+    if "Status" not in leaves_df.columns:
+        leaves_df["Status"] = "Pending"
+    leaves_df["Status"] = leaves_df["Status"].astype(str).str.strip()
+
     # --- Filter only PENDING requests for this manager ---
     pending_leaves = leaves_df[
-        (leaves_df["Manager Code"].astype(str) == manager_code)
-        & (leaves_df["Status"].str.lower() == "pending")
+        (leaves_df["Manager Code"] == manager_code) &
+        (leaves_df["Status"].str.lower() == "pending")
     ].copy()
 
-    # --- Merge employee names from session data ---
+    # keep original index reference so updates map to leaves_df correctly
+    pending_leaves["_orig_index"] = pending_leaves.index
+
+    # --- Merge employee names from employee sheet (if available) ---
     df_emp = st.session_state.get("df", pd.DataFrame())
-    name_col_to_use = "Employee Code"
+    emp_code_col = None
+    emp_name_col = None
     if not df_emp.empty:
         col_map = {c.lower().strip(): c for c in df_emp.columns}
         emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
         emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
-
         if emp_code_col and emp_name_col:
+            # normalize employee codes in employees sheet
             df_emp[emp_code_col] = df_emp[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-            pending_leaves["Employee Code"] = pending_leaves["Employee Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+            # merge; keep orig index column
             pending_leaves = pending_leaves.merge(
                 df_emp[[emp_code_col, emp_name_col]],
                 left_on="Employee Code",
                 right_on=emp_code_col,
                 how="left"
             )
-            name_col_to_use = emp_name_col
 
     # --- Display Pending Requests ---
-     if pending_leaves.empty:
+    if pending_leaves.empty:
         st.info("No pending requests from your team.")
         return
 
     st.markdown("### 🟡 Pending Requests")
 
-    for idx, row in pending_leaves.iterrows():
-        emp_name = row.get(name_col_to_use, "") if name_col_to_use in row else ""
-        emp_display = f"{emp_name}" if emp_name else row['Employee Code']
+    for i, row in pending_leaves.iterrows():
+        # get original index to update the master leaves_df
+        orig_idx = row.get("_orig_index", None)
+        emp_name = ""
+        if emp_name_col and emp_name_col in row:
+            emp_name = row.get(emp_name_col) or ""
+        emp_display = emp_name if emp_name else row.get("Employee Code", "")
+
+        # safe parsing of dates (in case stored as strings)
+        try:
+            start_display = pd.to_datetime(row.get("Start Date")).strftime("%d-%m-%Y")
+        except Exception:
+            start_display = str(row.get("Start Date", ""))
+        try:
+            end_display = pd.to_datetime(row.get("End Date")).strftime("%d-%m-%Y")
+        except Exception:
+            end_display = str(row.get("End Date", ""))
 
         st.markdown(
             f"**Employee**: {emp_display} | "
-            f"**Dates**: {pd.to_datetime(row['Start Date']).strftime('%d-%m-%Y')} → {pd.to_datetime(row['End Date']).strftime('%d-%m-%Y')} | "
-            f"**Type**: {row['Leave Type']}"
+            f"**Dates**: {start_display} → {end_display} | "
+            f"**Type**: {row.get('Leave Type','')}"
         )
-        st.write(f"**Reason**: {row['Reason']}")
+        st.write(f"**Reason**: {row.get('Reason','')}")
 
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("✅ Approve", key=f"app_{idx}_{row['Employee Code']}"):
-                leaves_df.at[row.name, "Status"] = "Approved"
-                leaves_df.at[row.name, "Decision Date"] = pd.Timestamp.now()
-                save_leaves_data(leaves_df)
-                add_notification(row['Employee Code'], "", "Your leave request has been approved!")
-                st.success("Approved successfully!")
-                st.rerun()
+            if st.button("✅ Approve", key=f"app_{manager_code}_{orig_idx}"):
+                if orig_idx is not None and int(orig_idx) in leaves_df.index:
+                    leaves_df.at[int(orig_idx), "Status"] = "Approved"
+                    leaves_df.at[int(orig_idx), "Decision Date"] = pd.Timestamp.now()
+                    save_leaves_data(leaves_df)
+                    add_notification(row.get("Employee Code", ""), "", "Your leave request has been approved!")
+                    st.success("Approved successfully!")
+                    st.experimental_rerun()
+                else:
+                    st.error("Unable to locate the leave record to approve.")
 
         with col2:
-            if st.button("❌ Reject", key=f"rej_{idx}_{row['Employee Code']}"):
-                comment = st.text_input("Comment (optional)", key=f"com_{idx}_{row['Employee Code']}")
-                leaves_df.at[row.name, "Status"] = "Rejected"
-                leaves_df.at[row.name, "Decision Date"] = pd.Timestamp.now()
-                leaves_df.at[row.name, "Comment"] = comment
-                save_leaves_data(leaves_df)
-                msg = f"Your leave request was rejected. Comment: {comment}" if comment else "Your leave request was rejected."
-                add_notification(row['Employee Code'], "", msg)
-                st.error("Rejected!")
-                st.rerun()
+            if st.button("❌ Reject", key=f"rej_{manager_code}_{orig_idx}"):
+                # show a small input for comment right after pressing reject
+                comment_key = f"com_{manager_code}_{orig_idx}"
+                comment = st.text_input("Comment (optional)", key=comment_key)
+                if st.button("Confirm Reject", key=f"confirm_rej_{manager_code}_{orig_idx}"):
+                    if orig_idx is not None and int(orig_idx) in leaves_df.index:
+                        leaves_df.at[int(orig_idx), "Status"] = "Rejected"
+                        leaves_df.at[int(orig_idx), "Decision Date"] = pd.Timestamp.now()
+                        leaves_df.at[int(orig_idx), "Comment"] = comment
+                        save_leaves_data(leaves_df)
+                        msg = f"Your leave request was rejected. Comment: {comment}" if comment else "Your leave request was rejected."
+                        add_notification(row.get("Employee Code", ""), "", msg)
+                        st.success("Rejected.")
+                        st.experimental_rerun()
+                    else:
+                        st.error("Unable to locate the leave record to reject.")
 
         st.markdown("---")
 
-    # --- Leave History (Approved / Rejected) ---
+    # --- Show Team Leave History (Approved/Rejected) ---
     st.markdown("### 📋 Team Leave History")
-    all_leaves = leaves_df[leaves_df["Manager Code"].astype(str) == manager_code].copy()
+    all_leaves = leaves_df[leaves_df["Manager Code"] == manager_code].copy()
 
-    if not all_leaves.empty:
-        # Ensure employee name column exists
-        if not df_emp.empty and name_col_to_use in all_leaves.columns:
-            all_leaves["Employee Name"] = all_leaves[name_col_to_use]
-        else:
-            if 'Employee Name' not in all_leaves.columns:
-                all_leaves["Employee Name"] = all_leaves["Employee Code"]
-
-        all_leaves["Start Date"] = pd.to_datetime(all_leaves["Start Date"]).dt.strftime("%d-%m-%Y")
-        all_leaves["End Date"] = pd.to_datetime(all_leaves["End Date"]).dt.strftime("%d-%m-%Y")
-
-        st.dataframe(
-            all_leaves[["Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"]],
-            use_container_width=True
-        )
-    else:
+    if all_leaves.empty:
         st.info("No leave history for your team.")
+        return
+
+    # Attach employee names if possible
+    if not df_emp.empty and emp_code_col and emp_name_col and emp_code_col in df_emp.columns:
+        # ensure employees codes normalized (already done above, but safe)
+        df_emp[emp_code_col] = df_emp[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+        all_leaves = all_leaves.merge(
+            df_emp[[emp_code_col, emp_name_col]],
+            left_on="Employee Code",
+            right_on=emp_code_col,
+            how="left"
+        )
+        all_leaves["Employee Name"] = all_leaves[emp_name_col].fillna(all_leaves["Employee Code"])
+    else:
+        all_leaves["Employee Name"] = all_leaves["Employee Code"]
+
+    # format dates for display
+    all_leaves["Start Date"] = pd.to_datetime(all_leaves["Start Date"], errors="coerce").dt.strftime("%d-%m-%Y")
+    all_leaves["End Date"] = pd.to_datetime(all_leaves["End Date"], errors="coerce").dt.strftime("%d-%m-%Y")
+
+    # show newest first (optional)
+    if "Decision Date" in all_leaves.columns:
+        try:
+            all_leaves["Decision Date_tmp"] = pd.to_datetime(all_leaves["Decision Date"], errors="coerce")
+            all_leaves = all_leaves.sort_values("Decision Date_tmp", ascending=False).drop(columns=["Decision Date_tmp"])
+        except Exception:
+            pass
+
+    st.dataframe(
+        all_leaves[["Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"]],
+        use_container_width=True
+    )
+
 def page_dashboard(user):
     st.subheader("Dashboard")
     df = st.session_state.get("df", pd.DataFrame())
