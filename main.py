@@ -162,14 +162,6 @@ def save_leaves_data(df):
         return False
 
 # ============================
-# Notification helper (minimal, just for leaves)
-# ============================
-def add_notification(recipient_code, recipient_title, message):
-    # This is a placeholder. In your current file, there's no full notification system,
-    # but since you use add_notification(), we define it to avoid errors.
-    pass
-
-# ============================
 # NEW: Team Hierarchy with Exact Column Name
 # ============================
 def build_team_hierarchy(df, manager_code, manager_title="AM"):
@@ -303,7 +295,7 @@ def page_my_profile(user):
         return
     st.dataframe(row.reset_index(drop=True), use_container_width=True)
     buf = BytesIO()
-    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+    with pd.ExcelWriter(buf, engine="openpxl") as writer:
         row.to_excel(writer, index=False, sheet_name="MyProfile")
     buf.seek(0)
     st.download_button("Download My Profile (Excel)", data=buf, file_name="my_profile.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
@@ -367,10 +359,6 @@ def page_leave_request(user):
             if save_leaves_data(leaves_df):
                 st.success("✅ Leave request submitted successfully to your manager.")
                 st.balloons()
-                try:
-                    add_notification(manager_code, "", f"New leave request from {user_code}")
-                except:
-                    pass
             else:
                 st.error("❌ Failed to save leave request.")
     st.markdown("### Your Leave Requests")
@@ -388,7 +376,7 @@ def page_leave_request(user):
         st.info("No leave requests found.")
 
 # ============================
-# ✅ UPDATED: page_manager_leaves with cache clear and st.rerun()
+# ✅ FIXED & ENHANCED: page_manager_leaves
 # ============================
 def page_manager_leaves(user):
     st.subheader("Leave Requests from Your Team")
@@ -403,19 +391,19 @@ def page_manager_leaves(user):
         st.error("Your Employee Code not found.")
         return
 
-    # Load leaves data at the start
+    # Load FRESH data from file every time
     leaves_df = load_leaves_data()
     if leaves_df.empty:
         st.info("No leave requests found.")
         return
 
-    # --- PENDING REQUESTS SECTION ---
+    # === PENDING REQUESTS ===
     pending_leaves = leaves_df[
         (leaves_df["Manager Code"].astype(str) == manager_code) &
         (leaves_df["Status"] == "Pending")
     ].copy()
 
-    # Merge with employee names for pending
+    # Merge with employee names
     df_emp = st.session_state.get("df", pd.DataFrame())
     name_col_to_use = "Employee Code"
     if not df_emp.empty and not pending_leaves.empty:
@@ -440,68 +428,46 @@ def page_manager_leaves(user):
             emp_display = f"{emp_name} ({row['Employee Code']})" if emp_name else row['Employee Code']
             try:
                 start_str = pd.to_datetime(row['Start Date']).strftime('%d-%m-%Y')
-            except Exception:
+            except:
                 start_str = str(row['Start Date'])
             try:
                 end_str = pd.to_datetime(row['End Date']).strftime('%d-%m-%Y')
-            except Exception:
+            except:
                 end_str = str(row['End Date'])
             st.markdown(f"**Employee**: {emp_display} | **Dates**: {start_str} → {end_str} | **Type**: {row['Leave Type']}")
             st.write(f"**Reason**: {row['Reason']}")
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("✅ Approve", key=f"app_{idx}_{row['Employee Code']}"):
-                    # Update status
-                    leaves_df.loc[row.name, "Status"] = "Approved"
-                    leaves_df.loc[row.name, "Decision Date"] = pd.Timestamp.now()
-                    save_leaves_data(leaves_df)
-
-                    # Clear session cache + reload data
-                    if "leaves_df" in st.session_state:
-                        del st.session_state["leaves_df"]
-                    leaves_df = load_leaves_data()  # Reload fresh data
-
-                    # Recalculate pending_leaves to exclude this one
-                    pending_leaves = leaves_df[
-                        (leaves_df["Manager Code"].astype(str) == manager_code) &
-                        (leaves_df["Status"] == "Pending")
-                    ].copy()
-
+                    # Edit the main file directly
+                    fresh_leaves = load_leaves_data()
+                    fresh_leaves.loc[row.name, "Status"] = "Approved"
+                    fresh_leaves.loc[row.name, "Decision Date"] = pd.Timestamp.now()
+                    save_leaves_data(fresh_leaves)
                     st.success("Approved!")
-                    st.rerun()  # Force full refresh
+                    st.rerun()
             with col2:
                 if st.button("❌ Reject", key=f"rej_{idx}_{row['Employee Code']}"):
                     comment = st.text_input("Comment (optional)", key=f"com_{idx}_{row['Employee Code']}")
-                    leaves_df.loc[row.name, "Status"] = "Rejected"
-                    leaves_df.loc[row.name, "Decision Date"] = pd.Timestamp.now()
-                    leaves_df.loc[row.name, "Comment"] = comment
-                    save_leaves_data(leaves_df)
-
-                    # Clear session cache + reload data
-                    if "leaves_df" in st.session_state:
-                        del st.session_state["leaves_df"]
-                    leaves_df = load_leaves_data()  # Reload fresh data
-
-                    # Recalculate pending_leaves to exclude this one
-                    pending_leaves = leaves_df[
-                        (leaves_df["Manager Code"].astype(str) == manager_code) &
-                        (leaves_df["Status"] == "Pending")
-                    ].copy()
-
+                    fresh_leaves = load_leaves_data()
+                    fresh_leaves.loc[row.name, "Status"] = "Rejected"
+                    fresh_leaves.loc[row.name, "Decision Date"] = pd.Timestamp.now()
+                    fresh_leaves.loc[row.name, "Comment"] = comment
+                    save_leaves_data(fresh_leaves)
                     st.success("Rejected!")
-                    st.rerun()  # Force full refresh
+                    st.rerun()
             st.markdown("---")
     else:
         st.info("No pending requests.")
 
-    # --- PROCESSED REQUESTS SECTION ---
+    # === ✅ PROCESSED REQUESTS (APPROVED / REJECTED) ===
     processed_leaves = leaves_df[
         (leaves_df["Manager Code"].astype(str) == manager_code) &
         (leaves_df["Status"] != "Pending")
     ].copy()
 
     if not processed_leaves.empty:
-        # Merge with employee names for processed
+        # Merge with names
         if not df_emp.empty:
             col_map = {c.lower().strip(): c for c in df_emp.columns}
             emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
@@ -527,15 +493,15 @@ def page_manager_leaves(user):
         processed_leaves["Decision Date"] = pd.to_datetime(processed_leaves["Decision Date"]).dt.strftime("%d-%m-%Y")
 
         st.markdown("### ✅ Processed Leave Requests")
-        display_cols = [
+        display_df = processed_leaves[[
             "Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Decision Date", "Comment"
-        ]
-        st.dataframe(processed_leaves[display_cols], use_container_width=True)
+        ]]
+        st.dataframe(display_df, use_container_width=True)
 
-        # Download button for processed requests
+        # Download button
         buf = BytesIO()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-            processed_leaves[display_cols].to_excel(writer, index=False, sheet_name="Processed_Leaves")
+            display_df.to_excel(writer, index=False, sheet_name="Processed_Leaves")
         buf.seek(0)
         st.download_button(
             "📥 Download Processed Leaves (Excel)",
@@ -545,6 +511,7 @@ def page_manager_leaves(user):
         )
     else:
         st.info("No processed leave requests yet.")
+
 def page_dashboard(user):
     st.subheader("Dashboard")
     df = st.session_state.get("df", pd.DataFrame())
