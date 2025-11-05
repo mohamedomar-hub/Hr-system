@@ -645,7 +645,6 @@ def page_manager_leaves(user):
     # --- Display Pending Requests ---
     if pending_leaves.empty:
         st.info("No pending requests from your team.")
-        return
 
     st.markdown("### 🟡 Pending Requests")
 
