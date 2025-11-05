@@ -12,6 +12,7 @@ import datetime
 DEFAULT_FILE_PATH = "Employees.xlsx"
 LEAVES_FILE_PATH = "Leaves.xlsx"
 NOTIFICATIONS_FILE_PATH = "Notifications.xlsx"
+HR_QUERIES_FILE_PATH = "HR_Queries.xlsx"
 LOGO_PATH = "logo.jpg"
 GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", None)
 REPO_OWNER = st.secrets.get("REPO_OWNER", "mohamedomar-hub")
@@ -20,7 +21,7 @@ BRANCH = st.secrets.get("BRANCH", "main")
 FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FILE_PATH") else DEFAULT_FILE_PATH
 
 # ============================
-# Styling - Enhanced Dark Mode CSS
+# Styling - Enhanced Dark Mode CSS with Bell & Fonts
 # ============================
 st.set_page_config(page_title="HR System (Dark)", page_icon="👥", layout="wide")
 
@@ -363,6 +364,48 @@ def page_notifications(user):
         st.markdown(f"{icon} **{status} {row['Message']}**")
         st.caption(f"• {time_str}")
         st.markdown("---")
+
+# ============================
+# HR Queries (Ask HR) - Excel storage
+# ============================
+def load_hr_queries():
+    if os.path.exists(HR_QUERIES_FILE_PATH):
+        try:
+            df = pd.read_excel(HR_QUERIES_FILE_PATH)
+            return df
+        except Exception:
+            return pd.DataFrame()
+    else:
+        # create empty dataframe with required columns
+        df = pd.DataFrame(columns=[
+            "ID", "Employee Code", "Employee Name", "Subject", "Message",
+            "Reply", "Status", "Date Sent", "Date Replied"
+        ])
+        try:
+            with pd.ExcelWriter(HR_QUERIES_FILE_PATH, engine="openpyxl") as writer:
+                df.to_excel(writer, index=False)
+        except Exception:
+            pass
+        return df
+
+def save_hr_queries(df):
+    try:
+        # ensure ID exists and is integer incremental (if new entries added without ID)
+        if "ID" in df.columns:
+            df = df.copy()
+            df["ID"] = pd.to_numeric(df["ID"], errors="coerce")
+            # fill missing IDs
+            if df["ID"].isna().any():
+                existing_max = int(df["ID"].max(skipna=True)) if not df["ID"].isna().all() else 0
+                for idx in df[df["ID"].isna()].index:
+                    existing_max += 1
+                    df.at[idx, "ID"] = existing_max
+            df["ID"] = df["ID"].astype(int)
+        with pd.ExcelWriter(HR_QUERIES_FILE_PATH, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False)
+        return True
+    except Exception:
+        return False
 
 # ============================
 # Team Hierarchy
@@ -741,16 +784,148 @@ def page_manager_leaves(user):
         except Exception:
             pass
 
-#    st.dataframe(
-#       all_leaves[["Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"]],
-#       use_container_width=True
-#   )
+# ============================
+# New: Ask HR (Employee) & HR Inbox (HR)
+# ============================
+def page_ask_hr(user):
+    st.subheader("📩 Ask HR")
+    st.markdown("Send a question or request to HR. HR will reply and you'll see the reply here.")
+
+    # identify employee code and name
+    emp_code = None
+    emp_name = ""
+    for k, v in user.items():
+        if k.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
+            emp_code = str(v).strip()
+            if emp_code.endswith('.0'):
+                emp_code = emp_code[:-2]
+        if k.lower().replace(" ", "").replace("_", "") in ["employeename", "employee_name", "name"]:
+            emp_name = str(v).strip()
+    if emp_code is None:
+        st.error("Your Employee Code not found.")
+        return
+
+    hr_df = load_hr_queries()
+
+    # Show form to submit question
+    with st.form("ask_hr_form"):
+        subject = st.text_input("Subject")
+        message = st.text_area("Message")
+        submitted = st.form_submit_button("Send Message")
+    if submitted:
+        if not subject.strip() or not message.strip():
+            st.warning("Please provide both subject and message.")
+        else:
+            new_row = {
+                "ID": None,
+                "Employee Code": emp_code,
+                "Employee Name": emp_name,
+                "Subject": subject.strip(),
+                "Message": message.strip(),
+                "Reply": "",
+                "Status": "Pending",
+                "Date Sent": pd.Timestamp.now(),
+                "Date Replied": ""
+            }
+            hr_df = pd.concat([hr_df, pd.DataFrame([new_row])], ignore_index=True)
+            saved = save_hr_queries(hr_df)
+            if saved:
+                st.success("Your message has been sent to HR.")
+                # Notify HR role (use recipient title "HR")
+                add_notification("", "HR", f"New Ask HR message from {emp_code}")
+            else:
+                st.error("Failed to save your message. Try again.")
+
+    st.markdown("---")
+    st.markdown("### Your Messages")
+    # filter to this employee
+    if not hr_df.empty:
+        my_msgs = hr_df[hr_df["Employee Code"].astype(str) == emp_code].copy()
+        if my_msgs.empty:
+            st.info("You have not sent any messages yet.")
+            return
+        # order newest first
+        try:
+            my_msgs["Date Sent_dt"] = pd.to_datetime(my_msgs["Date Sent"], errors="coerce")
+            my_msgs = my_msgs.sort_values("Date Sent_dt", ascending=False)
+        except Exception:
+            pass
+        for idx, row in my_msgs.iterrows():
+            status = row.get("Status", "")
+            date_sent = row.get("Date Sent", "")
+            st.markdown(f"**Subject:** {row.get('Subject','')}")
+            st.caption(f"Sent: {pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M') if pd.notna(pd.to_datetime(date_sent, errors='coerce')) else date_sent} — Status: {status}")
+            st.write(row.get("Message",""))
+            reply = row.get("Reply", "")
+            if reply and str(reply).strip():
+                st.markdown("**HR Reply:**")
+                st.info(reply)
+            st.markdown("---")
+    else:
+        st.info("No messages found.")
+
+def page_hr_inbox(user):
+    # only HR users should access this; caller must ensure user is HR
+    st.subheader("📬 HR Inbox")
+    st.markdown("View employee queries and reply to them here.")
+
+    hr_df = load_hr_queries()
+    if hr_df is None or hr_df.empty:
+        st.info("No Ask HR messages.")
+        return
+
+    # show newest first
+    try:
+        hr_df["Date Sent_dt"] = pd.to_datetime(hr_df["Date Sent"], errors="coerce")
+        hr_df = hr_df.sort_values("Date Sent_dt", ascending=False)
+    except Exception:
+        pass
+
+    for idx, row in hr_df.iterrows():
+        emp_code = row.get("Employee Code", "")
+        emp_name = row.get("Employee Name", "")
+        subj = row.get("Subject", "")
+        msg = row.get("Message", "")
+        status = row.get("Status", "")
+        date_sent = row.get("Date Sent", "")
+        reply_existing = row.get("Reply", "")
+
+        with st.expander(f"{emp_code} — {subj} ({status})"):
+            st.markdown(f"**From:** {emp_name} — {emp_code}")
+            st.caption(f"Sent: {pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M') if pd.notna(pd.to_datetime(date_sent, errors='coerce')) else date_sent}")
+            st.write(msg)
+            st.markdown("---")
+            st.markdown("### Reply")
+            reply = st.text_area("Reply", value=reply_existing if not pd.isna(reply_existing) else "", key=f"reply_{idx}")
+            col1, col2 = st.columns([1,1])
+            with col1:
+                if st.button("Send Reply", key=f"send_reply_{idx}"):
+                    # update dataframe and save
+                    try:
+                        hr_df.at[idx, "Reply"] = reply
+                        hr_df.at[idx, "Status"] = "Replied"
+                        hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
+                        save_hr_queries(hr_df)
+                        add_notification(emp_code, "", f"HR replied to your message: {subj}")
+                        st.success("Reply sent and employee notified.")
+                        st.experimental_rerun()
+                    except Exception as e:
+                        st.error(f"Failed to send reply: {e}")
+            with col2:
+                if st.button("Mark as Closed", key=f"close_{idx}"):
+                    try:
+                        hr_df.at[idx, "Status"] = "Closed"
+                        hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
+                        save_hr_queries(hr_df)
+                        st.success("Marked as Closed.")
+                        st.experimental_rerun()
+                    except Exception as e:
+                        st.error(f"Failed to close message: {e}")
 
 # ============================
 # Remaining pages: Dashboard / HR Manager / Reports etc.
 # (Keep original implementations — trimmed here for brevity if needed)
 # ============================
-
 def page_dashboard(user):
     st.subheader("Dashboard")
     df = st.session_state.get("df", pd.DataFrame())
@@ -974,13 +1149,13 @@ else:
 
     pages = ["My Profile", "Notifications"]
     if is_hr:
-        pages = ["Dashboard", "Reports", "HR Manager", "Notifications", "Logout"]
+        pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Notifications", "Logout"]
     elif is_am:
-        pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Notifications", "Logout"]
+        pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Notifications", "Logout"]
     elif is_dm:
-        pages = ["My Profile", "My Team", "Team Leaves", "Leave Request", "Notifications", "Logout"]
+        pages = ["My Profile", "My Team", "Team Leaves", "Leave Request", "Ask HR", "Notifications", "Logout"]
     else:
-        pages = ["My Profile", "Leave Request", "Notifications", "Logout"]
+        pages = ["My Profile", "Leave Request", "Ask HR", "Notifications", "Logout"]
 
     page = st.sidebar.radio("Pages", pages)
 
@@ -1002,6 +1177,14 @@ else:
         page_my_team(user, role="AM")
     elif page == "My Team":
         page_my_team(user, role="DM")
+    elif page == "HR Inbox":
+        # security: only HR role should access
+        if not is_hr:
+            st.error("Access denied. HR only.")
+        else:
+            page_hr_inbox(user)
+    elif page == "Ask HR":
+        page_ask_hr(user)
     elif page == "Logout":
         st.session_state["logged_in_user"] = None
         st.success("You have been logged out successfully.")
