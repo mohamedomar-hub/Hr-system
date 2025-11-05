@@ -587,6 +587,8 @@ def page_leave_request(user):
 
 def page_manager_leaves(user):
     st.subheader("Leave Requests from Your Team")
+
+    # --- Get Manager Code ---
     manager_code = None
     for key, val in user.items():
         if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
@@ -597,22 +599,27 @@ def page_manager_leaves(user):
     if not manager_code:
         st.error("Your Employee Code not found.")
         return
+
+    # --- Load Leave Data ---
     leaves_df = load_leaves_data()
     if leaves_df.empty:
         st.info("No leave requests found.")
         return
-    # Filter pending requests only for display
-    pending_leaves = leaves_df[(leaves_df["Manager Code"].astype(str) == manager_code) & (leaves_df["Status"] == "Pending")].copy()
-    if pending_leaves.empty:
-        st.info("No pending requests from your team.")
-        return
-    # Merge with employee names
+
+    # --- Filter only PENDING requests for this manager ---
+    pending_leaves = leaves_df[
+        (leaves_df["Manager Code"].astype(str) == manager_code)
+        & (leaves_df["Status"].str.lower() == "pending")
+    ].copy()
+
+    # --- Merge employee names from session data ---
     df_emp = st.session_state.get("df", pd.DataFrame())
     name_col_to_use = "Employee Code"
     if not df_emp.empty:
         col_map = {c.lower().strip(): c for c in df_emp.columns}
         emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
         emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
+
         if emp_code_col and emp_name_col:
             df_emp[emp_code_col] = df_emp[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
             pending_leaves["Employee Code"] = pending_leaves["Employee Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
@@ -623,22 +630,35 @@ def page_manager_leaves(user):
                 how="left"
             )
             name_col_to_use = emp_name_col
+
+    # --- Display Pending Requests ---
+    if pending_leaves.empty:
+        st.info("No pending requests from your team.")
+        return
+
     st.markdown("### 🟡 Pending Requests")
+
     for idx, row in pending_leaves.iterrows():
         emp_name = row.get(name_col_to_use, "") if name_col_to_use in row else ""
-        emp_display = f"{emp_name} ({row['Employee Code']})" if emp_name else row['Employee Code']
-        st.markdown(f"**Employee**: {emp_display} | **Dates**: {row['Start Date'].strftime('%d-%m-%Y')} → {row['End Date'].strftime('%d-%m-%Y')} | **Type**: {row['Leave Type']}")
+        emp_display = f"{emp_name}" if emp_name else row['Employee Code']
+
+        st.markdown(
+            f"**Employee**: {emp_display} | "
+            f"**Dates**: {pd.to_datetime(row['Start Date']).strftime('%d-%m-%Y')} → {pd.to_datetime(row['End Date']).strftime('%d-%m-%Y')} | "
+            f"**Type**: {row['Leave Type']}"
+        )
         st.write(f"**Reason**: {row['Reason']}")
+
         col1, col2 = st.columns(2)
         with col1:
             if st.button("✅ Approve", key=f"app_{idx}_{row['Employee Code']}"):
                 leaves_df.at[row.name, "Status"] = "Approved"
                 leaves_df.at[row.name, "Decision Date"] = pd.Timestamp.now()
                 save_leaves_data(leaves_df)
-                # ADD NOTIFICATION
                 add_notification(row['Employee Code'], "", "Your leave request has been approved!")
-                st.success("Approved!")
+                st.success("Approved successfully!")
                 st.rerun()
+
         with col2:
             if st.button("❌ Reject", key=f"rej_{idx}_{row['Employee Code']}"):
                 comment = st.text_input("Comment (optional)", key=f"com_{idx}_{row['Employee Code']}")
@@ -646,25 +666,39 @@ def page_manager_leaves(user):
                 leaves_df.at[row.name, "Decision Date"] = pd.Timestamp.now()
                 leaves_df.at[row.name, "Comment"] = comment
                 save_leaves_data(leaves_df)
-                # ADD NOTIFICATION
                 msg = f"Your leave request was rejected. Comment: {comment}" if comment else "Your leave request was rejected."
                 add_notification(row['Employee Code'], "", msg)
-                st.success("Rejected!")
+                st.error("Rejected!")
                 st.rerun()
+
         st.markdown("---")
-    st.markdown("### 📋 All Team Leave History")
-    # Show all requests (including approved/rejected)
+
+    # --- Leave History (Approved / Rejected) ---
+    st.markdown("### 📋 Team Leave History")
     all_leaves = leaves_df[leaves_df["Manager Code"].astype(str) == manager_code].copy()
+
     if not all_leaves.empty:
-        if name_col_to_use in all_leaves.columns:
+        if not df_emp.empty and name_col_to_use in all_leaves.columns:
             all_leaves["Employee Name"] = all_leaves[name_col_to_use]
         else:
-            all_leaves["Employee Name"] = all_leaves["Employee Code"]
+            if emp_code_col and emp_name_col:
+                all_leaves = all_leaves.merge(
+                    df_emp[[emp_code_col, emp_name_col]],
+                    left_on="Employee Code",
+                    right_on=emp_code_col,
+                    how="left"
+                )
+                all_leaves["Employee Name"] = all_leaves[emp_name_col].fillna(all_leaves["Employee Code"])
+            else:
+                all_leaves["Employee Name"] = all_leaves["Employee Code"]
+
         all_leaves["Start Date"] = pd.to_datetime(all_leaves["Start Date"]).dt.strftime("%d-%m-%Y")
         all_leaves["End Date"] = pd.to_datetime(all_leaves["End Date"]).dt.strftime("%d-%m-%Y")
-        st.dataframe(all_leaves[[
-            "Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"
-        ]], use_container_width=True)
+
+        st.dataframe(
+            all_leaves[["Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"]],
+            use_container_width=True
+        )
     else:
         st.info("No leave history for your team.")
 
