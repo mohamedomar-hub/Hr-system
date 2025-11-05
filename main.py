@@ -744,7 +744,7 @@ def page_manager_leaves(user):
 #    st.dataframe(
 #       all_leaves[["Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"]],
 #       use_container_width=True
-    )
+#   )
 
 # ============================
 # Remaining pages: Dashboard / HR Manager / Reports etc.
