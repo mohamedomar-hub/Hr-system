@@ -1,4 +1,4 @@
-# hr_system_dark_mode_v3_final_with_ask_employees_search.py
+# hr_system_dark_mode_v3_final_fixed.py
 import streamlit as st
 import pandas as pd
 import requests
@@ -531,7 +531,7 @@ def page_ask_employees(user):
         return
 
     # ============================
-    # ✅ Robust Column Detection (Case-insensitive, flexible names)
+    # ✅ Robust Column Detection
     # ============================
     emp_code_col = None
     emp_name_col = None
@@ -616,7 +616,7 @@ def page_ask_employees(user):
         requests_df = pd.concat([requests_df, new_row], ignore_index=True)
         save_hr_requests(requests_df)
         add_notification(selected_code, "", f"HR has sent you a new request (ID: {new_id}). Check 'Request HR' page.")
-        st.success(f"✅ Request sent to {selected_name} (Code: {selected_code}) successfully.")
+        st.success(f"Request sent to {selected_name} (Code: {selected_code}) successfully.")
         st.rerun()
 
 def page_request_hr(user):
@@ -645,6 +645,8 @@ def page_request_hr(user):
             if os.path.exists(filepath):
                 with open(filepath, "rb") as f:
                     st.download_button("📥 Download Attached File", f, file_name=row["File Attached"], key=f"dl_req_{idx}")
+            else:
+                st.warning("Attached file not found.")
         if row["Status"] == "Completed":
             st.success("✅ This request has been responded to.")
             if row["Response File"]:
@@ -652,6 +654,8 @@ def page_request_hr(user):
                 if os.path.exists(resp_path):
                     with open(resp_path, "rb") as f:
                         st.download_button("📥 Download Your Response", f, file_name=row["Response File"], key=f"dl_resp_{idx}")
+                else:
+                    st.warning("Your response file not found.")
             continue
         st.markdown("---")
         response_text = st.text_area("Your Response", key=f"resp_text_{idx}")
@@ -1530,8 +1534,12 @@ with st.sidebar:
         st.markdown("---")
         if is_hr:
             pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Notifications"]
-        elif is_am or is_dm or is_mr:
+        elif is_am:
             pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
+        elif is_dm:
+            pages = ["My Profile", "My Team", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
+        elif is_mr:
+            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         else:
             pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         for p in pages:
@@ -1566,9 +1574,15 @@ if st.session_state["logged_in_user"]:
     elif current_page == "HR Manager":
         page_hr_manager(user)
     elif current_page == "Team Structure":
-        page_my_team(user, role="AM")
+        if is_am:
+            page_my_team(user, role="AM")
+        else:
+            st.error("Access denied. Only AM can view Team Structure.")
     elif current_page == "My Team":
-        page_my_team(user, role="DM")
+        if is_dm:
+            page_my_team(user, role="DM")
+        else:
+            st.error("Access denied. Only DM can view My Team.")
     elif current_page == "HR Inbox":
         if is_hr:
             page_hr_inbox(user)
@@ -1579,8 +1593,6 @@ if st.session_state["logged_in_user"]:
             page_employee_photos(user)
         else:
             st.error("Access denied. HR only.")
-    elif current_page == "Ask HR":
-        page_ask_hr(user)
     elif current_page == "Ask Employees":
         if is_hr:
             page_ask_employees(user)
@@ -1588,5 +1600,7 @@ if st.session_state["logged_in_user"]:
             st.error("Access denied. HR only.")
     elif current_page == "Request HR":
         page_request_hr(user)
+    elif current_page == "Ask HR":
+        page_ask_hr(user)
 else:
     st.info("Please log in to access the system.")
