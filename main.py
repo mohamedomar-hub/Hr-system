@@ -1027,8 +1027,7 @@ def page_hr_inbox(user):
         st.markdown(card_html, unsafe_allow_html=True)
         # show existing reply or textarea to reply
         if reply_existing:
-            st.markdown(f"**🟢 Existing reply:**
-{reply_existing}")
+            st.markdown(f"**🟢 Existing reply:**\n{reply_existing}")
             col1, col2 = st.columns([1,4])
             with col1:
                 if st.button("🗂️ Mark as Closed", key=f"close_{idx}"):
