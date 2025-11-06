@@ -968,7 +968,7 @@ def page_hr_inbox(user):
                         hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
                         save_hr_queries(hr_df)
                         st.success("✅ Message marked as closed.")
-                        st.experimental_rerun()
+                        st.rerun()
                     except Exception as e:
                         st.error(f"Failed to close message: {e}")
         else:
@@ -983,7 +983,7 @@ def page_hr_inbox(user):
                         save_hr_queries(hr_df)
                         add_notification(emp_code, "", f"HR replied to your message: {subj}")
                         st.success("✅ Reply sent and employee notified.")
-                        st.experimental_rerun()
+                        st.rerun()
                     except Exception as e:
                         st.error(f"❌ Failed to send reply: {e}")
             with col2:
@@ -993,7 +993,7 @@ def page_hr_inbox(user):
                         hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
                         save_hr_queries(hr_df)
                         st.success("✅ Message marked as closed.")
-                        st.experimental_rerun()
+                        st.rerun()
                     except Exception as e:
                         st.error(f"❌ Failed to close message: {e}")
 
@@ -1058,7 +1058,7 @@ def page_ask_hr(user):
                 st.success("✅ Your message was sent to HR.")
                 # notify HR by title 'HR' so they can see notification (optional)
                 add_notification("", "HR", f"New Ask HR from {user_name} ({user_code})")
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error("❌ Failed to save message. Check server permissions.")
 
