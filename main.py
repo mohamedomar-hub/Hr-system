@@ -714,25 +714,45 @@ def page_manager_leaves(user):
             st.markdown(f"**Employee**: {emp_display} | **Dates**: {row['Start Date'].strftime('%d-%m-%Y')} → {row['End Date'].strftime('%d-%m-%Y')} | **Type**: {row['Leave Type']}")
             st.write(f"**Reason**: {row['Reason']}")
             col1, col2 = st.columns(2)
-            with col1:
+                        with col1:
                 if st.button("✅ Approve", key=f"app_{idx}_{row['Employee Code']}"):
-                    leaves_df.at[row.name, "Status"] = "Approved"
-                    leaves_df.at[row.name, "Decision Date"] = pd.Timestamp.now()
-                    save_leaves_data(leaves_df)
-                    add_notification(row['Employee Code'], "", "Your leave request has been approved!")
-                    st.success("Approved!")
-                    st.rerun()
-            with col2:
+                    # إعادة تحميل leaves_df لضمان أنه محدث
+                    current_leaves = load_leaves_data()
+                    # ابحث عن الصف المطلوب بدقة
+                    mask = (
+                        (current_leaves["Employee Code"].astype(str) == str(row['Employee Code'])) &
+                        (current_leaves["Start Date"] == row['Start Date']) &
+                        (current_leaves["Status"] == "Pending")
+                    )
+                    if mask.any():
+                        current_leaves.loc[mask, "Status"] = "Approved"
+                        current_leaves.loc[mask, "Decision Date"] = pd.Timestamp.now()
+                        save_leaves_data(current_leaves)
+                        add_notification(row['Employee Code'], "", "Your leave request has been approved!")
+                        st.success("Approved!")
+                        st.rerun()
+                    else:
+                        st.warning("Request not found or already processed.")
+                        with col2:
                 if st.button("❌ Reject", key=f"rej_{idx}_{row['Employee Code']}"):
                     comment = st.text_input("Comment (optional)", key=f"com_{idx}_{row['Employee Code']}")
-                    leaves_df.at[row.name, "Status"] = "Rejected"
-                    leaves_df.at[row.name, "Decision Date"] = pd.Timestamp.now()
-                    leaves_df.at[row.name, "Comment"] = comment
-                    save_leaves_data(leaves_df)
-                    msg = f"Your leave request was rejected. Comment: {comment}" if comment else "Your leave request was rejected."
-                    add_notification(row['Employee Code'], "", msg)
-                    st.success("Rejected!")
-                    st.rerun()
+                    current_leaves = load_leaves_data()
+                    mask = (
+                        (current_leaves["Employee Code"].astype(str) == str(row['Employee Code'])) &
+                        (current_leaves["Start Date"] == row['Start Date']) &
+                        (current_leaves["Status"] == "Pending")
+                    )
+                    if mask.any():
+                        current_leaves.loc[mask, "Status"] = "Rejected"
+                        current_leaves.loc[mask, "Decision Date"] = pd.Timestamp.now()
+                        current_leaves.loc[mask, "Comment"] = comment
+                        save_leaves_data(current_leaves)
+                        msg = f"Your leave request was rejected. Comment: {comment}" if comment else "Your leave request was rejected."
+                        add_notification(row['Employee Code'], "", msg)
+                        st.success("Rejected!")
+                        st.rerun()
+                    else:
+                        st.warning("Request not found or already processed.")
             st.markdown("---")
     else:
         st.info("No pending requests.")
