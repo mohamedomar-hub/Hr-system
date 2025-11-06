@@ -1,3 +1,4 @@
+# hr_system_dark_mode_v3.py
 import streamlit as st
 import pandas as pd
 import requests
@@ -24,7 +25,6 @@ FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FI
 # Styling - Enhanced Dark Mode CSS with Bell & Fonts
 # ============================
 st.set_page_config(page_title="HR System (Dark)", page_icon="👥", layout="wide")
-
 enhanced_dark_css = """
 <style>
 /* Fonts */
@@ -328,7 +328,6 @@ def page_notifications(user):
     if notifications.empty:
         st.info("No notifications.")
         return
-
     user_code = None
     user_title = None
     for key, val in user.items():
@@ -336,27 +335,20 @@ def page_notifications(user):
             user_code = str(val).strip().replace(".0", "")
         if key == "Title":
             user_title = str(val).strip().upper()
-
-    # Filter notifications for this user
     user_notifs = notifications[
         (notifications["Recipient Code"].astype(str) == user_code) |
         (notifications["Recipient Title"].astype(str).str.upper() == user_title)
     ].copy()
-
     if user_notifs.empty:
         st.info("No notifications for you.")
         return
-
-    # Sort by timestamp (newest first)
     user_notifs = user_notifs.sort_values("Timestamp", ascending=False).reset_index(drop=True)
-
     col1, col2 = st.columns([4,1])
     with col2:
         if st.button("Mark all as read"):
             mark_all_as_read(user)
             st.success("All notifications marked as read.")
             st.rerun()
-
     for idx, row in user_notifs.iterrows():
         status = "✅" if row["Is Read"] else "🆕"
         time_str = row["Timestamp"].strftime("%d-%m-%Y %H:%M") if pd.notna(row["Timestamp"]) else "N/A"
@@ -376,7 +368,6 @@ def load_hr_queries():
         except Exception:
             return pd.DataFrame()
     else:
-        # create empty dataframe with required columns
         df = pd.DataFrame(columns=[
             "ID", "Employee Code", "Employee Name", "Subject", "Message",
             "Reply", "Status", "Date Sent", "Date Replied"
@@ -390,11 +381,9 @@ def load_hr_queries():
 
 def save_hr_queries(df):
     try:
-        # ensure ID exists and is integer incremental (if new entries added without ID)
         if "ID" in df.columns:
             df = df.copy()
             df["ID"] = pd.to_numeric(df["ID"], errors="coerce")
-            # fill missing IDs
             if df["ID"].isna().any():
                 existing_max = int(df["ID"].max(skipna=True)) if not df["ID"].isna().all() else 0
                 for idx in df[df["ID"].isna()].index:
@@ -507,7 +496,6 @@ def render_logo_and_title():
             st.image(LOGO_PATH, width=160)
         st.markdown("<h1 style='color:#e6eef8'>HR System — Dark Mode</h1>", unsafe_allow_html=True)
         st.markdown("<p style='color:#aab8c9'>English interface only</p>", unsafe_allow_html=True)
-    # Add notification bell
     user = st.session_state.get("logged_in_user")
     if user:
         unread = get_unread_count(user)
@@ -625,13 +613,8 @@ def page_leave_request(user):
     else:
         st.info("No leave requests found.")
 
-# ============================
-# <<-- REPLACED FUNCTION: page_manager_leaves -->> 
-# This is the updated, indentation-safe, name-display version requested.
 def page_manager_leaves(user):
     st.subheader("Leave Requests from Your Team")
-
-    # --- Get Manager Code ---
     manager_code = None
     for key, val in user.items():
         if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
@@ -642,316 +625,76 @@ def page_manager_leaves(user):
     if not manager_code:
         st.error("Your Employee Code not found.")
         return
-
-    # --- Load Leave Data ---
     leaves_df = load_leaves_data()
-    if leaves_df is None or leaves_df.empty:
+    if leaves_df.empty:
         st.info("No leave requests found.")
         return
-
-    # --- Ensure columns exist and clean codes ---
-    if "Manager Code" not in leaves_df.columns or "Employee Code" not in leaves_df.columns:
-        st.error("Leaves dataset missing required columns ('Manager Code' or 'Employee Code').")
+    team_leaves = leaves_df[leaves_df["Manager Code"].astype(str) == manager_code].copy()
+    if team_leaves.empty:
+        st.info("No leave requests from your team.")
         return
-    leaves_df["Manager Code"] = leaves_df["Manager Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-    leaves_df["Employee Code"] = leaves_df["Employee Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-    if "Status" not in leaves_df.columns:
-        leaves_df["Status"] = "Pending"
-    leaves_df["Status"] = leaves_df["Status"].astype(str).str.strip()
-
-    # --- Filter only PENDING requests for this manager ---
-    pending_leaves = leaves_df[
-        (leaves_df["Manager Code"] == manager_code) &
-        (leaves_df["Status"].str.lower() == "pending")
-    ].copy()
-
-    # keep original index reference so updates map to leaves_df correctly
-    pending_leaves["_orig_index"] = pending_leaves.index
-
-    # --- Merge employee names from employee sheet (if available) ---
     df_emp = st.session_state.get("df", pd.DataFrame())
-    emp_code_col = None
-    emp_name_col = None
+    name_col_to_use = "Employee Code"
     if not df_emp.empty:
         col_map = {c.lower().strip(): c for c in df_emp.columns}
         emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
         emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
         if emp_code_col and emp_name_col:
             df_emp[emp_code_col] = df_emp[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-            pending_leaves = pending_leaves.merge(
+            team_leaves["Employee Code"] = team_leaves["Employee Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+            team_leaves = team_leaves.merge(
                 df_emp[[emp_code_col, emp_name_col]],
                 left_on="Employee Code",
                 right_on=emp_code_col,
                 how="left"
             )
-
-    # --- Display Pending Requests ---
-    if pending_leaves.empty:
-        st.info("No pending requests from your team.")
-
+            name_col_to_use = emp_name_col
+    pending_leaves = team_leaves[team_leaves["Status"] == "Pending"].reset_index(drop=True)
+    all_leaves = team_leaves.copy()
     st.markdown("### 🟡 Pending Requests")
-
-    for i, row in pending_leaves.iterrows():
-        orig_idx = row.get("_orig_index", None)
-        emp_name = ""
-        if emp_name_col and emp_name_col in row:
-            emp_name = row.get(emp_name_col) or ""
-        emp_display = emp_name if emp_name else row.get("Employee Code", "")
-
-        try:
-            start_display = pd.to_datetime(row.get("Start Date")).strftime("%d-%m-%Y")
-        except Exception:
-            start_display = str(row.get("Start Date", ""))
-        try:
-            end_display = pd.to_datetime(row.get("End Date")).strftime("%d-%m-%Y")
-        except Exception:
-            end_display = str(row.get("End Date", ""))
-
-        st.markdown(
-            f"**Employee**: {emp_display} | "
-            f"**Dates**: {start_display} → {end_display} | "
-            f"**Type**: {row.get('Leave Type','')}"
-        )
-        st.write(f"**Reason**: {row.get('Reason','')}")
-
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("✅ Approve", key=f"app_{manager_code}_{orig_idx}"):
-                if orig_idx is not None and int(orig_idx) in leaves_df.index:
-                    leaves_df.at[int(orig_idx), "Status"] = "Approved"
-                    leaves_df.at[int(orig_idx), "Decision Date"] = pd.Timestamp.now()
+    if not pending_leaves.empty:
+        for idx, row in pending_leaves.iterrows():
+            emp_name = row.get(name_col_to_use, "") if name_col_to_use in row else ""
+            emp_display = f"{emp_name} ({row['Employee Code']})" if emp_name else row['Employee Code']
+            st.markdown(f"**Employee**: {emp_display} | **Dates**: {row['Start Date'].strftime('%d-%m-%Y')} → {row['End Date'].strftime('%d-%m-%Y')} | **Type**: {row['Leave Type']}")
+            st.write(f"**Reason**: {row['Reason']}")
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✅ Approve", key=f"app_{idx}_{row['Employee Code']}"):
+                    leaves_df.at[row.name, "Status"] = "Approved"
+                    leaves_df.at[row.name, "Decision Date"] = pd.Timestamp.now()
                     save_leaves_data(leaves_df)
-                    add_notification(row.get("Employee Code", ""), "", "Your leave request has been approved!")
-                    st.success("Approved successfully!")
+                    add_notification(row['Employee Code'], "", "Your leave request has been approved!")
+                    st.success("Approved!")
                     st.rerun()
-                else:
-                    st.error("Unable to locate the leave record to approve.")
-
-        with col2:
-            if st.button("❌ Reject", key=f"rej_{manager_code}_{orig_idx}"):
-                comment_key = f"com_{manager_code}_{orig_idx}"
-                comment = st.text_input("Comment (optional)", key=comment_key)
-                if st.button("Confirm Reject", key=f"confirm_rej_{manager_code}_{orig_idx}"):
-                    if orig_idx is not None and int(orig_idx) in leaves_df.index:
-                        leaves_df.at[int(orig_idx), "Status"] = "Rejected"
-                        leaves_df.at[int(orig_idx), "Decision Date"] = pd.Timestamp.now()
-                        leaves_df.at[int(orig_idx), "Comment"] = comment
-                        save_leaves_data(leaves_df)
-                        msg = f"Your leave request was rejected. Comment: {comment}" if comment else "Your leave request was rejected."
-                        add_notification(row.get("Employee Code", ""), "", msg)
-                        st.success("Rejected.")
-                        st.rerun()
-                    else:
-                        st.error("Unable to locate the leave record to reject.")
-
-        st.markdown("---")
-
-    # --- Show Team Leave History (Approved/Rejected) ---
-    st.markdown("### 📋 Team Leave History")
-    all_leaves = leaves_df[leaves_df["Manager Code"] == manager_code].copy()
-
-    if all_leaves.empty:
-        st.info("No leave history for your team.")
-        return
-
-    if not df_emp.empty and emp_code_col and emp_name_col and emp_code_col in df_emp.columns:
-        df_emp[emp_code_col] = df_emp[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-        all_leaves = all_leaves.merge(
-            df_emp[[emp_code_col, emp_name_col]],
-            left_on="Employee Code",
-            right_on=emp_code_col,
-            how="left"
-        )
-        all_leaves["Employee Name"] = all_leaves[emp_name_col].fillna(all_leaves["Employee Code"])
-    else:
-        all_leaves["Employee Name"] = all_leaves["Employee Code"]
-
-    all_leaves["Start Date"] = pd.to_datetime(all_leaves["Start Date"], errors="coerce").dt.strftime("%d-%m-%Y")
-    all_leaves["End Date"] = pd.to_datetime(all_leaves["End Date"], errors="coerce").dt.strftime("%d-%m-%Y")
-    # Filter by status
-    status_filter = st.selectbox("Filter by Status", ["All", "Approved", "Rejected", "Pending"])
-    if status_filter != "All":
-        all_leaves = all_leaves[all_leaves["Status"] == status_filter]
-
-    st.dataframe(all_leaves[[
-        "Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"
-    ]], use_container_width=True)
-
-    if "Decision Date" in all_leaves.columns:
-        try:
-            all_leaves["Decision Date_tmp"] = pd.to_datetime(all_leaves["Decision Date"], errors="coerce")
-            all_leaves = all_leaves.sort_values("Decision Date_tmp", ascending=False).drop(columns=["Decision Date_tmp"])
-        except Exception:
-            pass
-
-# ============================
-# New: Ask HR (Employee) & HR Inbox (HR)
-# ============================
-def page_ask_hr(user):
-    st.subheader("📩 Ask HR")
-    st.markdown("Send a question or request to HR. HR will reply and you'll see the reply here.")
-
-    # identify employee code and name
-    emp_code = None
-    emp_name = ""
-    for k, v in user.items():
-        if k.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
-            emp_code = str(v).strip()
-            if emp_code.endswith('.0'):
-                emp_code = emp_code[:-2]
-        if k.lower().replace(" ", "").replace("_", "") in ["employeename", "employee_name", "name"]:
-            emp_name = str(v).strip()
-    if emp_code is None:
-        st.error("Your Employee Code not found.")
-        return
-
-    hr_df = load_hr_queries()
-
-    # Show form to submit question
-    with st.form("ask_hr_form"):
-        subject = st.text_input("Subject")
-        message = st.text_area("Message")
-        submitted = st.form_submit_button("Send Message")
-    if submitted:
-        if not subject.strip() or not message.strip():
-            st.warning("Please provide both subject and message.")
-        else:
-            new_row = {
-                "ID": None,
-                "Employee Code": emp_code,
-                "Employee Name": emp_name,
-                "Subject": subject.strip(),
-                "Message": message.strip(),
-                "Reply": "",
-                "Status": "Pending",
-                "Date Sent": pd.Timestamp.now(),
-                "Date Replied": ""
-            }
-            hr_df = pd.concat([hr_df, pd.DataFrame([new_row])], ignore_index=True)
-            saved = save_hr_queries(hr_df)
-            if saved:
-                st.success("Your message has been sent to HR.")
-                # Notify HR role (use recipient title "HR")
-                add_notification("", "HR", f"New Ask HR message from {emp_code}")
-            else:
-                st.error("Failed to save your message. Try again.")
-
-    st.markdown("---")
-    st.markdown("### Your Messages")
-    # filter to this employee
-    if not hr_df.empty:
-        my_msgs = hr_df[hr_df["Employee Code"].astype(str) == emp_code].copy()
-        if my_msgs.empty:
-            st.info("You have not sent any messages yet.")
-            return
-        # order newest first
-        try:
-            my_msgs["Date Sent_dt"] = pd.to_datetime(my_msgs["Date Sent"], errors="coerce")
-            my_msgs = my_msgs.sort_values("Date Sent_dt", ascending=False)
-        except Exception:
-            pass
-        for idx, row in my_msgs.iterrows():
-            status = row.get("Status", "")
-            date_sent = row.get("Date Sent", "")
-            st.markdown(f"**Subject:** {row.get('Subject','')}")
-            st.caption(f"Sent: {pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M') if pd.notna(pd.to_datetime(date_sent, errors='coerce')) else date_sent} — Status: {status}")
-            st.write(row.get("Message",""))
-            reply = row.get("Reply", "")
-            if reply and str(reply).strip():
-                st.markdown("**HR Reply:**")
-                st.info(reply)
+            with col2:
+                if st.button("❌ Reject", key=f"rej_{idx}_{row['Employee Code']}"):
+                    comment = st.text_input("Comment (optional)", key=f"com_{idx}_{row['Employee Code']}")
+                    leaves_df.at[row.name, "Status"] = "Rejected"
+                    leaves_df.at[row.name, "Decision Date"] = pd.Timestamp.now()
+                    leaves_df.at[row.name, "Comment"] = comment
+                    save_leaves_data(leaves_df)
+                    msg = f"Your leave request was rejected. Comment: {comment}" if comment else "Your leave request was rejected."
+                    add_notification(row['Employee Code'], "", msg)
+                    st.success("Rejected!")
+                    st.rerun()
             st.markdown("---")
     else:
-        st.info("No messages found.")
-
-def page_hr_inbox(user):
-    # only HR users should access this; caller must ensure user is HR
-    st.subheader("📬 HR Inbox")
-    st.markdown("View employee queries and reply to them here.")
-
-    hr_df = load_hr_queries()
-    if hr_df is None or hr_df.empty:
-        st.info("No Ask HR messages.")
-        return
-
-    # show newest first
-    try:
-        hr_df["Date Sent_dt"] = pd.to_datetime(hr_df["Date Sent"], errors="coerce")
-        hr_df = hr_df.sort_values("Date Sent_dt", ascending=False)
-    except Exception:
-        pass
-    for idx, row in hr_df.iterrows():
-        emp_code = str(row['Employee Code'])
-        emp_name = row.get('Employee Name', '')
-        subj = row['Subject']
-        msg = row.get("Message", "")
-        status = row['Status']
-        date_sent = row.get("Date Sent", "")
-        reply_existing = row.get("Reply", "")
-
-    # تحديد اللون بناءً على الحالة
-        if status == "Pending":
-            status_color = "🟡 Pending"
-        elif status == "Replied":
-            status_color = "🟢 Replied"
-        elif status == "Closed":
-            status_color = "⚫ Closed"
+        st.info("No pending requests.")
+    st.markdown("### 📋 All Team Leave History")
+    if not all_leaves.empty:
+        if name_col_to_use in all_leaves.columns:
+            all_leaves["Employee Name"] = all_leaves[name_col_to_use]
         else:
-            status_color = f"🔘 {status}"
+            all_leaves["Employee Name"] = all_leaves["Employee Code"]
+        all_leaves["Start Date"] = pd.to_datetime(all_leaves["Start Date"]).dt.strftime("%d-%m-%Y")
+        all_leaves["End Date"] = pd.to_datetime(all_leaves["End Date"]).dt.strftime("%d-%m-%Y")
+        st.dataframe(all_leaves[[
+            "Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"
+        ]], use_container_width=True)
+    else:
+        st.info("No leave history for your team.")
 
-    # عرض العنوان بشكل منسق وواضح (كل سطر منفصل)
-        exp_title = (
-            f"📩 **Subject:** {subj}  \n"
-            f"🧑‍💼 **Employee:** {emp_name} ({emp_code})  \n"
-            f"📊 **Status:** {status_color}"
-    )
-
-    with st.expander(exp_title):
-        st.markdown(f"**From:** {emp_name} — {emp_code}")
-        st.caption(
-            f"Sent: {pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M') if pd.notna(pd.to_datetime(date_sent, errors='coerce')) else date_sent}"
-        )
-        st.write(msg)
-        st.markdown("---")
-        st.markdown("### Reply")
-
-        reply = st.text_area(
-            "Reply",
-            value=reply_existing if not pd.isna(reply_existing) else "",
-            key=f"reply_{idx}"
-        )
-
-        col1, col2 = st.columns([1, 1])
-
-        with col1:
-            if st.button("Send Reply", key=f"send_reply_{idx}"):
-                try:
-                    hr_df.at[idx, "Reply"] = reply
-                    hr_df.at[idx, "Status"] = "Replied"
-                    hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
-                    save_hr_queries(hr_df)
-                    add_notification(emp_code, "", f"HR replied to your message: {subj}")
-                    st.success("Reply sent and employee notified.")
-                    st.experimental_rerun()
-                except Exception as e:
-                    st.error(f"Failed to send reply: {e}")
-
-        with col2:
-            if st.button("Mark as Closed", key=f"close_{idx}"):
-                try:
-                    hr_df.at[idx, "Status"] = "Closed"
-                    hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
-                    save_hr_queries(hr_df)
-                    st.success("Marked as Closed.")
-                    st.experimental_rerun()
-                except Exception as e:
-                    st.error(f"Failed to close message: {e}")
-
-
-# ============================
-# Remaining pages: Dashboard / HR Manager / Reports etc.
-# (Keep original implementations — trimmed here for brevity if needed)
-# ============================
 def page_dashboard(user):
     st.subheader("Dashboard")
     df = st.session_state.get("df", pd.DataFrame())
@@ -1139,11 +882,96 @@ def page_reports(user):
     st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # ============================
+# ✅ FIXED: page_hr_inbox — Clean layout inside expander
+# ============================
+def page_hr_inbox(user):
+    st.subheader("📬 HR Inbox")
+    st.markdown("View employee queries and reply to them here.")
+    hr_df = load_hr_queries()
+    if hr_df is None or hr_df.empty:
+        st.info("No Ask HR messages.")
+        return
+
+    # Sort by date (newest first)
+    try:
+        hr_df["Date Sent_dt"] = pd.to_datetime(hr_df["Date Sent"], errors="coerce")
+        hr_df = hr_df.sort_values("Date Sent_dt", ascending=False)
+    except Exception:
+        pass
+
+    for idx, row in hr_df.iterrows():
+        emp_code = str(row['Employee Code'])
+        emp_name = row.get('Employee Name', '')
+        subj = row['Subject']
+        msg = row.get("Message", "")
+        status = row['Status']
+        date_sent = row.get("Date Sent", "")
+        reply_existing = row.get("Reply", "")
+
+        # Status badge
+        if status == "Pending":
+            status_badge = "🟡 **Pending**"
+        elif status == "Replied":
+            status_badge = "🟢 **Replied**"
+        elif status == "Closed":
+            status_badge = "⚫ **Closed**"
+        else:
+            status_badge = f"🔘 **{status}**"
+
+        # Clean multi-line expander title
+        exp_title = (
+            f"**Subject:** {subj}  \n"
+            f"**Employee:** {emp_name} ({emp_code})  \n"
+            f"**Status:** {status_badge}"
+        )
+
+        with st.expander(exp_title, expanded=False):
+            st.markdown(f"**From:** {emp_name} — {emp_code}")
+            try:
+                sent_time = pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M')
+            except:
+                sent_time = str(date_sent)
+            st.caption(f"Sent: {sent_time}")
+            st.write(msg)
+            
+            st.markdown("---")
+            st.markdown("### 💬 Reply")
+            reply = st.text_area(
+                "Your Response",
+                value=reply_existing if pd.notna(reply_existing) else "",
+                key=f"reply_{idx}",
+                height=120
+            )
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✅ Send Reply", key=f"send_reply_{idx}"):
+                    try:
+                        hr_df.at[idx, "Reply"] = reply
+                        hr_df.at[idx, "Status"] = "Replied"
+                        hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
+                        save_hr_queries(hr_df)
+                        add_notification(emp_code, "", f"HR replied to your message: {subj}")
+                        st.success("✅ Reply sent and employee notified.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Failed to send reply: {e}")
+            with col2:
+                if st.button("🗑️ Mark as Closed", key=f"close_{idx}"):
+                    try:
+                        hr_df.at[idx, "Status"] = "Closed"
+                        hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
+                        save_hr_queries(hr_df)
+                        st.success("✅ Message marked as closed.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Failed to close message: {e}")
+
+# ============================
 # Main App Flow
 # ============================
 ensure_session_df()
 render_logo_and_title()
-
 st.sidebar.title("Menu")
 if "logged_in_user" not in st.session_state:
     st.session_state["logged_in_user"] = None
@@ -1204,7 +1032,6 @@ else:
     elif page == "My Team":
         page_my_team(user, role="DM")
     elif page == "HR Inbox":
-        # security: only HR role should access
         if not is_hr:
             st.error("Access denied. HR only.")
         else:
