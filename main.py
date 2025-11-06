@@ -1,4 +1,4 @@
-# hr_system_dark_mode_v3_fixed.py
+# hr_system_dark_mode_v3_fixed_with_photos.py
 import streamlit as st
 import pandas as pd
 import requests
@@ -171,7 +171,22 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
 st.markdown(enhanced_dark_css, unsafe_allow_html=True)
 
 # ============================
-# GitHub helpers
+# Photo Helper
+# ============================
+def save_employee_photo(employee_code, uploaded_file):
+    os.makedirs("employee_photos", exist_ok=True)
+    emp_code_clean = str(employee_code).strip().replace(".0", "")
+    ext = uploaded_file.name.split(".")[-1].lower()
+    if ext not in ["jpg", "jpeg", "png"]:
+        raise ValueError("Only JPG/PNG files allowed.")
+    filename = f"{emp_code_clean}.{ext}"
+    filepath = os.path.join("employee_photos", filename)
+    with open(filepath, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    return filename
+
+# ============================
+# GitHub helpers (unchanged)
 # ============================
 def github_headers():
     headers = {"Accept": "application/vnd.github.v3+json"}
@@ -225,7 +240,7 @@ def upload_to_github(df, commit_message="Update employees via Streamlit"):
         return False
 
 # ============================
-# Helpers
+# Helpers (unchanged)
 # ============================
 def ensure_session_df():
     if "df" not in st.session_state:
@@ -297,7 +312,7 @@ def save_leaves_data(df):
         return False
 
 # ============================
-# Notifications System
+# Notifications System (unchanged)
 # ============================
 def load_notifications():
     if os.path.exists(NOTIFICATIONS_FILE_PATH):
@@ -407,7 +422,7 @@ def page_notifications(user):
         st.markdown("---")
 
 # ============================
-# HR Queries (Ask HR)
+# HR Queries (Ask HR) — unchanged
 # ============================
 def load_hr_queries():
     if os.path.exists(HR_QUERIES_FILE_PATH):
@@ -446,7 +461,7 @@ def save_hr_queries(df):
         return False
 
 # ============================
-# Team Hierarchy
+# Team Hierarchy — unchanged
 # ============================
 def build_team_hierarchy(df, manager_code, manager_title="AM"):
     emp_code_col = "Employee Code"
@@ -557,6 +572,53 @@ def render_logo_and_title():
         if unread > 0:
             st.markdown(f'<div class="notification-bell">{unread}<div class="notification-badge">{unread}</div></div>', unsafe_allow_html=True)
 
+# ============================
+# ✅ NEW: Employee Photos Page for HR
+# ============================
+def page_employee_photos(user):
+    st.subheader("📸 Employee Photos (HR Only)")
+    os.makedirs("employee_photos", exist_ok=True)
+    photo_files = os.listdir("employee_photos")
+    if not photo_files:
+        st.info("No employee photos uploaded yet.")
+        return
+
+    df = st.session_state.get("df", pd.DataFrame())
+    if df.empty:
+        st.warning("Employee data not loaded.")
+        return
+
+    # Map Employee Code to Name
+    code_to_name = {}
+    col_map = {c.lower().strip(): c for c in df.columns}
+    emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
+    emp_name_col = col_map.get("employee_name") or col_map.get("name") or col_map.get("employee name")
+
+    if emp_code_col and emp_name_col:
+        df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+        for _, row in df.iterrows():
+            code = row[emp_code_col]
+            name = row.get(emp_name_col, "N/A")
+            code_to_name[code] = name
+
+    # Display photos in grid
+    cols_per_row = 4
+    cols = st.columns(cols_per_row)
+    for i, filename in enumerate(sorted(photo_files)):
+        col = cols[i % cols_per_row]
+        filepath = os.path.join("employee_photos", filename)
+        emp_code = filename.rsplit(".", 1)[0]  # e.g., "1025.jpg" → "1025"
+        emp_name = code_to_name.get(emp_code, "Unknown")
+
+        with col:
+            st.image(filepath, use_column_width=True)
+            st.caption(f"{emp_code}\n{emp_name}")
+            with open(filepath, "rb") as f:
+                st.download_button("📥 Download", f, file_name=filename, key=f"dl_{filename}")
+
+# ============================
+# Modified: My Profile with Photo Upload
+# ============================
 def page_my_profile(user):
     st.subheader("My Profile")
     st.markdown(f"### 👋 Welcome, {user.get('Employee Name', 'User')}")
@@ -592,6 +654,44 @@ def page_my_profile(user):
     buf.seek(0)
     st.download_button("Download My Profile (Excel)", data=buf, file_name="my_profile.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
+    # === Photo Upload Section ===
+    st.markdown("### 📸 Personal Photo")
+    emp_code_clean = None
+    for key, val in user.items():
+        if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
+            emp_code_clean = str(val).strip().replace(".0", "")
+            break
+
+    if emp_code_clean:
+        # Check if photo exists
+        photo_path = None
+        for ext in ["jpg", "jpeg", "png"]:
+            p = os.path.join("employee_photos", f"{emp_code_clean}.{ext}")
+            if os.path.exists(p):
+                photo_path = p
+                break
+
+        if photo_path:
+            st.image(photo_path, width=150, caption="Your current photo")
+        else:
+            st.info("No photo uploaded yet.")
+
+        uploaded_file = st.file_uploader(
+            "Upload your personal photo (JPG/PNG)",
+            type=["jpg", "jpeg", "png"],
+            key="photo_uploader"
+        )
+        if uploaded_file:
+            if st.button("✅ Save Photo"):
+                try:
+                    filename = save_employee_photo(emp_code_clean, uploaded_file)
+                    add_notification("", "HR", f"Employee {emp_code_clean} uploaded a new photo.")
+                    st.success(f"Photo saved as: {filename}")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed to save photo: {e}")
+
+# Rest of pages unchanged: leave_request, manager_leaves, dashboard, hr_manager, reports, hr_inbox, ask_hr
 def page_leave_request(user):
     st.subheader("Request Leave")
     df_emp = st.session_state.get("df", pd.DataFrame())
@@ -716,9 +816,7 @@ def page_manager_leaves(user):
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("✅ Approve", key=f"app_{idx}_{row['Employee Code']}"):
-                    # إعادة تحميل leaves_df لضمان أنه محدث
                     current_leaves = load_leaves_data()
-                    # ابحث عن الصف المطلوب بدقة
                     mask = (
                         (current_leaves["Employee Code"].astype(str) == str(row['Employee Code'])) &
                         (current_leaves["Start Date"] == row['Start Date']) &
@@ -1144,7 +1242,7 @@ with st.sidebar:
         st.write(f"👋 **Welcome, {user.get('Employee Name') or 'User'}**")
         st.markdown("---")
         if is_hr:
-            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Notifications"]
+            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Notifications"]
         elif is_am:
             pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Notifications"]
         elif is_dm:
@@ -1189,6 +1287,11 @@ if st.session_state["logged_in_user"]:
     elif current_page == "HR Inbox":
         if is_hr:
             page_hr_inbox(user)
+        else:
+            st.error("Access denied. HR only.")
+    elif current_page == "Employee Photos":
+        if is_hr:
+            page_employee_photos(user)
         else:
             st.error("Access denied. HR only.")
     elif current_page == "Ask HR":
