@@ -640,7 +640,7 @@ def page_request_hr(user):
         st.write(f"**From HR:** {row['Request']}")
         if pd.notna(row["Date Sent"]) and row["Date Sent"] != pd.NaT:
             st.write(f"**Date Sent:** {row['Date Sent'].strftime('%d-%m-%Y %H:%M')}")
-        if row["File Attached"]:
+        if pd.notna(row["File Attached"]) and row["File Attached"]:
             filepath = os.path.join("hr_request_files", row["File Attached"])
             if os.path.exists(filepath):
                 with open(filepath, "rb") as f:
