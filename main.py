@@ -1,4 +1,4 @@
-# hr_system_dark_mode_v3_fixed_with_photos.py
+# hr_system_dark_mode_v3_fixed_with_photos_and_clear.py
 import streamlit as st
 import pandas as pd
 import requests
@@ -6,6 +6,7 @@ import base64
 from io import BytesIO
 import os
 import datetime
+import shutil
 
 # ============================
 # Configuration / Defaults
@@ -582,12 +583,10 @@ def page_employee_photos(user):
     if not photo_files:
         st.info("No employee photos uploaded yet.")
         return
-
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.warning("Employee data not loaded.")
         return
-
     # Map Employee Code to Name
     code_to_name = {}
     col_map = {c.lower().strip(): c for c in df.columns}
@@ -768,6 +767,9 @@ def page_leave_request(user):
     else:
         st.info("No leave requests found.")
 
+# ============================
+# ✅ MODIFIED: page_manager_leaves with Delete button (Manager-only)
+# ============================
 def page_manager_leaves(user):
     st.subheader("Leave Requests from Your Team")
     manager_code = None
@@ -813,7 +815,7 @@ def page_manager_leaves(user):
             emp_display = f"{emp_name} ({row['Employee Code']})" if emp_name else row['Employee Code']
             st.markdown(f"**Employee**: {emp_display} | **Dates**: {row['Start Date'].strftime('%d-%m-%Y')} → {row['End Date'].strftime('%d-%m-%Y')} | **Type**: {row['Leave Type']}")
             st.write(f"**Reason**: {row['Reason']}")
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns([2, 2, 1])
             with col1:
                 if st.button("✅ Approve", key=f"app_{idx}_{row['Employee Code']}"):
                     current_leaves = load_leaves_data()
@@ -851,6 +853,21 @@ def page_manager_leaves(user):
                         st.rerun()
                     else:
                         st.warning("Request not found or already processed.")
+            with col3:
+                if st.button("🗑️", key=f"del_{idx}_{row['Employee Code']}"):
+                    current_leaves = load_leaves_data()
+                    mask = (
+                        (current_leaves["Manager Code"].astype(str) == manager_code) &  # only his team
+                        (current_leaves["Employee Code"].astype(str) == str(row['Employee Code'])) &
+                        (current_leaves["Start Date"] == row['Start Date'])
+                    )
+                    if mask.any():
+                        current_leaves = current_leaves[~mask].reset_index(drop=True)
+                        save_leaves_data(current_leaves)
+                        st.success("Request deleted!")
+                        st.rerun()
+                    else:
+                        st.warning("Only your team's requests can be deleted.")
             st.markdown("---")
     else:
         st.info("No pending requests.")
@@ -917,6 +934,9 @@ def page_dashboard(user):
         else:
             st.error("Failed to save dataset locally.")
 
+# ============================
+# ✅ MODIFIED: page_hr_manager with Clear All Test Data button
+# ============================
 def page_hr_manager(user):
     st.subheader("HR Manager")
     st.info("Upload new employee sheet, manage employees, and perform administrative actions.")
@@ -1039,6 +1059,30 @@ def page_hr_manager(user):
         else:
             st.error("Failed to save dataset locally.")
 
+    # ============================
+    # ✅ CLEAR ALL TEST DATA BUTTON
+    # ============================
+    st.markdown("---")
+    st.warning("🛠️ **Clear All Test Data** (Use BEFORE going live!)")
+    if st.button("🗑️ Clear Leaves, HR Messages, Notifications & Photos"):
+        try:
+            test_files = [LEAVES_FILE_PATH, HR_QUERIES_FILE_PATH, NOTIFICATIONS_FILE_PATH]
+            cleared = []
+            for f in test_files:
+                if os.path.exists(f):
+                    os.remove(f)
+                    cleared.append(f)
+            if os.path.exists("employee_photos"):
+                shutil.rmtree("employee_photos")
+                cleared.append("employee_photos/")
+            if cleared:
+                st.success(f"✅ Cleared: {', '.join(cleared)}")
+            else:
+                st.info("Nothing to clear.")
+            st.rerun()
+        except Exception as e:
+            st.error(f"❌ Failed to clear: {e}")
+
 def page_reports(user):
     st.subheader("Reports (Placeholder)")
     st.info("Reports section - ready to be expanded.")
@@ -1054,6 +1098,9 @@ def page_reports(user):
     buf.seek(0)
     st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument-spreadsheetml.sheet")
 
+# ============================
+# ✅ MODIFIED: page_hr_inbox with Delete button (HR-only)
+# ============================
 def page_hr_inbox(user):
     st.subheader("📬 HR Inbox")
     st.markdown("View employee queries and reply to them here.")
@@ -1088,18 +1135,20 @@ def page_hr_inbox(user):
         if reply_existing:
             st.markdown("**🟢 Existing reply:**")
             st.markdown(reply_existing)
-            if st.button("🗂️ Mark as Closed", key=f"close_{idx}"):
-                try:
-                    hr_df.at[idx, "Status"] = "Closed"
-                    hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
-                    save_hr_queries(hr_df)
-                    st.success("✅ Message marked as closed.")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Failed to close message: {e}")
+            col1, col2 = st.columns([1, 4])
+            with col1:
+                if st.button("🗂️ Mark as Closed", key=f"close_{idx}"):
+                    try:
+                        hr_df.at[idx, "Status"] = "Closed"
+                        hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
+                        save_hr_queries(hr_df)
+                        st.success("✅ Message marked as closed.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed to close message: {e}")
         else:
             reply_text = st.text_area("✍️ Write reply here:", value="", key=f"reply_{idx}", height=120)
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns([2, 2, 1])
             with col1:
                 if st.button("✅ Send Reply", key=f"send_reply_{idx}"):
                     try:
@@ -1122,6 +1171,12 @@ def page_hr_inbox(user):
                         st.rerun()
                     except Exception as e:
                         st.error(f"❌ Failed to close message: {e}")
+            with col3:
+                if st.button("🗑️ Delete", key=f"del_inbox_{idx}"):
+                    hr_df = hr_df.drop(idx).reset_index(drop=True)
+                    save_hr_queries(hr_df)
+                    st.success("Message deleted!")
+                    st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("---")
 
