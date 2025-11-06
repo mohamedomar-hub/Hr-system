@@ -880,15 +880,14 @@ def page_hr_inbox(user):
         hr_df = hr_df.sort_values("Date Sent_dt", ascending=False)
     except Exception:
         pass
-
-    for idx, row in hr_df.iterrows():
-        emp_code = str(row['Employee Code'])
-        emp_name = row.get('Employee Name', '')
-        subj = row['Subject']
-        msg = row.get("Message", "")
-        status = row['Status']
-        date_sent = row.get("Date Sent", "")
-        reply_existing = row.get("Reply", "")
+for idx, row in hr_df.iterrows():
+    emp_code = str(row['Employee Code'])
+    emp_name = row.get('Employee Name', '')
+    subj = row['Subject']
+    msg = row.get("Message", "")
+    status = row['Status']
+    date_sent = row.get("Date Sent", "")
+    reply_existing = row.get("Reply", "")
 
     # تحديد اللون بناءً على الحالة
     if status == "Pending":
@@ -900,44 +899,54 @@ def page_hr_inbox(user):
     else:
         status_color = f"🔘 {status}"
 
-    # عرض العنوان بشكل منسق وواضح
-    exp_title = f"""
-📩 **Subject:** {subj}  
-🧑‍💼 **Employee:** {emp_name} ({emp_code})  
-📊 **Status:** {status_color}
-"""
- with st.expander(exp_title):
-    
-            st.markdown(f"**From:** {emp_name} — {emp_code}")
-            st.caption(f"Sent: {pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M') if pd.notna(pd.to_datetime(date_sent, errors='coerce')) else date_sent}")
-            st.write(msg)
-            st.markdown("---")
-            st.markdown("### Reply")
-            reply = st.text_area("Reply", value=reply_existing if not pd.isna(reply_existing) else "", key=f"reply_{idx}")
-            col1, col2 = st.columns([1,1])
-            with col1:
-                if st.button("Send Reply", key=f"send_reply_{idx}"):
-                    # update dataframe and save
-                    try:
-                        hr_df.at[idx, "Reply"] = reply
-                        hr_df.at[idx, "Status"] = "Replied"
-                        hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
-                        save_hr_queries(hr_df)
-                        add_notification(emp_code, "", f"HR replied to your message: {subj}")
-                        st.success("Reply sent and employee notified.")
-                        st.experimental_rerun()
-                    except Exception as e:
-                        st.error(f"Failed to send reply: {e}")
-            with col2:
-                if st.button("Mark as Closed", key=f"close_{idx}"):
-                    try:
-                        hr_df.at[idx, "Status"] = "Closed"
-                        hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
-                        save_hr_queries(hr_df)
-                        st.success("Marked as Closed.")
-                        st.experimental_rerun()
-                    except Exception as e:
-                        st.error(f"Failed to close message: {e}")
+    # عرض العنوان بشكل منسق وواضح (كل سطر منفصل)
+    exp_title = (
+        f"📩 **Subject:** {subj}  \n"
+        f"🧑‍💼 **Employee:** {emp_name} ({emp_code})  \n"
+        f"📊 **Status:** {status_color}"
+    )
+
+    with st.expander(exp_title):
+        st.markdown(f"**From:** {emp_name} — {emp_code}")
+        st.caption(
+            f"Sent: {pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M') if pd.notna(pd.to_datetime(date_sent, errors='coerce')) else date_sent}"
+        )
+        st.write(msg)
+        st.markdown("---")
+        st.markdown("### Reply")
+
+        reply = st.text_area(
+            "Reply",
+            value=reply_existing if not pd.isna(reply_existing) else "",
+            key=f"reply_{idx}"
+        )
+
+        col1, col2 = st.columns([1, 1])
+
+        with col1:
+            if st.button("Send Reply", key=f"send_reply_{idx}"):
+                try:
+                    hr_df.at[idx, "Reply"] = reply
+                    hr_df.at[idx, "Status"] = "Replied"
+                    hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
+                    save_hr_queries(hr_df)
+                    add_notification(emp_code, "", f"HR replied to your message: {subj}")
+                    st.success("Reply sent and employee notified.")
+                    st.experimental_rerun()
+                except Exception as e:
+                    st.error(f"Failed to send reply: {e}")
+
+        with col2:
+            if st.button("Mark as Closed", key=f"close_{idx}"):
+                try:
+                    hr_df.at[idx, "Status"] = "Closed"
+                    hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
+                    save_hr_queries(hr_df)
+                    st.success("Marked as Closed.")
+                    st.experimental_rerun()
+                except Exception as e:
+                    st.error(f"Failed to close message: {e}")
+
 
 # ============================
 # Remaining pages: Dashboard / HR Manager / Reports etc.
