@@ -880,7 +880,7 @@ def page_hr_inbox(user):
         hr_df = hr_df.sort_values("Date Sent_dt", ascending=False)
     except Exception:
         pass
-for idx, row in hr_df.iterrows():
+    for idx, row in hr_df.iterrows():
     emp_code = str(row['Employee Code'])
     emp_name = row.get('Employee Name', '')
     subj = row['Subject']
