@@ -117,6 +117,37 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     justify-content: center;
     font-weight: bold;
 }
+
+/* HR message card */
+.hr-message-card {
+    background-color: #0b1220;
+    border: 1px solid #233240;
+    padding: 14px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    white-space: pre-wrap; /* preserve line breaks and avoid overlap */
+}
+.hr-message-title {
+    font-weight: 700;
+    font-size: 16px;
+    margin-bottom: 6px;
+    color: #ffd166;
+}
+.hr-message-meta {
+    font-size: 13px;
+    color: #9fb0c8;
+    margin-bottom: 8px;
+}
+.hr-message-body {
+    color: #e6eef8;
+    font-size: 14px;
+    line-height: 1.4;
+    margin-bottom: 8px;
+}
+.hr-message-footer {
+    font-size: 13px;
+    color: #93a7bf;
+}
 </style>
 """
 st.markdown(enhanced_dark_css, unsafe_allow_html=True)
@@ -879,10 +910,10 @@ def page_reports(user):
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Employees")
     buf.seek(0)
-    st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument-spreadsheetml.sheet")
 
 # ============================
-# ✅ FIXED: page_hr_inbox — Clean layout inside expander
+# ✅ IMPROVED: page_hr_inbox — Clean card layout and robust reply handling
 # ============================
 def page_hr_inbox(user):
     st.subheader("📬 HR Inbox")
@@ -895,65 +926,64 @@ def page_hr_inbox(user):
     # Sort by date (newest first)
     try:
         hr_df["Date Sent_dt"] = pd.to_datetime(hr_df["Date Sent"], errors="coerce")
-        hr_df = hr_df.sort_values("Date Sent_dt", ascending=False)
+        hr_df = hr_df.sort_values("Date Sent_dt", ascending=False).reset_index(drop=True)
     except Exception:
-        pass
+        hr_df = hr_df.reset_index(drop=True)
 
+    # iterate and show each message as a card with clear spacing and pre-wrap so messages don't overlap
     for idx, row in hr_df.iterrows():
-        emp_code = str(row['Employee Code'])
-        emp_name = row.get('Employee Name', '')
-        subj = row['Subject']
-        msg = row.get("Message", "")
-        status = row['Status']
-        date_sent = row.get("Date Sent", "")
-        reply_existing = row.get("Reply", "")
+        emp_code = str(row.get('Employee Code', ''))
+        emp_name = row.get('Employee Name', '') if pd.notna(row.get('Employee Name', '')) else ''
+        subj = row.get('Subject', '') if pd.notna(row.get('Subject', '')) else ''
+        msg = row.get("Message", '') if pd.notna(row.get("Message", '')) else ''
+        status = row.get('Status', '') if pd.notna(row.get('Status', '')) else ''
+        date_sent = row.get("Date Sent", '')
+        reply_existing = row.get("Reply", '') if pd.notna(row.get("Reply", '')) else ''
 
-        # Status badge
-        if status == "Pending":
-            status_badge = "🟡 **Pending**"
-        elif status == "Replied":
-            status_badge = "🟢 **Replied**"
-        elif status == "Closed":
-            status_badge = "⚫ **Closed**"
+        # friendly fallback for date string
+        try:
+            sent_time = pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M')
+        except Exception:
+            sent_time = str(date_sent)
+
+        # Build HTML card (uses CSS from top)
+        card_html = f"""
+        <div class="hr-message-card">
+            <div class="hr-message-title">📌 {subj if subj else 'No Subject'}</div>
+            <div class="hr-message-meta">👤 {emp_name} — {emp_code} &nbsp;|&nbsp; 🕒 {sent_time} &nbsp;|&nbsp; 🏷️ {status}</div>
+            <div class="hr-message-body">{msg if msg else ''}</div>
+        """
+
+        # close the card and render; replies and actions after rendering card HTML
+        st.markdown(card_html, unsafe_allow_html=True)
+
+        # show existing reply or textarea to reply
+        if reply_existing:
+            st.markdown(f"**🟢 Existing reply:**\n{reply_existing}")
+            col1, col2 = st.columns([1,4])
+            with col1:
+                if st.button("🗂️ Mark as Closed", key=f"close_{idx}"):
+                    try:
+                        hr_df.at[idx, "Status"] = "Closed"
+                        hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
+                        save_hr_queries(hr_df)
+                        st.success("✅ Message marked as closed.")
+                        st.experimental_rerun()
+                    except Exception as e:
+                        st.error(f"Failed to close message: {e}")
         else:
-            status_badge = f"🔘 **{status}**"
-
-        # Clean multi-line expander title
-        exp_title = (
-            f"**Subject:** {subj}  \n"
-            f"**Employee:** {emp_name} ({emp_code})  \n"
-            f"**Status:** {status_badge}"
-        )
-
-        with st.expander(exp_title, expanded=False):
-            st.markdown(f"**From:** {emp_name} — {emp_code}")
-            try:
-                sent_time = pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M')
-            except:
-                sent_time = str(date_sent)
-            st.caption(f"Sent: {sent_time}")
-            st.write(msg)
-            
-            st.markdown("---")
-            st.markdown("### 💬 Reply")
-            reply = st.text_area(
-                "Your Response",
-                value=reply_existing if pd.notna(reply_existing) else "",
-                key=f"reply_{idx}",
-                height=120
-            )
-            
+            reply_text = st.text_area("✍️ Write reply here:", value="", key=f"reply_{idx}", height=120)
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("✅ Send Reply", key=f"send_reply_{idx}"):
                     try:
-                        hr_df.at[idx, "Reply"] = reply
+                        hr_df.at[idx, "Reply"] = reply_text
                         hr_df.at[idx, "Status"] = "Replied"
                         hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
                         save_hr_queries(hr_df)
                         add_notification(emp_code, "", f"HR replied to your message: {subj}")
                         st.success("✅ Reply sent and employee notified.")
-                        st.rerun()
+                        st.experimental_rerun()
                     except Exception as e:
                         st.error(f"❌ Failed to send reply: {e}")
             with col2:
@@ -963,9 +993,108 @@ def page_hr_inbox(user):
                         hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
                         save_hr_queries(hr_df)
                         st.success("✅ Message marked as closed.")
-                        st.rerun()
+                        st.experimental_rerun()
                     except Exception as e:
                         st.error(f"❌ Failed to close message: {e}")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("---")
+
+# ============================
+# NEW: page_ask_hr(user) — works for Employees and Managers
+# ============================
+def page_ask_hr(user):
+    """
+    user: the logged-in user dict (from login). This function allows the
+    user (employee or manager) to send Ask HR messages and view their past ones.
+    """
+    st.subheader("💬 Ask HR")
+
+    if user is None:
+        st.error("User session not found. Please login.")
+        return
+
+    # get user's code and name
+    user_code = None
+    user_name = None
+    for key, val in user.items():
+        if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
+            user_code = str(val).strip().replace(".0", "")
+        if key.lower().replace(" ", "").replace("_", "") in ["employeename", "employee_name", "name"]:
+            user_name = str(val).strip()
+
+    # fallback
+    if not user_code:
+        st.error("Your Employee Code not found in session.")
+        return
+    if not user_name:
+        user_name = user_code
+
+    hr_df = load_hr_queries()
+
+    with st.form("ask_hr_form"):
+        subj = st.text_input("Subject")
+        msg = st.text_area("Message", height=160)
+        submitted = st.form_submit_button("Send to HR")
+    if submitted:
+        if not subj.strip() or not msg.strip():
+            st.warning("Please fill both Subject and Message.")
+        else:
+            new_row = pd.DataFrame([{
+                "Employee Code": user_code,
+                "Employee Name": user_name,
+                "Subject": subj.strip(),
+                "Message": msg.strip(),
+                "Reply": "",
+                "Status": "Pending",
+                "Date Sent": pd.Timestamp.now(),
+                "Date Replied": pd.NaT
+            }])
+            if hr_df is None or hr_df.empty:
+                hr_df = new_row
+            else:
+                hr_df = pd.concat([hr_df, new_row], ignore_index=True)
+            if save_hr_queries(hr_df):
+                st.success("✅ Your message was sent to HR.")
+                # notify HR by title 'HR' so they can see notification (optional)
+                add_notification("", "HR", f"New Ask HR from {user_name} ({user_code})")
+                st.experimental_rerun()
+            else:
+                st.error("❌ Failed to save message. Check server permissions.")
+
+    st.markdown("### 📜 Your previous messages")
+    if hr_df is None or hr_df.empty:
+        st.info("No messages found.")
+        return
+
+    # show user's messages sorted newest first
+    try:
+        hr_df["Date Sent_dt"] = pd.to_datetime(hr_df["Date Sent"], errors="coerce")
+        my_msgs = hr_df[hr_df["Employee Code"].astype(str).str.strip() == str(user_code)].sort_values("Date Sent_dt", ascending=False)
+    except Exception:
+        my_msgs = hr_df[hr_df["Employee Code"].astype(str).str.strip() == str(user_code)]
+
+    if my_msgs.empty:
+        st.info("You have not sent any messages yet.")
+        return
+
+    for idx, row in my_msgs.iterrows():
+        subj = row.get("Subject", "")
+        msg = row.get("Message", "")
+        reply = row.get("Reply", "")
+        status = row.get("Status", "")
+        date_sent = row.get("Date Sent", "")
+        try:
+            sent_time = pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M')
+        except Exception:
+            sent_time = str(date_sent)
+        st.markdown(f"<div class='hr-message-card'><div class='hr-message-title'>{subj}</div><div class='hr-message-meta'>Sent: {sent_time} — Status: {status}</div><div class='hr-message-body'>{msg}</div>", unsafe_allow_html=True)
+        if pd.notna(reply) and str(reply).strip() != "":
+            st.markdown(f"**🟢 HR Reply:**\n{reply}")
+        else:
+            st.markdown("**🕒 HR Reply:** Pending")
+        st.markdown("</div>")
+        st.markdown("---")
 
 # ============================
 # Main App Flow
@@ -1037,7 +1166,11 @@ else:
         else:
             page_hr_inbox(user)
     elif page == "Ask HR":
+        # Now Ask HR works for employees and managers (calls page_ask_hr with full user)
         page_ask_hr(user)
+    elif page == "HR Inbox (debug)":
+        # debug helper if needed
+        page_hr_inbox(user)
     elif page == "Logout":
         st.session_state["logged_in_user"] = None
         st.success("You have been logged out successfully.")
