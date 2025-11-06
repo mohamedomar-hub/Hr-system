@@ -529,8 +529,8 @@ def page_ask_employees(user):
         st.error("Employee data not loaded.")
         return
     col_map = {c.lower().strip(): c for c in df.columns}
-    code_col = col_map.get("employee_code") or col_map.get("employee code")
-    name_col = col_map.get("employee_name") or col_map.get("name")
+    code_col = col_map.get("Employee Code") or col_map.get("employee code")
+    name_col = col_map.get("Employee Name") or col_map.get("name")
     if not code_col or not name_col:
         st.error("Employee Code or Name column missing.")
         return
