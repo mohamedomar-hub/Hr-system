@@ -1,4 +1,4 @@
-# hr_system_dark_mode_v3_final_fixed.py
+# hr_system_dark_mode_v3_final_with_responded_requests.py
 import streamlit as st
 import pandas as pd
 import requests
@@ -531,7 +531,7 @@ def page_ask_employees(user):
         return
 
     # ============================
-    # ✅ Robust Column Detection
+    # ✅ Robust Column Detection (Case-insensitive, flexible names)
     # ============================
     emp_code_col = None
     emp_name_col = None
@@ -640,13 +640,11 @@ def page_request_hr(user):
         st.write(f"**From HR:** {row['Request']}")
         if pd.notna(row["Date Sent"]) and row["Date Sent"] != pd.NaT:
             st.write(f"**Date Sent:** {row['Date Sent'].strftime('%d-%m-%Y %H:%M')}")
-        if pd.notna(row["File Attached"]) and row["File Attached"]:
+        if row["File Attached"]:
             filepath = os.path.join("hr_request_files", row["File Attached"])
             if os.path.exists(filepath):
                 with open(filepath, "rb") as f:
                     st.download_button("📥 Download Attached File", f, file_name=row["File Attached"], key=f"dl_req_{idx}")
-            else:
-                st.warning("Attached file not found.")
         if row["Status"] == "Completed":
             st.success("✅ This request has been responded to.")
             if row["Response File"]:
@@ -654,8 +652,6 @@ def page_request_hr(user):
                 if os.path.exists(resp_path):
                     with open(resp_path, "rb") as f:
                         st.download_button("📥 Download Your Response", f, file_name=row["Response File"], key=f"dl_resp_{idx}")
-                else:
-                    st.warning("Your response file not found.")
             continue
         st.markdown("---")
         response_text = st.text_area("Your Response", key=f"resp_text_{idx}")
@@ -672,8 +668,63 @@ def page_request_hr(user):
                 requests_df.loc[requests_df["ID"] == row["ID"], "Response File"] = resp_filename
             save_hr_requests(requests_df)
             add_notification("", "HR", f"Employee {user_code} responded to request ID {row['ID']}.")
-            st.success("✅ Response submitted successfully.")
+            st.success("Response submitted successfully.")
             st.rerun()
+
+# ============================
+# ✅ NEW: View Responses from Employees (for HR)
+# ============================
+def page_hr_responded_requests(user):
+    st.subheader("✅ Responses from Employees")
+    st.info("Here you can view responses sent by employees to your requests.")
+
+    requests_df = load_hr_requests()
+    if requests_df.empty:
+        st.info("No requests sent yet.")
+        return
+
+    # Filter for requests sent by this HR user and marked as completed
+    hr_code = str(user.get("Employee Code", "N/A")).strip().replace(".0", "")
+    completed_requests = requests_df[
+        (requests_df["HR Code"].astype(str) == hr_code) &
+        (requests_df["Status"].astype(str) == "Completed")
+    ].copy()
+
+    if completed_requests.empty:
+        st.info("No requests from you have been responded to yet.")
+        return
+
+    completed_requests = completed_requests.sort_values("Date Sent", ascending=False).reset_index(drop=True)
+
+    for idx, row in completed_requests.iterrows():
+        st.markdown(f"### 📄 Request ID: {row['ID']}")
+        st.write(f"**To Employee:** {row['Employee Name']} (Code: {row['Employee Code']})")
+        st.write(f"**Your Request:** {row['Request']}")
+        if pd.notna(row["Date Sent"]) and row["Date Sent"] != pd.NaT:
+            st.write(f"**Date Sent:** {row['Date Sent'].strftime('%d-%m-%Y %H:%M')}")
+        if pd.notna(row["Date Responded"]) and row["Date Responded"] != pd.NaT:
+            st.write(f"**Date Responded:** {row['Date Responded'].strftime('%d-%m-%Y %H:%M')}")
+
+        st.markdown("---")
+        st.write(f"**Response from Employee:**")
+        if pd.notna(row["Response"]) and row["Response"].strip() != "":
+            st.markdown(f"> {row['Response']}")
+        else:
+            st.write("_No textual response provided._")
+
+        if pd.notna(row["Response File"]) and row["Response File"].strip() != "":
+            resp_path = os.path.join("hr_response_files", row["Response File"])
+            if os.path.exists(resp_path):
+                with open(resp_path, "rb") as f:
+                    st.download_button(
+                        f"📥 Download Response File: {row['Response File']}",
+                        f,
+                        file_name=row["Response File"],
+                        key=f"dl_resp_file_{idx}"
+                    )
+            else:
+                st.warning("Response file not found on disk.")
+        st.markdown("---")
 
 # ============================
 # Team Hierarchy — unchanged
@@ -806,12 +857,14 @@ def page_employee_photos(user):
     col_map = {c.lower().strip(): c for c in df.columns}
     emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
     emp_name_col = col_map.get("employee_name") or col_map.get("name") or col_map.get("employee name")
+
     if emp_code_col and emp_name_col:
         df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
         for _, row in df.iterrows():
             code = row[emp_code_col]
             name = row.get(emp_name_col, "N/A")
             code_to_name[code] = name
+
     # Display photos in grid
     cols_per_row = 4
     cols = st.columns(cols_per_row)
@@ -820,11 +873,13 @@ def page_employee_photos(user):
         filepath = os.path.join("employee_photos", filename)
         emp_code = filename.rsplit(".", 1)[0]  # e.g., "1025.jpg" → "1025"
         emp_name = code_to_name.get(emp_code, "Unknown")
+
         with col:
             st.image(filepath, use_column_width=True)
             st.caption(f"{emp_code}\n{emp_name}")
             with open(filepath, "rb") as f:
                 st.download_button("📥 Download", f, file_name=filename, key=f"dl_{filename}")
+
     # ============================
     # ✅ Download All Button
     # ============================
@@ -1163,9 +1218,6 @@ def page_dashboard(user):
         else:
             st.error("Failed to save dataset locally.")
 
-# ============================
-# ✅ MODIFIED: page_hr_manager with Clear All Test Data button
-# ============================
 def page_hr_manager(user):
     st.subheader("HR Manager")
     st.info("Upload new employee sheet, manage employees, and perform administrative actions.")
@@ -1333,9 +1385,6 @@ def page_reports(user):
     buf.seek(0)
     st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-# ============================
-# ✅ MODIFIED: page_hr_inbox with Delete button (HR-only)
-# ============================
 def page_hr_inbox(user):
     st.subheader("📬 HR Inbox")
     st.markdown("View employee queries and reply to them here.")
@@ -1533,13 +1582,9 @@ with st.sidebar:
         st.write(f"👋 **Welcome, {user.get('Employee Name') or 'User'}**")
         st.markdown("---")
         if is_hr:
-            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Notifications"]
-        elif is_am:
+            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "View Responses from Employees", "Notifications"]
+        elif is_am or is_dm or is_mr:
             pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
-        elif is_dm:
-            pages = ["My Profile", "My Team", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
-        elif is_mr:
-            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         else:
             pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         for p in pages:
@@ -1574,15 +1619,9 @@ if st.session_state["logged_in_user"]:
     elif current_page == "HR Manager":
         page_hr_manager(user)
     elif current_page == "Team Structure":
-        if is_am:
-            page_my_team(user, role="AM")
-        else:
-            st.error("Access denied. Only AM can view Team Structure.")
+        page_my_team(user, role="AM")
     elif current_page == "My Team":
-        if is_dm:
-            page_my_team(user, role="DM")
-        else:
-            st.error("Access denied. Only DM can view My Team.")
+        page_my_team(user, role="DM")
     elif current_page == "HR Inbox":
         if is_hr:
             page_hr_inbox(user)
@@ -1593,6 +1632,8 @@ if st.session_state["logged_in_user"]:
             page_employee_photos(user)
         else:
             st.error("Access denied. HR only.")
+    elif current_page == "Ask HR":
+        page_ask_hr(user)
     elif current_page == "Ask Employees":
         if is_hr:
             page_ask_employees(user)
@@ -1600,7 +1641,10 @@ if st.session_state["logged_in_user"]:
             st.error("Access denied. HR only.")
     elif current_page == "Request HR":
         page_request_hr(user)
-    elif current_page == "Ask HR":
-        page_ask_hr(user)
+    elif current_page == "View Responses from Employees":
+        if is_hr:
+            page_hr_responded_requests(user)
+        else:
+            st.error("Access denied. HR only.")
 else:
     st.info("Please log in to access the system.")
