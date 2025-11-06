@@ -1,4 +1,4 @@
-# hr_system_dark_mode_v3_fixed_with_ask_employees_search.py
+# hr_system_dark_mode_v3_final_with_ask_employees_search.py
 import streamlit as st
 import pandas as pd
 import requests
@@ -523,52 +523,70 @@ def save_response_file(uploaded_file, employee_code, request_id):
 
 def page_ask_employees(user):
     st.subheader("📤 Ask Employees")
-    st.info("Select an employee and send them a request.")
+    st.info("🔍 Type employee name or code to search. HR can send requests with file attachments.")
+
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.error("Employee data not loaded.")
         return
-    col_map = {c.lower().strip(): c for c in df.columns}
-    code_col = col_map.get("Employee Code") or col_map.get("employee code")
-    name_col = col_map.get("Employee Name") or col_map.get("name")
-    if not code_col or not name_col:
-        st.error("Employee Code or Name column missing.")
-        return
-    df[code_col] = df[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-    df[name_col] = df[name_col].astype(str).str.strip()
-    emp_options = df[[code_col, name_col]].copy()
-    emp_options["Display"] = emp_options[name_col] + " (" + emp_options[code_col] + ")"
 
     # ============================
-    # ✅ NEW: Search Box with Note
+    # ✅ Robust Column Detection (Case-insensitive, flexible names)
+    # ============================
+    emp_code_col = None
+    emp_name_col = None
+
+    for col in df.columns:
+        col_lower = col.lower().strip()
+        if "employee" in col_lower and ("code" in col_lower or "id" in col_lower):
+            emp_code_col = col
+        elif "employee" in col_lower and ("name" in col_lower or "full" in col_lower):
+            emp_name_col = col
+
+    if not emp_code_col:
+        st.error("Column 'Employee Code' not found. Please check your Excel sheet.")
+        st.write("Available columns:", list(df.columns))
+        return
+
+    if not emp_name_col:
+        st.warning("Column 'Employee Name' not found. Using Employee Code as display name.")
+        emp_name_col = emp_code_col
+
+    # Clean the Employee Code column (remove .0, strip spaces)
+    df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    df[emp_name_col] = df[emp_name_col].astype(str).str.strip()
+
+    # ============================
+    # ✅ Search Box with Note
     # ============================
     st.markdown("### 🔍 Search Employee by Name or Code")
     search_term = st.text_input("Type employee name or code to search...")
 
     if search_term:
         mask = (
-            emp_options[name_col].str.contains(search_term, case=False, na=False) |
-            emp_options[code_col].str.contains(search_term, case=False, na=False)
+            df[emp_name_col].str.contains(search_term, case=False, na=False) |
+            df[emp_code_col].str.contains(search_term, case=False, na=False)
         )
-        filtered_options = emp_options[mask]
+        filtered_options = df[mask].copy()
         if filtered_options.empty:
             st.warning("No employee found matching your search.")
             return
     else:
-        filtered_options = emp_options
+        filtered_options = df.copy()
 
     if len(filtered_options) == 1:
         selected_row = filtered_options.iloc[0]
     elif len(filtered_options) > 1:
+        filtered_options["Display"] = filtered_options[emp_name_col] + " (Code: " + filtered_options[emp_code_col] + ")"
         selected_display = st.selectbox("Select Employee", filtered_options["Display"].tolist())
         selected_row = filtered_options[filtered_options["Display"] == selected_display].iloc[0]
     else:
         return
 
-    selected_code = selected_row[code_col]
-    selected_name = selected_row[name_col]
+    selected_code = selected_row[emp_code_col]
+    selected_name = selected_row[emp_name_col]
 
-    st.success(f"Selected: {selected_name} (Code: {selected_code})")
+    st.success(f"✅ Selected: {selected_name} (Code: {selected_code})")
 
     request_text = st.text_area("Request Details", height=100)
     uploaded_file = st.file_uploader("Attach File (Optional)", type=["pdf", "docx", "xlsx", "jpg", "png"])
@@ -598,21 +616,24 @@ def page_ask_employees(user):
         requests_df = pd.concat([requests_df, new_row], ignore_index=True)
         save_hr_requests(requests_df)
         add_notification(selected_code, "", f"HR has sent you a new request (ID: {new_id}). Check 'Request HR' page.")
-        st.success(f"Request sent to {selected_name} (Code: {selected_code}) successfully.")
+        st.success(f"✅ Request sent to {selected_name} (Code: {selected_code}) successfully.")
         st.rerun()
 
 def page_request_hr(user):
     st.subheader("📥 Request HR")
-    st.info("Here you can respond to requests sent by HR.")
+    st.info("Here you can respond to requests sent by HR. You can upload files as response.")
+
     user_code = str(user.get("Employee Code", "N/A")).strip().replace(".0", "")
     requests_df = load_hr_requests()
     if requests_df.empty:
         st.info("No requests from HR.")
         return
+
     user_requests = requests_df[requests_df["Employee Code"].astype(str) == user_code].copy()
     if user_requests.empty:
         st.info("No requests from HR for you.")
         return
+
     user_requests = user_requests.sort_values("Date Sent", ascending=False).reset_index(drop=True)
     for idx, row in user_requests.iterrows():
         st.markdown(f"### 📄 Request ID: {row['ID']}")
@@ -647,7 +668,7 @@ def page_request_hr(user):
                 requests_df.loc[requests_df["ID"] == row["ID"], "Response File"] = resp_filename
             save_hr_requests(requests_df)
             add_notification("", "HR", f"Employee {user_code} responded to request ID {row['ID']}.")
-            st.success("Response submitted successfully.")
+            st.success("✅ Response submitted successfully.")
             st.rerun()
 
 # ============================
@@ -1138,6 +1159,9 @@ def page_dashboard(user):
         else:
             st.error("Failed to save dataset locally.")
 
+# ============================
+# ✅ MODIFIED: page_hr_manager with Clear All Test Data button
+# ============================
 def page_hr_manager(user):
     st.subheader("HR Manager")
     st.info("Upload new employee sheet, manage employees, and perform administrative actions.")
@@ -1305,6 +1329,9 @@ def page_reports(user):
     buf.seek(0)
     st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
+# ============================
+# ✅ MODIFIED: page_hr_inbox with Delete button (HR-only)
+# ============================
 def page_hr_inbox(user):
     st.subheader("📬 HR Inbox")
     st.markdown("View employee queries and reply to them here.")
