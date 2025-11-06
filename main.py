@@ -881,29 +881,29 @@ def page_hr_inbox(user):
     except Exception:
         pass
     for idx, row in hr_df.iterrows():
-    emp_code = str(row['Employee Code'])
-    emp_name = row.get('Employee Name', '')
-    subj = row['Subject']
-    msg = row.get("Message", "")
-    status = row['Status']
-    date_sent = row.get("Date Sent", "")
-    reply_existing = row.get("Reply", "")
+        emp_code = str(row['Employee Code'])
+        emp_name = row.get('Employee Name', '')
+        subj = row['Subject']
+        msg = row.get("Message", "")
+        status = row['Status']
+        date_sent = row.get("Date Sent", "")
+        reply_existing = row.get("Reply", "")
 
     # تحديد اللون بناءً على الحالة
-    if status == "Pending":
-        status_color = "🟡 Pending"
-    elif status == "Replied":
-        status_color = "🟢 Replied"
-    elif status == "Closed":
-        status_color = "⚫ Closed"
-    else:
-        status_color = f"🔘 {status}"
+        if status == "Pending":
+            status_color = "🟡 Pending"
+        elif status == "Replied":
+            status_color = "🟢 Replied"
+        elif status == "Closed":
+            status_color = "⚫ Closed"
+        else:
+            status_color = f"🔘 {status}"
 
     # عرض العنوان بشكل منسق وواضح (كل سطر منفصل)
-    exp_title = (
-        f"📩 **Subject:** {subj}  \n"
-        f"🧑‍💼 **Employee:** {emp_name} ({emp_code})  \n"
-        f"📊 **Status:** {status_color}"
+        exp_title = (
+            f"📩 **Subject:** {subj}  \n"
+            f"🧑‍💼 **Employee:** {emp_name} ({emp_code})  \n"
+            f"📊 **Status:** {status_color}"
     )
 
     with st.expander(exp_title):
