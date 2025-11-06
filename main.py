@@ -714,7 +714,7 @@ def page_manager_leaves(user):
             st.markdown(f"**Employee**: {emp_display} | **Dates**: {row['Start Date'].strftime('%d-%m-%Y')} → {row['End Date'].strftime('%d-%m-%Y')} | **Type**: {row['Leave Type']}")
             st.write(f"**Reason**: {row['Reason']}")
             col1, col2 = st.columns(2)
-                        with col1:
+            with col1:
                 if st.button("✅ Approve", key=f"app_{idx}_{row['Employee Code']}"):
                     # إعادة تحميل leaves_df لضمان أنه محدث
                     current_leaves = load_leaves_data()
@@ -733,7 +733,7 @@ def page_manager_leaves(user):
                         st.rerun()
                     else:
                         st.warning("Request not found or already processed.")
-                        with col2:
+                 with col2:
                 if st.button("❌ Reject", key=f"rej_{idx}_{row['Employee Code']}"):
                     comment = st.text_input("Comment (optional)", key=f"com_{idx}_{row['Employee Code']}")
                     current_leaves = load_leaves_data()
