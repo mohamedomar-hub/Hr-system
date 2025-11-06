@@ -733,7 +733,7 @@ def page_manager_leaves(user):
                         st.rerun()
                     else:
                         st.warning("Request not found or already processed.")
-                 with col2:
+            with col2:
                 if st.button("❌ Reject", key=f"rej_{idx}_{row['Employee Code']}"):
                     comment = st.text_input("Comment (optional)", key=f"com_{idx}_{row['Employee Code']}")
                     current_leaves = load_leaves_data()
