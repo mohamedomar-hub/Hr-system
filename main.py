@@ -1,4 +1,4 @@
-# hr_system_dark_mode_v3_improved.py
+# hr_system_dark_mode_v3_fixed.py
 import streamlit as st
 import pandas as pd
 import requests
@@ -22,7 +22,7 @@ BRANCH = st.secrets.get("BRANCH", "main")
 FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FILE_PATH") else DEFAULT_FILE_PATH
 
 # ============================
-# Styling - Enhanced Dark Mode CSS with Bell, Fonts, and Improved Sidebar
+# Styling - Enhanced Dark Mode CSS with Bell, Fonts, and Sidebar Improvements
 # ============================
 st.set_page_config(page_title="HRAS — Averroes Admin", page_icon="👥", layout="wide")
 
@@ -44,48 +44,18 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     background-color: #0b1220;
 }
 
-/* Sidebar - Enhanced Design */
+/* Sidebar */
 [data-testid="stSidebar"] {
     background: linear-gradient(135deg, #071226 0%, #0a1a2f 100%);
     border-right: 2px solid #0b72b9;
-    padding-top: 20px;
 }
-[data-testid="stSidebar"] .css-1d391kg {
-    padding: 1rem;
-}
-
-/* Sidebar Title */
 .sidebar-title {
-    font-size: 1.4rem;
+    font-size: 1.3rem;
     font-weight: 700;
     color: #ffd166;
-    margin-bottom: 1rem;
+    margin: 1.2rem 0 1rem;
     text-align: center;
-    letter-spacing: 1px;
-}
-
-/* Sidebar Menu Items */
-.sidebar-menu-item {
-    display: flex;
-    align-items: center;
-    padding: 12px 16px;
-    margin: 4px 0;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    color: #ccd6e0;
-    font-weight: 500;
-    gap: 10px;
-}
-.sidebar-menu-item:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #ffffff;
-    transform: translateX(4px);
-}
-.sidebar-menu-item.active {
-    background: #0b72b9;
-    color: white;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    letter-spacing: 0.5px;
 }
 
 /* Inputs */
@@ -196,28 +166,6 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     line-height: 1.4;
     margin-bottom: 8px;
 }
-.hr-message-footer {
-    font-size: 13px;
-    color: #93a7bf;
-}
-
-/* HRAS Title Style */
-.hras-title {
-    font-size: 2.4rem;
-    font-weight: 800;
-    color: #ffd166;
-    text-shadow: 0 2px 6px rgba(0,0,0,0.4);
-    letter-spacing: -0.5px;
-    text-align: center;
-    margin-bottom: 8px;
-}
-.hras-subtitle {
-    color: #aab8c9;
-    font-size: 1rem;
-    text-align: center;
-    margin-top: 6px;
-}
-
 </style>
 """
 st.markdown(enhanced_dark_css, unsafe_allow_html=True)
@@ -459,7 +407,7 @@ def page_notifications(user):
         st.markdown("---")
 
 # ============================
-# HR Queries (Ask HR) - Excel storage
+# HR Queries (Ask HR)
 # ============================
 def load_hr_queries():
     if os.path.exists(HR_QUERIES_FILE_PATH):
@@ -588,19 +536,21 @@ def page_my_team(user, role="AM"):
             st.markdown(f"- 👤 {mr['Name']}{mr_addr}")
 
 # ============================
-# UI Components / Pages
+# Pages
 # ============================
 def render_logo_and_title():
     cols = st.columns([1,6,1])
     with cols[1]:
-        # استبدال الصورة بنص "HRAS" ذهبي
         st.markdown("""
         <div style="text-align: center; margin-bottom: 12px;">
-            <h1 class="hras-title">HRAS</h1>
-            <p class="hras-subtitle">Averroes Admin System — Dark Mode</p>
+            <h1 style="color: #ffd166; font-weight: 800; font-size: 2.4rem; text-shadow: 0 2px 6px rgba(0,0,0,0.4); letter-spacing: -0.5px;">
+                HRAS
+            </h1>
+            <p style="color: #aab8c9; font-size: 1rem; margin-top: 6px;">
+                Averroes Admin System — Dark Mode
+            </p>
         </div>
         """, unsafe_allow_html=True)
-    
     user = st.session_state.get("logged_in_user")
     if user:
         unread = get_unread_count(user)
@@ -986,9 +936,6 @@ def page_reports(user):
     buf.seek(0)
     st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument-spreadsheetml.sheet")
 
-# ============================
-# ✅ IMPROVED: page_hr_inbox — Clean card layout and robust reply handling
-# ============================
 def page_hr_inbox(user):
     st.subheader("📬 HR Inbox")
     st.markdown("View employee queries and reply to them here.")
@@ -996,13 +943,11 @@ def page_hr_inbox(user):
     if hr_df is None or hr_df.empty:
         st.info("No Ask HR messages.")
         return
-    # Sort by date (newest first)
     try:
         hr_df["Date Sent_dt"] = pd.to_datetime(hr_df["Date Sent"], errors="coerce")
         hr_df = hr_df.sort_values("Date Sent_dt", ascending=False).reset_index(drop=True)
     except Exception:
         hr_df = hr_df.reset_index(drop=True)
-    # iterate and show each message as a card with clear spacing and pre-wrap so messages don't overlap
     for idx, row in hr_df.iterrows():
         emp_code = str(row.get('Employee Code', ''))
         emp_name = row.get('Employee Name', '') if pd.notna(row.get('Employee Name', '')) else ''
@@ -1011,34 +956,29 @@ def page_hr_inbox(user):
         status = row.get('Status', '') if pd.notna(row.get('Status', '')) else ''
         date_sent = row.get("Date Sent", '')
         reply_existing = row.get("Reply", '') if pd.notna(row.get("Reply", '')) else ''
-        # friendly fallback for date string
         try:
             sent_time = pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M')
         except Exception:
             sent_time = str(date_sent)
-        # Build HTML card (uses CSS from top)
         card_html = f"""
         <div class="hr-message-card">
             <div class="hr-message-title">📌 {subj if subj else 'No Subject'}</div>
             <div class="hr-message-meta">👤 {emp_name} — {emp_code} &nbsp;|&nbsp; 🕒 {sent_time} &nbsp;|&nbsp; 🏷️ {status}</div>
             <div class="hr-message-body">{msg if msg else ''}</div>
         """
-        # close the card and render; replies and actions after rendering card HTML
         st.markdown(card_html, unsafe_allow_html=True)
-        # show existing reply or textarea to reply
         if reply_existing:
-            st.markdown(f"**🟢 Existing reply:**\n{reply_existing}")
-            col1, col2 = st.columns([1,4])
-            with col1:
-                if st.button("🗂️ Mark as Closed", key=f"close_{idx}"):
-                    try:
-                        hr_df.at[idx, "Status"] = "Closed"
-                        hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
-                        save_hr_queries(hr_df)
-                        st.success("✅ Message marked as closed.")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Failed to close message: {e}")
+            st.markdown("**🟢 Existing reply:**")
+            st.markdown(reply_existing)
+            if st.button("🗂️ Mark as Closed", key=f"close_{idx}"):
+                try:
+                    hr_df.at[idx, "Status"] = "Closed"
+                    hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
+                    save_hr_queries(hr_df)
+                    st.success("✅ Message marked as closed.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed to close message: {e}")
         else:
             reply_text = st.text_area("✍️ Write reply here:", value="", key=f"reply_{idx}", height=120)
             col1, col2 = st.columns(2)
@@ -1067,19 +1007,11 @@ def page_hr_inbox(user):
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("---")
 
-# ============================
-# NEW: page_ask_hr(user) — works for Employees and Managers
-# ============================
 def page_ask_hr(user):
-    """
-    user: the logged-in user dict (from login). This function allows the
-    user (employee or manager) to send Ask HR messages and view their past ones.
-    """
     st.subheader("💬 Ask HR")
     if user is None:
         st.error("User session not found. Please login.")
         return
-    # get user's code and name
     user_code = None
     user_name = None
     for key, val in user.items():
@@ -1087,7 +1019,6 @@ def page_ask_hr(user):
             user_code = str(val).strip().replace(".0", "")
         if key.lower().replace(" ", "").replace("_", "") in ["employeename", "employee_name", "name"]:
             user_name = str(val).strip()
-    # fallback
     if not user_code:
         st.error("Your Employee Code not found in session.")
         return
@@ -1118,7 +1049,6 @@ def page_ask_hr(user):
                 hr_df = pd.concat([hr_df, new_row], ignore_index=True)
             if save_hr_queries(hr_df):
                 st.success("✅ Your message was sent to HR.")
-                # notify HR by title 'HR' so they can see notification (optional)
                 add_notification("", "HR", f"New Ask HR from {user_name} ({user_code})")
                 st.rerun()
             else:
@@ -1127,7 +1057,6 @@ def page_ask_hr(user):
     if hr_df is None or hr_df.empty:
         st.info("No messages found.")
         return
-    # show user's messages sorted newest first
     try:
         hr_df["Date Sent_dt"] = pd.to_datetime(hr_df["Date Sent"], errors="coerce")
         my_msgs = hr_df[hr_df["Employee Code"].astype(str).str.strip() == str(user_code)].sort_values("Date Sent_dt", ascending=False)
@@ -1161,15 +1090,17 @@ def page_ask_hr(user):
 ensure_session_df()
 render_logo_and_title()
 
-# Sidebar Navigation with Icons and Improved Styling
+# Initialize session state
+if "logged_in_user" not in st.session_state:
+    st.session_state["logged_in_user"] = None
+if "current_page" not in st.session_state:
+    st.session_state["current_page"] = "My Profile"
+
+# Sidebar Navigation
 with st.sidebar:
     st.markdown('<div class="sidebar-title">Menu</div>', unsafe_allow_html=True)
-    
-    if "logged_in_user" not in st.session_state:
-        st.session_state["logged_in_user"] = None
-        
     if not st.session_state["logged_in_user"]:
-        st.markdown("### Login")
+        st.subheader("Login")
         with st.form("login_form"):
             uid = st.text_input("Employee Code")
             pwd = st.text_input("Password", type="password")
@@ -1181,112 +1112,66 @@ with st.sidebar:
                 st.error("Invalid credentials or required columns missing.")
             else:
                 st.session_state["logged_in_user"] = user
-                st.success("Login successful! Redirecting...")
-                st.stop()
+                st.session_state["current_page"] = "My Profile"
+                st.success("Login successful!")
+                st.rerun()
     else:
         user = st.session_state["logged_in_user"]
         title_val = str(user.get("Title") or user.get("title") or "").strip().upper()
         is_hr = "HR" in title_val
         is_am = title_val == "AM"
         is_dm = title_val == "DM"
-        
-        st.markdown(f"👋 **Welcome, {user.get('Employee Name') or user.get('employee name') or user.get('name','')}**")
+        st.write(f"👋 **Welcome, {user.get('Employee Name') or 'User'}**")
         st.markdown("---")
-        
-        # Define pages based on role
-        pages = [
-            ("👤 My Profile", "My Profile"),
-            ("🔔 Notifications", "Notifications")
-        ]
-        
         if is_hr:
-            pages.extend([
-                ("📊 Dashboard", "Dashboard"),
-                ("📈 Reports", "Reports"),
-                ("🛠️ HR Manager", "HR Manager"),
-                ("📬 HR Inbox", "HR Inbox")
-            ])
+            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Notifications"]
         elif is_am:
-            pages.extend([
-                ("👥 Team Structure", "Team Structure"),
-                ("📋 Team Leaves", "Team Leaves"),
-                ("📅 Leave Request", "Leave Request"),
-                ("💬 Ask HR", "Ask HR")
-            ])
+            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Notifications"]
         elif is_dm:
-            pages.extend([
-                ("👥 My Team", "My Team"),
-                ("📋 Team Leaves", "Team Leaves"),
-                ("📅 Leave Request", "Leave Request"),
-                ("💬 Ask HR", "Ask HR")
-            ])
+            pages = ["My Profile", "My Team", "Team Leaves", "Leave Request", "Ask HR", "Notifications"]
         else:
-            pages.extend([
-                ("📅 Leave Request", "Leave Request"),
-                ("💬 Ask HR", "Ask HR")
-            ])
-        
-        # Add Logout at the bottom
-        pages.append(("🚪 Logout", "Logout"))
-        
-        # Render sidebar menu items
-        for icon_label, page_name in pages:
-            # Create clickable item
-            if st.session_state.get("current_page") == page_name:
-                st.markdown(f'<div class="sidebar-menu-item active">{icon_label}</div>', unsafe_allow_html=True)
-            else:
-                if st.button(icon_label, key=f"nav_{page_name}", help=page_name):
-                    st.session_state["current_page"] = page_name
-                    st.rerun()
-        
-        # Optional: Display role badge
-        role_color = "#0b72b9" if is_hr else "#4a90e2" if is_am else "#4caf50" if is_dm else "#9e9e9e"
-        st.markdown(f"""
-        <div style="
-            background: {role_color};
-            color: white;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            text-align: center;
-            margin-top: 16px;
-            font-weight: bold;
-        ">
-            {title_val}
-        </div>
-        """, unsafe_allow_html=True)
+            pages = ["My Profile", "Leave Request", "Ask HR", "Notifications"]
+        for p in pages:
+            if st.button(p, key=f"nav_{p}", use_container_width=True):
+                st.session_state["current_page"] = p
+                st.rerun()
+        st.markdown("---")
+        if st.button("🚪 Logout", use_container_width=True):
+            st.session_state["logged_in_user"] = None
+            st.session_state["current_page"] = "My Profile"
+            st.success("You have been logged out.")
+            st.rerun()
 
-# Main Page Content
-if st.session_state.get("logged_in_user"):
+# Main Content
+if st.session_state["logged_in_user"]:
+    current_page = st.session_state["current_page"]
     user = st.session_state["logged_in_user"]
-    page = st.session_state.get("current_page", "My Profile")
-    
-    if page == "My Profile":
+    title_val = str(user.get("Title") or "").strip().upper()
+    is_hr = "HR" in title_val
+    if current_page == "My Profile":
         page_my_profile(user)
-    elif page == "Notifications":
+    elif current_page == "Notifications":
         page_notifications(user)
-    elif page == "Leave Request":
+    elif current_page == "Leave Request":
         page_leave_request(user)
-    elif page == "Team Leaves":
+    elif current_page == "Team Leaves":
         page_manager_leaves(user)
-    elif page == "Dashboard":
+    elif current_page == "Dashboard":
         page_dashboard(user)
-    elif page == "Reports":
+    elif current_page == "Reports":
         page_reports(user)
-    elif page == "HR Manager":
+    elif current_page == "HR Manager":
         page_hr_manager(user)
-    elif page == "Team Structure":
+    elif current_page == "Team Structure":
         page_my_team(user, role="AM")
-    elif page == "My Team":
+    elif current_page == "My Team":
         page_my_team(user, role="DM")
-    elif page == "HR Inbox":
-        if not is_hr:
-            st.error("Access denied. HR only.")
-        else:
+    elif current_page == "HR Inbox":
+        if is_hr:
             page_hr_inbox(user)
-    elif page == "Ask HR":
+        else:
+            st.error("Access denied. HR only.")
+    elif current_page == "Ask HR":
         page_ask_hr(user)
-    elif page == "Logout":
-        st.session_state["logged_in_user"] = None
-        st.success("You have been logged out successfully.")
-        st.stop()
+else:
+    st.info("Please log in to access the system.")
