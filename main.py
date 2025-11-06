@@ -1,4 +1,4 @@
-# hr_system_dark_mode_v3_fixed_with_ask_employees.py
+# hr_system_dark_mode_v3_fixed_with_ask_employees_search.py
 import streamlit as st
 import pandas as pd
 import requests
@@ -538,13 +538,38 @@ def page_ask_employees(user):
     df[name_col] = df[name_col].astype(str).str.strip()
     emp_options = df[[code_col, name_col]].copy()
     emp_options["Display"] = emp_options[name_col] + " (" + emp_options[code_col] + ")"
-    selected_display = st.selectbox("Select Employee", emp_options["Display"].tolist())
-    selected_row = emp_options[emp_options["Display"] == selected_display]
-    if selected_row.empty:
-        st.error("Employee not found.")
+
+    # ============================
+    # ✅ NEW: Search Box with Note
+    # ============================
+    st.markdown("### 🔍 Search Employee by Name or Code")
+    search_term = st.text_input("Type employee name or code to search...")
+
+    if search_term:
+        mask = (
+            emp_options[name_col].str.contains(search_term, case=False, na=False) |
+            emp_options[code_col].str.contains(search_term, case=False, na=False)
+        )
+        filtered_options = emp_options[mask]
+        if filtered_options.empty:
+            st.warning("No employee found matching your search.")
+            return
+    else:
+        filtered_options = emp_options
+
+    if len(filtered_options) == 1:
+        selected_row = filtered_options.iloc[0]
+    elif len(filtered_options) > 1:
+        selected_display = st.selectbox("Select Employee", filtered_options["Display"].tolist())
+        selected_row = filtered_options[filtered_options["Display"] == selected_display].iloc[0]
+    else:
         return
-    selected_code = selected_row[code_col].iloc[0]
-    selected_name = selected_row[name_col].iloc[0]
+
+    selected_code = selected_row[code_col]
+    selected_name = selected_row[name_col]
+
+    st.success(f"Selected: {selected_name} (Code: {selected_code})")
+
     request_text = st.text_area("Request Details", height=100)
     uploaded_file = st.file_uploader("Attach File (Optional)", type=["pdf", "docx", "xlsx", "jpg", "png"])
     if st.button("Send Request"):
@@ -756,14 +781,12 @@ def page_employee_photos(user):
     col_map = {c.lower().strip(): c for c in df.columns}
     emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
     emp_name_col = col_map.get("employee_name") or col_map.get("name") or col_map.get("employee name")
-
     if emp_code_col and emp_name_col:
         df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
         for _, row in df.iterrows():
             code = row[emp_code_col]
             name = row.get(emp_name_col, "N/A")
             code_to_name[code] = name
-
     # Display photos in grid
     cols_per_row = 4
     cols = st.columns(cols_per_row)
@@ -772,13 +795,11 @@ def page_employee_photos(user):
         filepath = os.path.join("employee_photos", filename)
         emp_code = filename.rsplit(".", 1)[0]  # e.g., "1025.jpg" → "1025"
         emp_name = code_to_name.get(emp_code, "Unknown")
-
         with col:
             st.image(filepath, use_column_width=True)
             st.caption(f"{emp_code}\n{emp_name}")
             with open(filepath, "rb") as f:
                 st.download_button("📥 Download", f, file_name=filename, key=f"dl_{filename}")
-
     # ============================
     # ✅ Download All Button
     # ============================
@@ -953,9 +974,6 @@ def page_leave_request(user):
     else:
         st.info("No leave requests found.")
 
-# ============================
-# ✅ MODIFIED: page_manager_leaves with Delete button (Manager-only)
-# ============================
 def page_manager_leaves(user):
     st.subheader("Leave Requests from Your Team")
     manager_code = None
@@ -1120,9 +1138,6 @@ def page_dashboard(user):
         else:
             st.error("Failed to save dataset locally.")
 
-# ============================
-# ✅ MODIFIED: page_hr_manager with Clear All Test Data button
-# ============================
 def page_hr_manager(user):
     st.subheader("HR Manager")
     st.info("Upload new employee sheet, manage employees, and perform administrative actions.")
@@ -1290,9 +1305,6 @@ def page_reports(user):
     buf.seek(0)
     st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
-# ============================
-# ✅ MODIFIED: page_hr_inbox with Delete button (HR-only)
-# ============================
 def page_hr_inbox(user):
     st.subheader("📬 HR Inbox")
     st.markdown("View employee queries and reply to them here.")
