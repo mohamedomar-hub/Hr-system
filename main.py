@@ -1148,8 +1148,8 @@ def page_ask_hr(user):
             sent_time = str(date_sent)
         st.markdown(f"<div class='hr-message-card'><div class='hr-message-title'>{subj}</div><div class='hr-message-meta'>Sent: {sent_time} — Status: {status}</div><div class='hr-message-body'>{msg}</div>", unsafe_allow_html=True)
         if pd.notna(reply) and str(reply).strip() != "":
-            st.markdown(f"**🟢 HR Reply:**
-{reply}")
+            st.markdown("**🟢 HR Reply:**")
+            st.markdown(reply)
         else:
             st.markdown("**🕒 HR Reply:** Pending")
         st.markdown("</div>")
