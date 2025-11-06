@@ -1,4 +1,4 @@
-# hr_system_dark_mode_v3_fixed_with_photos_and_clear.py
+# hr_system_dark_mode_v3_fixed_with_ask_employees.py
 import streamlit as st
 import pandas as pd
 import requests
@@ -7,6 +7,7 @@ from io import BytesIO
 import os
 import datetime
 import shutil
+import zipfile
 
 # ============================
 # Configuration / Defaults
@@ -15,6 +16,7 @@ DEFAULT_FILE_PATH = "Employees.xlsx"
 LEAVES_FILE_PATH = "Leaves.xlsx"
 NOTIFICATIONS_FILE_PATH = "Notifications.xlsx"
 HR_QUERIES_FILE_PATH = "HR_Queries.xlsx"
+HR_REQUESTS_FILE_PATH = "HR_Requests.xlsx"
 LOGO_PATH = "logo.jpg"
 GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", None)
 REPO_OWNER = st.secrets.get("REPO_OWNER", "mohamedomar-hub")
@@ -462,6 +464,168 @@ def save_hr_queries(df):
         return False
 
 # ============================
+# HR Requests (Ask Employees) — NEW
+# ============================
+def load_hr_requests():
+    if os.path.exists(HR_REQUESTS_FILE_PATH):
+        try:
+            df = pd.read_excel(HR_REQUESTS_FILE_PATH)
+            if "Timestamp" in df.columns:
+                df["Timestamp"] = pd.to_datetime(df["Timestamp"], errors="coerce")
+            return df
+        except Exception:
+            return pd.DataFrame()
+    else:
+        df = pd.DataFrame(columns=[
+            "ID", "HR Code", "Employee Code", "Employee Name", "Request", "File Attached", "Status", "Response", "Response File", "Date Sent", "Date Responded"
+        ])
+        try:
+            with pd.ExcelWriter(HR_REQUESTS_FILE_PATH, engine="openpyxl") as writer:
+                df.to_excel(writer, index=False)
+        except Exception:
+            pass
+        return df
+
+def save_hr_requests(df):
+    try:
+        if "ID" in df.columns:
+            df = df.copy()
+            df["ID"] = pd.to_numeric(df["ID"], errors="coerce")
+            if df["ID"].isna().any():
+                existing_max = int(df["ID"].max(skipna=True)) if not df["ID"].isna().all() else 0
+                for idx in df[df["ID"].isna()].index:
+                    existing_max += 1
+                    df.at[idx, "ID"] = existing_max
+            df["ID"] = df["ID"].astype(int)
+        with pd.ExcelWriter(HR_REQUESTS_FILE_PATH, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False)
+        return True
+    except Exception:
+        return False
+
+def save_request_file(uploaded_file, employee_code, request_id):
+    os.makedirs("hr_request_files", exist_ok=True)
+    ext = uploaded_file.name.split(".")[-1].lower()
+    filename = f"req_{request_id}_emp_{employee_code}.{ext}"
+    filepath = os.path.join("hr_request_files", filename)
+    with open(filepath, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    return filename
+
+def save_response_file(uploaded_file, employee_code, request_id):
+    os.makedirs("hr_response_files", exist_ok=True)
+    ext = uploaded_file.name.split(".")[-1].lower()
+    filename = f"resp_{request_id}_emp_{employee_code}.{ext}"
+    filepath = os.path.join("hr_response_files", filename)
+    with open(filepath, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    return filename
+
+def page_ask_employees(user):
+    st.subheader("📤 Ask Employees")
+    st.info("Select an employee and send them a request.")
+    df = st.session_state.get("df", pd.DataFrame())
+    if df.empty:
+        st.error("Employee data not loaded.")
+        return
+    col_map = {c.lower().strip(): c for c in df.columns}
+    code_col = col_map.get("employee_code") or col_map.get("employee code")
+    name_col = col_map.get("employee_name") or col_map.get("name")
+    if not code_col or not name_col:
+        st.error("Employee Code or Name column missing.")
+        return
+    df[code_col] = df[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    df[name_col] = df[name_col].astype(str).str.strip()
+    emp_options = df[[code_col, name_col]].copy()
+    emp_options["Display"] = emp_options[name_col] + " (" + emp_options[code_col] + ")"
+    selected_display = st.selectbox("Select Employee", emp_options["Display"].tolist())
+    selected_row = emp_options[emp_options["Display"] == selected_display]
+    if selected_row.empty:
+        st.error("Employee not found.")
+        return
+    selected_code = selected_row[code_col].iloc[0]
+    selected_name = selected_row[name_col].iloc[0]
+    request_text = st.text_area("Request Details", height=100)
+    uploaded_file = st.file_uploader("Attach File (Optional)", type=["pdf", "docx", "xlsx", "jpg", "png"])
+    if st.button("Send Request"):
+        if not request_text.strip():
+            st.warning("Please enter a request message.")
+            return
+        hr_code = str(user.get("Employee Code", "N/A")).strip().replace(".0", "")
+        requests_df = load_hr_requests()
+        new_id = int(requests_df["ID"].max()) + 1 if "ID" in requests_df.columns and not requests_df.empty else 1
+        file_attached = ""
+        if uploaded_file:
+            file_attached = save_request_file(uploaded_file, selected_code, new_id)
+        new_row = pd.DataFrame([{
+            "ID": new_id,
+            "HR Code": hr_code,
+            "Employee Code": selected_code,
+            "Employee Name": selected_name,
+            "Request": request_text.strip(),
+            "File Attached": file_attached,
+            "Status": "Pending",
+            "Response": "",
+            "Response File": "",
+            "Date Sent": pd.Timestamp.now(),
+            "Date Responded": pd.NaT
+        }])
+        requests_df = pd.concat([requests_df, new_row], ignore_index=True)
+        save_hr_requests(requests_df)
+        add_notification(selected_code, "", f"HR has sent you a new request (ID: {new_id}). Check 'Request HR' page.")
+        st.success(f"Request sent to {selected_name} (Code: {selected_code}) successfully.")
+        st.rerun()
+
+def page_request_hr(user):
+    st.subheader("📥 Request HR")
+    st.info("Here you can respond to requests sent by HR.")
+    user_code = str(user.get("Employee Code", "N/A")).strip().replace(".0", "")
+    requests_df = load_hr_requests()
+    if requests_df.empty:
+        st.info("No requests from HR.")
+        return
+    user_requests = requests_df[requests_df["Employee Code"].astype(str) == user_code].copy()
+    if user_requests.empty:
+        st.info("No requests from HR for you.")
+        return
+    user_requests = user_requests.sort_values("Date Sent", ascending=False).reset_index(drop=True)
+    for idx, row in user_requests.iterrows():
+        st.markdown(f"### 📄 Request ID: {row['ID']}")
+        st.write(f"**From HR:** {row['Request']}")
+        if pd.notna(row["Date Sent"]) and row["Date Sent"] != pd.NaT:
+            st.write(f"**Date Sent:** {row['Date Sent'].strftime('%d-%m-%Y %H:%M')}")
+        if row["File Attached"]:
+            filepath = os.path.join("hr_request_files", row["File Attached"])
+            if os.path.exists(filepath):
+                with open(filepath, "rb") as f:
+                    st.download_button("📥 Download Attached File", f, file_name=row["File Attached"], key=f"dl_req_{idx}")
+        if row["Status"] == "Completed":
+            st.success("✅ This request has been responded to.")
+            if row["Response File"]:
+                resp_path = os.path.join("hr_response_files", row["Response File"])
+                if os.path.exists(resp_path):
+                    with open(resp_path, "rb") as f:
+                        st.download_button("📥 Download Your Response", f, file_name=row["Response File"], key=f"dl_resp_{idx}")
+            continue
+        st.markdown("---")
+        response_text = st.text_area("Your Response", key=f"resp_text_{idx}")
+        uploaded_resp_file = st.file_uploader("Attach Response File (Optional)", type=["pdf", "docx", "xlsx", "jpg", "png"], key=f"resp_file_{idx}")
+        if st.button("Submit Response", key=f"submit_resp_{idx}"):
+            if not response_text.strip() and not uploaded_resp_file:
+                st.warning("Please provide a response or attach a file.")
+                continue
+            requests_df.loc[requests_df["ID"] == row["ID"], "Response"] = response_text.strip()
+            requests_df.loc[requests_df["ID"] == row["ID"], "Status"] = "Completed"
+            requests_df.loc[requests_df["ID"] == row["ID"], "Date Responded"] = pd.Timestamp.now()
+            if uploaded_resp_file:
+                resp_filename = save_response_file(uploaded_resp_file, user_code, row["ID"])
+                requests_df.loc[requests_df["ID"] == row["ID"], "Response File"] = resp_filename
+            save_hr_requests(requests_df)
+            add_notification("", "HR", f"Employee {user_code} responded to request ID {row['ID']}.")
+            st.success("Response submitted successfully.")
+            st.rerun()
+
+# ============================
 # Team Hierarchy — unchanged
 # ============================
 def build_team_hierarchy(df, manager_code, manager_title="AM"):
@@ -614,6 +778,28 @@ def page_employee_photos(user):
             st.caption(f"{emp_code}\n{emp_name}")
             with open(filepath, "rb") as f:
                 st.download_button("📥 Download", f, file_name=filename, key=f"dl_{filename}")
+
+    # ============================
+    # ✅ Download All Button
+    # ============================
+    st.markdown("---")
+    if st.button("📥 Download All Employee Photos (ZIP)"):
+        zip_path = "employee_photos_all.zip"
+        with zipfile.ZipFile(zip_path, 'w') as zipf:
+            photo_dir = "employee_photos"
+            if os.path.exists(photo_dir):
+                for filename in os.listdir(photo_dir):
+                    file_path = os.path.join(photo_dir, filename)
+                    if os.path.isfile(file_path):
+                        zipf.write(file_path, filename)
+        with open(zip_path, "rb") as f:
+            st.download_button(
+                label="Download All Photos",
+                data=f,
+                file_name="employee_photos_all.zip",
+                mime="application/zip"
+            )
+        st.success("✅ ZIP file created. Click the button to download.")
 
 # ============================
 # Modified: My Profile with Photo Upload
@@ -1055,7 +1241,7 @@ def page_hr_manager(user):
                 if GITHUB_TOKEN:
                     st.warning("Saved locally but GitHub push failed.")
                 else:
-                    st.info("Saved locally. GitHub not configured.")
+                    st.info("Saved locally. GitHub token not configured.")
         else:
             st.error("Failed to save dataset locally.")
 
@@ -1066,7 +1252,7 @@ def page_hr_manager(user):
     st.warning("🛠️ **Clear All Test Data** (Use BEFORE going live!)")
     if st.button("🗑️ Clear Leaves, HR Messages, Notifications & Photos"):
         try:
-            test_files = [LEAVES_FILE_PATH, HR_QUERIES_FILE_PATH, NOTIFICATIONS_FILE_PATH]
+            test_files = [LEAVES_FILE_PATH, HR_QUERIES_FILE_PATH, NOTIFICATIONS_FILE_PATH, HR_REQUESTS_FILE_PATH]
             cleared = []
             for f in test_files:
                 if os.path.exists(f):
@@ -1075,6 +1261,12 @@ def page_hr_manager(user):
             if os.path.exists("employee_photos"):
                 shutil.rmtree("employee_photos")
                 cleared.append("employee_photos/")
+            if os.path.exists("hr_request_files"):
+                shutil.rmtree("hr_request_files")
+                cleared.append("hr_request_files/")
+            if os.path.exists("hr_response_files"):
+                shutil.rmtree("hr_response_files")
+                cleared.append("hr_response_files/")
             if cleared:
                 st.success(f"✅ Cleared: {', '.join(cleared)}")
             else:
@@ -1096,7 +1288,7 @@ def page_reports(user):
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Employees")
     buf.seek(0)
-    st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument-spreadsheetml.sheet")
+    st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # ============================
 # ✅ MODIFIED: page_hr_inbox with Delete button (HR-only)
@@ -1294,16 +1486,15 @@ with st.sidebar:
         is_hr = "HR" in title_val
         is_am = title_val == "AM"
         is_dm = title_val == "DM"
+        is_mr = title_val == "MR"
         st.write(f"👋 **Welcome, {user.get('Employee Name') or 'User'}**")
         st.markdown("---")
         if is_hr:
-            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Notifications"]
-        elif is_am:
-            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Notifications"]
-        elif is_dm:
-            pages = ["My Profile", "My Team", "Team Leaves", "Leave Request", "Ask HR", "Notifications"]
+            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Notifications"]
+        elif is_am or is_dm or is_mr:
+            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         else:
-            pages = ["My Profile", "Leave Request", "Ask HR", "Notifications"]
+            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         for p in pages:
             if st.button(p, key=f"nav_{p}", use_container_width=True):
                 st.session_state["current_page"] = p
@@ -1351,5 +1542,12 @@ if st.session_state["logged_in_user"]:
             st.error("Access denied. HR only.")
     elif current_page == "Ask HR":
         page_ask_hr(user)
+    elif current_page == "Ask Employees":
+        if is_hr:
+            page_ask_employees(user)
+        else:
+            st.error("Access denied. HR only.")
+    elif current_page == "Request HR":
+        page_request_hr(user)
 else:
     st.info("Please log in to access the system.")
