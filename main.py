@@ -906,7 +906,7 @@ def page_hr_inbox(user):
 🧑‍💼 **Employee:** {emp_name} ({emp_code})  
 📊 **Status:** {status_color}
 """
-     with st.expander(exp_title):
+ with st.expander(exp_title):
     
             st.markdown(f"**From:** {emp_name} — {emp_code}")
             st.caption(f"Sent: {pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M') if pd.notna(pd.to_datetime(date_sent, errors='coerce')) else date_sent}")
