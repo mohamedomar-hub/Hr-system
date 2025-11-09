@@ -8,6 +8,7 @@ import os
 import datetime
 import shutil
 import zipfile
+
 # ============================
 # Configuration / Defaults
 # ============================
@@ -22,39 +23,50 @@ REPO_OWNER = st.secrets.get("REPO_OWNER", "mohamedomar-hub")
 REPO_NAME = st.secrets.get("REPO_NAME", "hr-system")
 BRANCH = st.secrets.get("BRANCH", "main")
 FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FILE_PATH") else DEFAULT_FILE_PATH
+
 # ============================
 # Styling - Enhanced Light Gray Background CSS with Bell, Fonts, and Sidebar Improvements
 # ============================
 st.set_page_config(page_title="HRAS — Averroes Admin", page_icon="👥", layout="wide")
 
-# ============================
-# ✅ NEW: Updated CSS for Light Gray Background & Mobile Responsive
-# ============================
+# ✅ Add this CSS to hide Streamlit's default toolbar
+hide_streamlit_style = """
+<style>
+/* Hide the Streamlit menu bar */
+#MainMenu {visibility: hidden;}
+/* Hide the Streamlit footer */
+footer {visibility: hidden;}
+/* Hide the Streamlit header (the top bar with Share, Edit, etc.) */
+header {visibility: hidden;}
+/* Optional: Hide the "Manage app" button in the bottom right */
+div[data-testid="stDeployButton"] {
+    display: none;
+}
+</style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
 enhanced_dark_css = """
 <style>
 /* Fonts */
 body, h1, h2, h3, h4, h5, p, div, span, li {
     font-family: 'Segoe UI', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
 }
-
 /* App background - Changed to Light Gray */
 [data-testid="stAppViewContainer"] {
     background-color: #f0f2f5; /* Light Gray */
     color: #333333; /* Dark Text */
 }
-
 /* Header & Toolbar */
 [data-testid="stHeader"], [data-testid="stToolbar"] {
     background-color: #ffffff; /* White */
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
-
 /* Sidebar */
 [data-testid="stSidebar"] {
     background: linear-gradient(135deg, #e0e0e0 0%, #f0f0f0 100%); /* Lighter Gradients */
     border-right: 2px solid #cccccc;
 }
-
 .sidebar-title {
     font-size: 1.3rem;
     font-weight: 700;
@@ -63,7 +75,6 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     text-align: center;
     letter-spacing: 0.5px;
 }
-
 /* Inputs */
 .stTextInput>div>div>input,
 .stNumberInput>div>input,
@@ -78,7 +89,6 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     border-color: #0b72b9;
     box-shadow: 0 0 0 2px rgba(11, 114, 185, 0.2);
 }
-
 /* Buttons */
 .stButton>button {
     background-color: #0b72b9;
@@ -93,7 +103,6 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
-
 /* Dataframes */
 .stDataFrame > div > div {
     background-color: #ffffff !important;
@@ -109,7 +118,6 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
 .stDataFrame tr:hover {
     background-color: #f0f0f0 !important;
 }
-
 /* Notification Bell */
 .notification-bell {
     position: fixed;
@@ -147,7 +155,6 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     justify-content: center;
     font-weight: bold;
 }
-
 /* HR message card */
 .hr-message-card {
     background-color: #ffffff;
@@ -175,7 +182,6 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     line-height: 1.4;
     margin-bottom: 8px;
 }
-
 /* Team Hierarchy Styling */
 .team-node {
     background-color: #ffffff;
@@ -224,7 +230,7 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     margin: 20px 0;
 }
 .logo-image {
-    max-width: 150px;
+    max-width: 150px; /* Increased size */
     height: auto;
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
@@ -599,7 +605,7 @@ def mark_all_as_read(user):
     save_notifications(notifications)
 
 def page_notifications(user):
-    st.subheader("🔔 Notifications")
+    st.subheader("Notifications")
     notifications = load_notifications()
     if notifications.empty:
         st.info("No notifications.")
@@ -737,16 +743,41 @@ def page_ask_employees(user):
     if df.empty:
         st.error("Employee data not loaded.")
         return
+
+    # ============================
+    # ✅ Flexible Column Mapping for Employee Code and Name
+    # ============================
     col_map = {c.lower().strip(): c for c in df.columns}
-    code_col = col_map.get("Employee Code") or col_map.get("employee code")
-    name_col = col_map.get("Employee Name") or col_map.get("name")
-    if not code_col or not name_col:
-        st.error("Employee Code or Name column missing.")
+    # Try to find the Employee Code column
+    code_col_options = ["employee_code", "employee code", "emp code", "code", "employeeid", "emp_id"]
+    code_col = None
+    for opt in code_col_options:
+        if opt in col_map:
+            code_col = col_map[opt]
+            break
+    if not code_col:
+        st.error("Could not find any column for Employee Code. Please check your Excel sheet headers.")
         return
-    df[code_col] = df[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+
+    # Try to find the Employee Name column
+    name_col_options = ["employee_name", "employee name", "name", "emp name", "full name", "first name"]
+    name_col = None
+    for opt in name_col_options:
+        if opt in col_map:
+            name_col = col_map[opt]
+            break
+    if not name_col:
+        st.error("Could not find any column for Employee Name. Please check your Excel sheet headers.")
+        return
+
+    # Ensure columns are strings and clean them
+    df[code_col] = df[code_col].astype(str).str.strip()
     df[name_col] = df[name_col].astype(str).str.strip()
+
+    # Create display options for the selectbox
     emp_options = df[[code_col, name_col]].copy()
     emp_options["Display"] = emp_options[name_col] + " (Code: " + emp_options[code_col] + ")"
+
     # ============================
     # ✅ Search Box with Note
     # ============================
@@ -763,6 +794,7 @@ def page_ask_employees(user):
             return
     else:
         filtered_options = emp_options.copy()
+
     if len(filtered_options) == 1:
         selected_row = filtered_options.iloc[0]
     elif len(filtered_options) > 1:
@@ -770,21 +802,26 @@ def page_ask_employees(user):
         selected_row = filtered_options[filtered_options["Display"] == selected_display].iloc[0]
     else:
         return
+
     selected_code = selected_row[code_col]
     selected_name = selected_row[name_col]
     st.success(f"✅ Selected: {selected_name} (Code: {selected_code})")
+
     request_text = st.text_area("Request Details", height=100)
     uploaded_file = st.file_uploader("Attach File (Optional)", type=["pdf", "docx", "xlsx", "jpg", "png"])
+
     if st.button("Send Request"):
         if not request_text.strip():
             st.warning("Please enter a request message.")
             return
+
         hr_code = str(user.get("Employee Code", "N/A")).strip().replace(".0", "")
         requests_df = load_hr_requests()
         new_id = int(requests_df["ID"].max()) + 1 if "ID" in requests_df.columns and not requests_df.empty else 1
         file_attached = ""
         if uploaded_file:
             file_attached = save_request_file(uploaded_file, selected_code, new_id)
+
         new_row = pd.DataFrame([{
             "ID": new_id,
             "HR Code": hr_code,
@@ -798,6 +835,7 @@ def page_ask_employees(user):
             "Date Sent": pd.Timestamp.now(),
             "Date Responded": pd.NaT
         }])
+
         requests_df = pd.concat([requests_df, new_row], ignore_index=True)
         save_hr_requests(requests_df)
         add_notification(selected_code, "", f"HR has sent you a new request (ID: {new_id}). Check 'Request HR' page.")
@@ -822,19 +860,32 @@ def page_request_hr(user):
         st.write(f"**From HR:** {row['Request']}")
         if pd.notna(row["Date Sent"]) and row["Date Sent"] != pd.NaT:
             st.write(f"**Date Sent:** {row['Date Sent'].strftime('%d-%m-%Y %H:%M')}")
-        if row["File Attached"]:
-            filepath = os.path.join("hr_request_files", row["File Attached"])
+        
+        # ✅ Safe handling of File Attached
+        file_attached = row.get("File Attached", "")  # Get the value or default to empty string
+        if pd.notna(file_attached) and isinstance(file_attached, str) and file_attached.strip() != "":
+            filepath = os.path.join("hr_request_files", file_attached)
             if os.path.exists(filepath):
                 with open(filepath, "rb") as f:
-                    st.download_button("📥 Download Attached File", f, file_name=row["File Attached"], key=f"dl_req_{idx}")
+                    st.download_button("📥 Download Attached File", f, file_name=file_attached, key=f"dl_req_{idx}")
+            else:
+                st.warning("The attached file does not exist on the server.")
+        else:
+            st.info("No file was attached to this request.")
+
         if row["Status"] == "Completed":
             st.success("✅ This request has been responded to.")
-            if row["Response File"]:
-                resp_path = os.path.join("hr_response_files", row["Response File"])
+            # ✅ Safe handling of Response File
+            response_file = row.get("Response File", "")  # Get the value or default to empty string
+            if pd.notna(response_file) and isinstance(response_file, str) and response_file.strip() != "":
+                resp_path = os.path.join("hr_response_files", response_file)
                 if os.path.exists(resp_path):
                     with open(resp_path, "rb") as f:
-                        st.download_button("📥 Download Your Response", f, file_name=row["Response File"], key=f"dl_resp_{idx}")
+                        st.download_button("📥 Download Your Response", f, file_name=response_file, key=f"dl_resp_{idx}")
+                else:
+                    st.warning("Your response file does not exist on the server.")
             continue
+
         st.markdown("---")
         response_text = st.text_area("Your Response", key=f"resp_text_{idx}")
         uploaded_resp_file = st.file_uploader("Attach Response File (Optional)", type=["pdf", "docx", "xlsx", "jpg", "png"], key=f"resp_file_{idx}")
@@ -845,21 +896,25 @@ def page_request_hr(user):
             requests_df.loc[requests_df["ID"] == row["ID"], "Response"] = response_text.strip()
             requests_df.loc[requests_df["ID"] == row["ID"], "Status"] = "Completed"
             requests_df.loc[requests_df["ID"] == row["ID"], "Date Responded"] = pd.Timestamp.now()
+            response_file_name = ""
             if uploaded_resp_file:
+                # Save the uploaded file
                 resp_filename = save_response_file(uploaded_resp_file, user_code, row["ID"])
                 requests_df.loc[requests_df["ID"] == row["ID"], "Response File"] = resp_filename
+                response_file_name = resp_filename
             save_hr_requests(requests_df)
             add_notification("", "HR", f"Employee {user_code} responded to request ID {row['ID']}.")
             st.success("Response submitted successfully.")
             st.rerun()
 
 # ============================
-# Team Hierarchy — NEW: Recursive Function
+# Team Hierarchy — NEW: Recursive Function (Updated for Summary)
 # ============================
 def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
     """
     Recursively builds the team hierarchy starting from the given manager.
     Returns a dictionary representing the tree structure.
+    This function now works for BUM, AM, and DM.
     """
     emp_code_col = "Employee Code"
     emp_name_col = "Employee Name"
@@ -884,29 +939,35 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
     current_title = mgr_row.iloc[0][title_col]
     # Determine the levels under this manager based on their title
     subordinates_filter = df[df[mgr_code_col] == str(manager_code)]
-    # For BUM, look for AMs and DMs directly under them
+
+    # Define subordinate types based on current manager's title
     if current_title == "BUM":
-        subordinate_types = ["AM", "DM"]
-    # For AM, look for DMs
+        subordinate_types = ["AM", "DM"] # BUM can manage both AM and DM
     elif current_title == "AM":
-        subordinate_types = ["DM"]
-    # For DM, look for MRs
+        subordinate_types = ["DM"] # AM manages DM
     elif current_title == "DM":
-        subordinate_types = ["MR"]
-    # For others, no subordinates in this context
+        subordinate_types = ["MR"] # DM manages MR
     else:
-        subordinate_types = []
+        subordinate_types = [] # Others (like MR) have no subordinates
+
     # Filter subordinates based on determined types
     if subordinate_types:
         subordinates_filtered = subordinates_filter[subordinates_filter[title_col].isin(subordinate_types)]
     else:
         subordinates_filtered = pd.DataFrame(columns=df.columns) # Empty dataframe
+
     # Build the node for the current manager
     node = {
         "Manager": f"{mgr_name} ({current_title})",
         "Manager Code": str(manager_code),
-        "Team": []
+        "Team": [],
+        "Summary": {
+            "AM": 0,
+            "DM": 0,
+            "MR": 0
+        }
     }
+
     # Recursively build nodes for each subordinate
     for _, sub_row in subordinates_filtered.iterrows():
         sub_code = sub_row[emp_code_col]
@@ -916,6 +977,14 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
         # Only add the child node if it has its own team or itself is a leaf (like MR)
         if child_node.get("Team") or sub_title == "MR": # MRs are always added as leaves
             node["Team"].append(child_node)
+            # Update summary based on the child's title
+            if sub_title == "AM":
+                node["Summary"]["AM"] += 1
+            elif sub_title == "DM":
+                node["Summary"]["DM"] += 1
+            elif sub_title == "MR":
+                node["Summary"]["MR"] += 1
+
     return node
 
 def page_my_team(user, role="AM"):
@@ -928,27 +997,116 @@ def page_my_team(user, role="AM"):
     if not user_code:
         st.error("Your Employee Code not found.")
         return
+
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.error("Employee data not loaded.")
         return
+
     # Use the recursive function to build the hierarchy starting from the current user
     hierarchy = build_team_hierarchy_recursive(df, user_code, role.upper())
-    if not hierarchy or not hierarchy.get("Team"):
-        st.info(f"No team members found under your supervision.")
+
+    if not hierarchy:
+        st.info(f"Could not build team structure for your code: {user_code}. Check your manager assignment or title.")
         return
-    # Function to recursively render the tree structure
+
+    # Add custom CSS for the team structure
+    st.markdown("""
+    <style>
+    .team-node {
+        background-color: #ffffff;
+        border-left: 4px solid #0b72b9;
+        padding: 12px;
+        margin: 8px 0;
+        border-radius: 6px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .team-node-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 600;
+        color: #333333;
+        margin-bottom: 8px;
+    }
+    .team-node-summary {
+        font-size: 0.9rem;
+        color: #777777;
+        margin-top: 4px;
+    }
+    .team-node-children {
+        margin-left: 20px;
+        margin-top: 8px;
+    }
+    .team-member {
+        display: flex;
+        align-items: center;
+        padding: 6px 12px;
+        background-color: #f9f9f9;
+        border-radius: 4px;
+        margin: 4px 0;
+        font-size: 0.95rem;
+    }
+    .team-member-icon {
+        margin-right: 8px;
+        font-size: 1.1rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Function to recursively render the tree structure with summaries
     def render_tree(node, level=0):
+        if not node: # Check if node is empty
+            return
+
+        # Get summary counts
+        am_count = node["Summary"]["AM"]
+        dm_count = node["Summary"]["DM"]
+        mr_count = node["Summary"]["MR"]
+
+        # Format summary string
+        summary_parts = []
+        if am_count > 0:
+            summary_parts.append(f"🟢 {am_count} AM")
+        if dm_count > 0:
+            summary_parts.append(f"🔵 {dm_count} DM")
+        if mr_count > 0:
+            summary_parts.append(f"🟣 {mr_count} MR")
+
+        summary_str = " | ".join(summary_parts) if summary_parts else "No direct reports"
+
+        # Render the node header
         indent = "&nbsp;" * (level * 4) # 4 spaces per level
         manager_info = node.get("Manager", "Unknown")
         manager_code = node.get("Manager Code", "N/A")
-        st.markdown(f"{indent} 👤 **{manager_info}** (Code: {manager_code})")
-        for team_member in node.get("Team", []):
-            render_tree(team_member, level + 1)
-    # Render the main hierarchy starting from the user's node (which might just be the root)
-    # If the user's node itself has subordinates, render them
-    for team_member in hierarchy.get("Team", []):
-        render_tree(team_member, 0)
+        st.markdown(f"""
+        <div class="team-node">
+            <div class="team-node-header">
+                {indent}<span>👤 <strong>{manager_info}</strong> (Code: {manager_code})</span>
+                <span class="team-node-summary">{summary_str}</span>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # Display the team members
+        if node.get("Team"):
+            st.markdown('<div class="team-node-children">', unsafe_allow_html=True)
+            for team_member in node.get("Team", []):
+                render_tree(team_member, level + 1)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # Render the main hierarchy starting from the user's node
+    render_tree(hierarchy, 0)
+
+    # If the user themselves is a leaf node (e.g., MR with no subordinates)
+    # or if the hierarchy is just the root node itself with no team members
+    if not hierarchy.get("Team"): # If the root node has no team members
+        # Render the root node itself (the user)
+        root_manager_info = hierarchy.get("Manager", "Unknown")
+        root_manager_code = hierarchy.get("Manager Code", "N/A")
+        st.markdown(f"👤 **{root_manager_info}** (Code: {root_manager_code})")
+        st.info("No direct subordinates found under your supervision.")
 
 # ============================
 # NEW: Calculate Leave Balance
@@ -956,15 +1114,16 @@ def page_my_team(user, role="AM"):
 def calculate_leave_balance(user_code, df_emp, leaves_df):
     """
     Calculates Total, Used, and Remaining Annual Leave Balance for a user.
+    Assumes default balance of 21 days if column not found.
     """
     # Find the user's total annual leave balance from the employee sheet
     col_map = {c.lower().strip(): c for c in df_emp.columns}
     emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
-    annual_leave_col = col_map.get("annual leave balance") or col_map.get("total annual leaves") # Flexible column name
+    annual_leave_col = col_map.get("annual leave balance") or col_map.get("total annual leaves") or col_map.get("balance") # Flexible column name
 
     if not annual_leave_col:
-        st.warning("Column 'Annual Leave Balance' or 'Total Annual Leaves' not found in employee sheet. Assuming default value of 30 days.")
-        total_annual = 30 # Default value if column not found
+        # st.warning("Column 'Annual Leave Balance' or 'Total Annual Leaves' not found in employee sheet. Assuming default value of 21 days.")
+        total_annual = 21 # Default value if column not found
     else:
         df_emp[emp_code_col] = df_emp[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
         user_row = df_emp[df_emp[emp_code_col] == str(user_code)]
@@ -973,10 +1132,10 @@ def calculate_leave_balance(user_code, df_emp, leaves_df):
             return 0, 0, 0
         total_annual_val = user_row.iloc[0][annual_leave_col]
         try:
-            total_annual = float(total_annual_val) if pd.notna(total_annual_val) else 0.0
+            total_annual = float(total_annual_val) if pd.notna(total_annual_val) else 21.0
         except (ValueError, TypeError):
-            st.warning(f"Invalid value in '{annual_leave_col}' for user {user_code}. Assuming default value of 30 days.")
-            total_annual = 30
+            # st.warning(f"Invalid value in '{annual_leave_col}' for user {user_code}. Assuming default value of 21 days.")
+            total_annual = 21
 
     # Calculate used annual leaves (approved requests)
     if not leaves_df.empty:
@@ -1032,10 +1191,12 @@ def page_employee_photos(user):
     if not photo_files:
         st.info("No employee photos uploaded yet.")
         return
+
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.warning("Employee data not loaded.")
         return
+
     # Map Employee Code to Name
     code_to_name = {}
     col_map = {c.lower().strip(): c for c in df.columns}
@@ -1047,6 +1208,7 @@ def page_employee_photos(user):
             code = row[emp_code_col]
             name = row.get(emp_name_col, "N/A")
             code_to_name[code] = name
+
     # Display photos in grid
     cols_per_row = 4
     cols = st.columns(cols_per_row)
@@ -1057,10 +1219,10 @@ def page_employee_photos(user):
         emp_name = code_to_name.get(emp_code, "Unknown")
         with col:
             st.image(filepath, use_column_width=True)
-            st.caption(f"""{emp_code}
-{emp_name}""")
+            st.caption(f"{emp_code}<br>{emp_name}")
             with open(filepath, "rb") as f:
                 st.download_button("📥 Download", f, file_name=filename, key=f"dl_{filename}")
+
     # ============================
     # ✅ Download All Button
     # ============================
@@ -1074,6 +1236,7 @@ def page_employee_photos(user):
                     file_path = os.path.join(photo_dir, filename)
                     if os.path.isfile(file_path):
                         zipf.write(file_path, filename)
+
         with open(zip_path, "rb") as f:
             st.download_button(
                 label="Download All Photos",
@@ -1093,11 +1256,13 @@ def page_my_profile(user):
     if df.empty:
         st.info("No employee data available.")
         return
+
     col_map = {c.lower().strip(): c for c in df.columns}
     code_col = col_map.get("employee_code") or col_map.get("employee code")
     if not code_col:
         st.error("Employee code column not found in dataset.")
         return
+
     user_code = None
     for key in user.keys():
         if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
@@ -1106,9 +1271,11 @@ def page_my_profile(user):
                 val = val[:-2]
             user_code = val
             break
+
     if user_code is None:
         st.error("Your Employee Code not found in session.")
         return
+
     df[code_col] = df[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     row = df[df[code_col] == user_code]
     if row.empty:
@@ -1158,6 +1325,7 @@ def page_my_profile(user):
 
     st.markdown("---")
     st.dataframe(row.reset_index(drop=True), use_container_width=True)
+
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         row.to_excel(writer, index=False, sheet_name="MyProfile")
@@ -1171,6 +1339,7 @@ def page_my_profile(user):
         if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
             emp_code_clean = str(val).strip().replace(".0", "")
             break
+
     if emp_code_clean:
         # Check if photo exists
         photo_path = None
@@ -1183,6 +1352,7 @@ def page_my_profile(user):
             st.image(photo_path, width=150, caption="Your current photo")
         else:
             st.info("No photo uploaded yet.")
+
         uploaded_file = st.file_uploader(
             "Upload your personal photo (JPG/PNG)",
             type=["jpg", "jpeg", "png"],
@@ -1205,6 +1375,7 @@ def page_leave_request(user):
     if df_emp.empty:
         st.error("Employee data not loaded.")
         return
+
     user_code = None
     for key, val in user.items():
         if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
@@ -1212,29 +1383,36 @@ def page_leave_request(user):
             if user_code.endswith('.0'):
                 user_code = user_code[:-2]
             break
+
     if not user_code:
         st.error("Your Employee Code not found.")
         return
+
     col_map = {c.lower().strip(): c for c in df_emp.columns}
     emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
     mgr_code_col = col_map.get("manager_code") or col_map.get("manager code")
+
     if not mgr_code_col:
         st.error("Column 'Manager Code' is missing in employee sheet.")
         return
+
     emp_row = df_emp[df_emp[emp_code_col].astype(str).str.replace('.0', '', regex=False) == user_code]
     if emp_row.empty:
         st.error("Your record not found in employee sheet.")
         return
+
     manager_code = emp_row.iloc[0][mgr_code_col]
     if pd.isna(manager_code) or str(manager_code).strip() == "":
         st.warning("You have no manager assigned. Contact HR.")
         return
+
     manager_code = str(manager_code).strip()
     if manager_code.endswith('.0'):
         manager_code = manager_code[:-2]
 
-    # === NEW: Check Leave Balance Before Submitting ===
     leaves_df = load_leaves_data()
+
+    # === NEW: Check Leave Balance Before Submitting ===
     total_balance, used_balance, remaining_balance = calculate_leave_balance(user_code, df_emp, leaves_df)
     st.info(f"Your remaining annual leave balance is: {remaining_balance} days.")
 
@@ -1244,6 +1422,7 @@ def page_leave_request(user):
         leave_type = st.selectbox("Leave Type", ["Annual", "Sick", "Emergency", "Unpaid"])
         reason = st.text_area("Reason")
         submitted = st.form_submit_button("Submit Leave Request")
+
     if submitted:
         if end_date < start_date:
             st.error("End date cannot be before start date.")
@@ -1270,6 +1449,7 @@ def page_leave_request(user):
                 st.balloons()
             else:
                 st.error("❌ Failed to save leave request.")
+
     st.markdown("### Your Leave Requests")
     if not leaves_df.empty:
         user_leaves = leaves_df[leaves_df["Employee Code"].astype(str) == user_code].copy()
@@ -1293,23 +1473,28 @@ def page_manager_leaves(user):
             if manager_code.endswith('.0'):
                 manager_code = manager_code[:-2]
             break
+
     if not manager_code:
         st.error("Your Employee Code not found.")
         return
+
     leaves_df = load_leaves_data()
     if leaves_df.empty:
         st.info("No leave requests found.")
         return
+
     team_leaves = leaves_df[leaves_df["Manager Code"].astype(str) == manager_code].copy()
     if team_leaves.empty:
         st.info("No leave requests from your team.")
         return
+
     df_emp = st.session_state.get("df", pd.DataFrame())
     name_col_to_use = "Employee Code"
     if not df_emp.empty:
         col_map = {c.lower().strip(): c for c in df_emp.columns}
         emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
         emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
+
         if emp_code_col and emp_name_col:
             df_emp[emp_code_col] = df_emp[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
             team_leaves["Employee Code"] = team_leaves["Employee Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
@@ -1325,7 +1510,7 @@ def page_manager_leaves(user):
     if not df_emp.empty and not team_leaves.empty:
         balance_col_map = {c.lower().strip(): c for c in df_emp.columns}
         emp_code_col_bal = balance_col_map.get("employee_code") or balance_col_map.get("employee code")
-        annual_leave_col_bal = balance_col_map.get("annual leave balance") or balance_col_map.get("total annual leaves")
+        annual_leave_col_bal = balance_col_map.get("annual leave balance") or balance_col_map.get("total annual leaves") or balance_col_map.get("balance")
         if annual_leave_col_bal:
             df_emp[emp_code_col_bal] = df_emp[emp_code_col_bal].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
             team_leaves = team_leaves.merge(
@@ -1352,9 +1537,9 @@ def page_manager_leaves(user):
                     used_so_far = int(prev_approved['Duration'].sum())
                 total_bal = df_emp[df_emp[emp_code_col_bal] == str(emp_code)][annual_leave_col_bal].iloc[0]
                 try:
-                    total_bal = float(total_bal) if pd.notna(total_bal) else 0.0
+                    total_bal = float(total_bal) if pd.notna(total_bal) else 21.0
                 except (ValueError, TypeError):
-                    total_bal = 30 # Default if invalid
+                    total_bal = 21 # Default if invalid
                 remaining = total_bal - used_so_far
                 return int(remaining)
             team_leaves['Remaining Balance Before Request'] = team_leaves.apply(calc_remaining_for_request, axis=1)
@@ -1371,6 +1556,7 @@ def page_manager_leaves(user):
             remaining_bal = row.get('Remaining Balance Before Request', 'N/A')
             st.markdown(f"**Employee**: {emp_display} | **Dates**: {row['Start Date'].strftime('%d-%m-%Y')} → {row['End Date'].strftime('%d-%m-%Y')} | **Type**: {row['Leave Type']} | **Balance Before**: {remaining_bal} days")
             st.write(f"**Reason**: {row['Reason']}")
+
             col1, col2, col3 = st.columns([2, 2, 1])
             with col1:
                 if st.button("✅ Approve", key=f"app_{idx}_{row['Employee Code']}"):
@@ -1389,6 +1575,7 @@ def page_manager_leaves(user):
                         st.rerun()
                     else:
                         st.warning("Request not found or already processed.")
+
             with col2:
                 if st.button("❌ Reject", key=f"rej_{idx}_{row['Employee Code']}"):
                     comment = st.text_input("Comment (optional)", key=f"com_{idx}_{row['Employee Code']}")
@@ -1409,6 +1596,7 @@ def page_manager_leaves(user):
                         st.rerun()
                     else:
                         st.warning("Request not found or already processed.")
+
             with col3:
                 if st.button("🗑️", key=f"del_{idx}_{row['Employee Code']}"):
                     current_leaves = load_leaves_data()
@@ -1424,9 +1612,11 @@ def page_manager_leaves(user):
                         st.rerun()
                     else:
                         st.warning("Only your team's requests can be deleted.")
+
             st.markdown("---")
     else:
         st.info("No pending requests.")
+
     st.markdown("### 📋 All Team Leave History")
     if not all_leaves.empty:
         if name_col_to_use in all_leaves.columns:
@@ -1448,9 +1638,11 @@ def page_dashboard(user):
     if df.empty:
         st.info("No employee data available.")
         return
+
     col_map = {c.lower(): c for c in df.columns}
     dept_col = col_map.get("department")
     hire_col = col_map.get("hire date") or col_map.get("hire_date") or col_map.get("hiring date")
+
     total_employees = df.shape[0]
     total_departments = df[dept_col].nunique() if dept_col else 0
     new_hires = 0
@@ -1460,10 +1652,12 @@ def page_dashboard(user):
             new_hires = df[df[hire_col] >= (pd.Timestamp.now() - pd.Timedelta(days=30))].shape[0]
         except Exception:
             new_hires = 0
+
     c1, c2, c3 = st.columns(3)
     c1.metric("Total Employees", total_employees)
     c2.metric("Departments", total_departments)
     c3.metric("New Hires (30 days)", new_hires)
+
     st.markdown("---")
     st.markdown("### Employees per Department (table)")
     if dept_col:
@@ -1472,12 +1666,14 @@ def page_dashboard(user):
         st.table(dept_counts.sort_values("Employee Count", ascending=False).reset_index(drop=True))
     else:
         st.info("Department column not found.")
+
     st.markdown("---")
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Employees")
     buf.seek(0)
     st.download_button("Download Full Employees Excel", data=buf, file_name="employees_export.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
     if st.button("Save & Push current dataset to GitHub"):
         saved, pushed = save_and_maybe_push(df, actor=user.get("Employee Name","HR"))
         if saved:
@@ -1494,6 +1690,7 @@ def page_dashboard(user):
 def page_hr_manager(user):
     st.subheader("HR Manager")
     st.info("Upload new employee sheet, manage employees, and perform administrative actions.")
+
     df = st.session_state.get("df", pd.DataFrame())
     st.markdown("### Upload Employees Excel (will replace current dataset)")
     uploaded_file = st.file_uploader("Upload Excel file (.xlsx) to replace the current employees dataset", type=["xlsx"])
@@ -1514,12 +1711,15 @@ def page_hr_manager(user):
                     st.info("Preview shown above.")
         except Exception as e:
             st.error(f"Failed to read uploaded file: {e}")
+
     st.markdown("---")
     st.markdown("### Manage Employees (Edit / Delete)")
     if df.empty:
         st.info("Dataset empty. Upload or load data first.")
         return
+
     st.dataframe(df.head(100), use_container_width=True)
+
     col_map = {c.lower(): c for c in df.columns}
     code_col = col_map.get("employee_code") or list(df.columns)[0]
     selected_code = st.text_input("Enter employee code to edit/delete (exact match)", value="")
@@ -1552,6 +1752,7 @@ def page_hr_manager(user):
                             updated[col] = st.text_input(label=str(col), value=str(val), key=f"edit_{col}")
                     else:
                         updated[col] = st.text_input(label=str(col), value=str(val), key=f"edit_{col}")
+
                 submitted_edit = st.form_submit_button("Save Changes")
                 if submitted_edit:
                     for k, v in updated.items():
@@ -1571,6 +1772,7 @@ def page_hr_manager(user):
                                 st.info("Saved locally. GitHub not configured.")
                     else:
                         st.error("Failed to save changes locally.")
+
             st.markdown("#### Delete Employee")
             if st.button("Initiate Delete"):
                 st.session_state["delete_target"] = str(selected_code).strip()
@@ -1597,6 +1799,7 @@ def page_hr_manager(user):
                     if st.button("Cancel Delete"):
                         st.session_state["delete_target"] = None
                         st.info("Deletion cancelled.")
+
     st.markdown("---")
     st.markdown("### Save / Push Dataset")
     if st.button("Save current in-memory dataset locally and optionally push to GitHub"):
@@ -1612,6 +1815,7 @@ def page_hr_manager(user):
                     st.info("Saved locally. GitHub token not configured.")
         else:
             st.error("Failed to save dataset locally.")
+
     # ============================
     # ✅ CLEAR ALL TEST DATA BUTTON
     # ============================
@@ -1634,6 +1838,7 @@ def page_hr_manager(user):
             if os.path.exists("hr_response_files"):
                 shutil.rmtree("hr_response_files")
                 cleared.append("hr_response_files/")
+
             if cleared:
                 st.success(f"✅ Cleared: {', '.join(cleared)}")
             else:
@@ -1649,8 +1854,10 @@ def page_reports(user):
     if df.empty:
         st.info("No data to report.")
         return
+
     st.markdown("Basic preview of dataset:")
     st.dataframe(df.head(200), use_container_width=True)
+
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Employees")
@@ -1664,11 +1871,13 @@ def page_hr_inbox(user):
     if hr_df is None or hr_df.empty:
         st.info("No Ask HR messages.")
         return
+
     try:
         hr_df["Date Sent_dt"] = pd.to_datetime(hr_df["Date Sent"], errors="coerce")
         hr_df = hr_df.sort_values("Date Sent_dt", ascending=False).reset_index(drop=True)
     except Exception:
         hr_df = hr_df.reset_index(drop=True)
+
     for idx, row in hr_df.iterrows():
         emp_code = str(row.get('Employee Code', ''))
         emp_name = row.get('Employee Name', '') if pd.notna(row.get('Employee Name', '')) else ''
@@ -1677,17 +1886,21 @@ def page_hr_inbox(user):
         status = row.get('Status', '') if pd.notna(row.get('Status', '')) else ''
         date_sent = row.get("Date Sent", '')
         reply_existing = row.get("Reply", '') if pd.notna(row.get("Reply", '')) else ''
+
         try:
             sent_time = pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M')
         except Exception:
             sent_time = str(date_sent)
+
         card_html = f"""
         <div class="hr-message-card">
             <div class="hr-message-title">📌 {subj if subj else 'No Subject'}</div>
             <div class="hr-message-meta">👤 {emp_name} — {emp_code} &nbsp;|&nbsp; 🕒 {sent_time} &nbsp;|&nbsp; 🏷️ {status}</div>
             <div class="hr-message-body">{msg if msg else ''}</div>
         """
+
         st.markdown(card_html, unsafe_allow_html=True)
+
         if reply_existing:
             st.markdown("**🟢 Existing reply:**")
             st.markdown(reply_existing)
@@ -1733,6 +1946,7 @@ def page_hr_inbox(user):
                     save_hr_queries(hr_df)
                     st.success("Message deleted!")
                     st.rerun()
+
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("---")
 
@@ -1741,6 +1955,7 @@ def page_ask_hr(user):
     if user is None:
         st.error("User session not found. Please login.")
         return
+
     user_code = None
     user_name = None
     for key, val in user.items():
@@ -1748,16 +1963,20 @@ def page_ask_hr(user):
             user_code = str(val).strip().replace(".0", "")
         if key.lower().replace(" ", "").replace("_", "") in ["employeename", "employee_name", "name"]:
             user_name = str(val).strip()
+
     if not user_code:
         st.error("Your Employee Code not found in session.")
         return
     if not user_name:
         user_name = user_code
+
     hr_df = load_hr_queries()
+
     with st.form("ask_hr_form"):
         subj = st.text_input("Subject")
         msg = st.text_area("Message", height=160)
         submitted = st.form_submit_button("Send to HR")
+
     if submitted:
         if not subj.strip() or not msg.strip():
             st.warning("Please fill both Subject and Message.")
@@ -1776,40 +1995,49 @@ def page_ask_hr(user):
                 hr_df = new_row
             else:
                 hr_df = pd.concat([hr_df, new_row], ignore_index=True)
+
             if save_hr_queries(hr_df):
                 st.success("✅ Your message was sent to HR.")
                 add_notification("", "HR", f"New Ask HR from {user_name} ({user_code})")
                 st.rerun()
             else:
                 st.error("❌ Failed to save message. Check server permissions.")
+
     st.markdown("### 📜 Your previous messages")
     if hr_df is None or hr_df.empty:
         st.info("No messages found.")
         return
+
     try:
         hr_df["Date Sent_dt"] = pd.to_datetime(hr_df["Date Sent"], errors="coerce")
         my_msgs = hr_df[hr_df["Employee Code"].astype(str).str.strip() == str(user_code)].sort_values("Date Sent_dt", ascending=False)
     except Exception:
         my_msgs = hr_df[hr_df["Employee Code"].astype(str).str.strip() == str(user_code)]
+
     if my_msgs.empty:
         st.info("You have not sent any messages yet.")
         return
+
     for idx, row in my_msgs.iterrows():
         subj = row.get("Subject", "")
         msg = row.get("Message", "")
         reply = row.get("Reply", "")
         status = row.get("Status", "")
         date_sent = row.get("Date Sent", "")
+
         try:
             sent_time = pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M')
         except Exception:
             sent_time = str(date_sent)
+
         st.markdown(f"<div class='hr-message-card'><div class='hr-message-title'>{subj}</div><div class='hr-message-meta'>Sent: {sent_time} — Status: {status}</div><div class='hr-message-body'>{msg}</div>", unsafe_allow_html=True)
+
         if pd.notna(reply) and str(reply).strip() != "":
             st.markdown("**🟢 HR Reply:**")
             st.markdown(reply)
         else:
             st.markdown("**🕒 HR Reply:** Pending")
+
         st.markdown("</div>")
         st.markdown("---")
 
@@ -1833,6 +2061,7 @@ with st.sidebar:
             uid = st.text_input("Employee Code")
             pwd = st.text_input("Password", type="password")
             submitted = st.form_submit_button("Sign in")
+
         if submitted:
             df = st.session_state.get("df", pd.DataFrame())
             user = login(df, uid, pwd)
@@ -1851,20 +2080,34 @@ with st.sidebar:
         is_am = title_val == "AM"
         is_dm = title_val == "DM"
         is_mr = title_val == "MR"
+
         st.write(f"👋 **Welcome, {user.get('Employee Name') or 'User'}**")
         st.markdown("---")
+
+        # Determine pages based on user role
         if is_hr:
             pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Notifications"]
-        elif is_bum or is_am or is_dm:
+        elif is_bum:
+            # BUM can see team structure and team leaves
+            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
+        elif is_am:
+            # AM can see team structure and team leaves
+            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
+        elif is_dm:
+            # DM can see team structure and team leaves
             pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         elif is_mr:
-            pages = ["My Profile", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
-        else:
+            # MR gets My Profile, Leave Request, Ask HR, Request HR, Notifications. Team Leaves is removed.
             pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications"]
+        else:
+            # Default for other roles
+            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications"]
+
         for p in pages:
             if st.button(p, key=f"nav_{p}", use_container_width=True):
                 st.session_state["current_page"] = p
                 st.rerun()
+
         st.markdown("---")
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state["logged_in_user"] = None
@@ -1881,6 +2124,8 @@ if st.session_state["logged_in_user"]:
     is_bum = title_val == "BUM"
     is_am = title_val == "AM"
     is_dm = title_val == "DM"
+    is_mr = title_val == "MR" # Added for clarity
+
     if current_page == "My Profile":
         page_my_profile(user)
     elif current_page == "Notifications":
@@ -1888,7 +2133,11 @@ if st.session_state["logged_in_user"]:
     elif current_page == "Leave Request":
         page_leave_request(user)
     elif current_page == "Team Leaves":
-        page_manager_leaves(user)
+        # Now accessible by BUM, AM, DM, MR
+        if is_bum or is_am or is_dm or is_mr:
+            page_manager_leaves(user)
+        else:
+            st.error("Access denied. BUM, AM, DM, or MR only.")
     elif current_page == "Dashboard":
         page_dashboard(user)
     elif current_page == "Reports":
