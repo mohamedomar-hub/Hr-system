@@ -52,21 +52,25 @@ enhanced_dark_css = """
 body, h1, h2, h3, h4, h5, p, div, span, li {
     font-family: 'Segoe UI', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
 }
+
 /* App background - Changed to Light Gray */
 [data-testid="stAppViewContainer"] {
     background-color: #f0f2f5; /* Light Gray */
     color: #333333; /* Dark Text */
 }
+
 /* Header & Toolbar */
 [data-testid="stHeader"], [data-testid="stToolbar"] {
     background-color: #ffffff; /* White */
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
+
 /* Sidebar */
 [data-testid="stSidebar"] {
     background: linear-gradient(135deg, #e0e0e0 0%, #f0f0f0 100%); /* Lighter Gradients */
     border-right: 2px solid #cccccc;
 }
+
 .sidebar-title {
     font-size: 1.3rem;
     font-weight: 700;
@@ -75,6 +79,7 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     text-align: center;
     letter-spacing: 0.5px;
 }
+
 /* Inputs */
 .stTextInput>div>div>input,
 .stNumberInput>div>input,
@@ -89,6 +94,7 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     border-color: #0b72b9;
     box-shadow: 0 0 0 2px rgba(11, 114, 185, 0.2);
 }
+
 /* Buttons */
 .stButton>button {
     background-color: #0b72b9;
@@ -103,6 +109,7 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
+
 /* Dataframes */
 .stDataFrame > div > div {
     background-color: #ffffff !important;
@@ -118,6 +125,7 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
 .stDataFrame tr:hover {
     background-color: #f0f0f0 !important;
 }
+
 /* Notification Bell */
 .notification-bell {
     position: fixed;
@@ -155,6 +163,7 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     justify-content: center;
     font-weight: bold;
 }
+
 /* HR message card */
 .hr-message-card {
     background-color: #ffffff;
@@ -182,6 +191,7 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     line-height: 1.4;
     margin-bottom: 8px;
 }
+
 /* Team Hierarchy Styling */
 .team-node {
     background-color: #ffffff;
@@ -230,7 +240,7 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     margin: 20px 0;
 }
 .logo-image {
-    max-width: 150px; /* Increased size */
+    max-width: 250px; /* Increased size */
     height: auto;
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
@@ -381,6 +391,36 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     }
     .logo-image {
         max-width: 120px;
+    }
+
+    /* Ensure sidebar is visible on mobile */
+    [data-testid="stSidebar"] {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        z-index: 1000;
+        background: linear-gradient(135deg, #e0e0e0 0%, #f0f0f0 100%);
+        border-right: 2px solid #cccccc;
+        overflow-y: auto;
+    }
+
+    /* Add a close button for sidebar on mobile */
+    .sidebar-close {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: #0b72b9;
+        color: white;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        cursor: pointer;
+        z-index: 1001;
     }
 }
 
@@ -1173,7 +1213,7 @@ def render_logo_and_title():
         # === NEW: Add Logo ===
         if os.path.exists(LOGO_PATH):
             st.markdown('<div class="logo-container">', unsafe_allow_html=True)
-            st.image(LOGO_PATH, caption="", width=150, output_format="auto") # Adjust width as needed
+            st.image(LOGO_PATH, caption="", width=250, output_format="auto") # Adjust width as needed
             st.markdown('</div>', unsafe_allow_html=True)
     user = st.session_state.get("logged_in_user")
     if user:
@@ -1625,9 +1665,45 @@ def page_manager_leaves(user):
             all_leaves["Employee Name"] = all_leaves["Employee Code"]
         all_leaves["Start Date"] = pd.to_datetime(all_leaves["Start Date"]).dt.strftime("%d-%m-%Y")
         all_leaves["End Date"] = pd.to_datetime(all_leaves["End Date"]).dt.strftime("%d-%m-%Y")
-        display_cols = ["Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"]
-        if 'Remaining Balance Before Request' in all_leaves.columns:
-            display_cols.insert(5, 'Remaining Balance Before Request') # Insert before Comment
+        # === NEW: Add Used and Remaining Balance Columns ===
+        # Calculate Used Balance for each row
+        def calc_used_balance(row):
+            emp_code = row['Employee Code']
+            start_date = row['Start Date']
+            # Get all approved annual leaves for this employee up to and including this request
+            approved_until_now = leaves_df[
+                (leaves_df['Employee Code'] == str(emp_code)) &
+                (leaves_df['Status'] == 'Approved') &
+                (leaves_df['Leave Type'] == 'Annual') &
+                (pd.to_datetime(leaves_df['Start Date']) <= pd.to_datetime(start_date))
+            ]
+            used_days = 0
+            if not approved_until_now.empty:
+                approved_until_now['Duration'] = (pd.to_datetime(approved_until_now['End Date']) - pd.to_datetime(approved_until_now['Start Date'])).dt.days + 1
+                used_days = int(approved_until_now['Duration'].sum())
+            return used_days
+        all_leaves['Used Balance'] = all_leaves.apply(calc_used_balance, axis=1)
+
+        # Calculate Remaining Balance for each row
+        def calc_remaining_balance(row):
+            emp_code = row['Employee Code']
+            start_date = row['Start Date']
+            # Get total annual balance for the employee
+            if 'Total Annual Balance' in row:
+                total_bal = row['Total Annual Balance']
+            else:
+                # Fallback: Assume 21 days if not found
+                total_bal = 21
+            # Calculate used days up to and including this request
+            used_days = row['Used Balance']
+            remaining = total_bal - used_days
+            return int(remaining)
+        all_leaves['Remaining Balance'] = all_leaves.apply(calc_remaining_balance, axis=1)
+
+        display_cols = [
+            "Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment",
+            "Used Balance", "Remaining Balance"
+        ]
         st.dataframe(all_leaves[display_cols], use_container_width=True)
     else:
         st.info("No leave history for your team.")
@@ -1752,7 +1828,6 @@ def page_hr_manager(user):
                             updated[col] = st.text_input(label=str(col), value=str(val), key=f"edit_{col}")
                     else:
                         updated[col] = st.text_input(label=str(col), value=str(val), key=f"edit_{col}")
-
                 submitted_edit = st.form_submit_button("Save Changes")
                 if submitted_edit:
                     for k, v in updated.items():
@@ -1772,7 +1847,6 @@ def page_hr_manager(user):
                                 st.info("Saved locally. GitHub not configured.")
                     else:
                         st.error("Failed to save changes locally.")
-
             st.markdown("#### Delete Employee")
             if st.button("Initiate Delete"):
                 st.session_state["delete_target"] = str(selected_code).strip()
@@ -1838,7 +1912,6 @@ def page_hr_manager(user):
             if os.path.exists("hr_response_files"):
                 shutil.rmtree("hr_response_files")
                 cleared.append("hr_response_files/")
-
             if cleared:
                 st.success(f"✅ Cleared: {', '.join(cleared)}")
             else:
@@ -1995,7 +2068,6 @@ def page_ask_hr(user):
                 hr_df = new_row
             else:
                 hr_df = pd.concat([hr_df, new_row], ignore_index=True)
-
             if save_hr_queries(hr_df):
                 st.success("✅ Your message was sent to HR.")
                 add_notification("", "HR", f"New Ask HR from {user_name} ({user_code})")
@@ -2039,7 +2111,7 @@ def page_ask_hr(user):
             st.markdown("**🕒 HR Reply:** Pending")
 
         st.markdown("</div>")
-        st.markdown("---")
+        st.mark down("---")
 
 # ============================
 # Main App Flow
@@ -2061,7 +2133,6 @@ with st.sidebar:
             uid = st.text_input("Employee Code")
             pwd = st.text_input("Password", type="password")
             submitted = st.form_submit_button("Sign in")
-
         if submitted:
             df = st.session_state.get("df", pd.DataFrame())
             user = login(df, uid, pwd)
