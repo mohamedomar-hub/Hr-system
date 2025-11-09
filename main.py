@@ -1713,16 +1713,20 @@ if "logged_in_user" not in st.session_state:
 if "current_page" not in st.session_state:
     st.session_state["current_page"] = "My Profile"
 
-# Sidebar Navigation
+# ============================
+# Sidebar Navigation - Always Visible
+# ============================
 with st.sidebar:
+    # 🎯 Always show the title/logo at the top of the sidebar
     st.markdown('<div class="sidebar-title">HRAS — Averroes Admin</div>', unsafe_allow_html=True)
+    
+    # Show login form or menu based on session state
     if not st.session_state["logged_in_user"]:
-        st.subheader("Login")
+        st.markdown("### 🔐 Login Required")
         with st.form("login_form"):
             uid = st.text_input("Employee Code")
             pwd = st.text_input("Password", type="password")
             submitted = st.form_submit_button("Sign in")
-
         if submitted:
             df = st.session_state.get("df", pd.DataFrame())
             user = login(df, uid, pwd)
@@ -1741,41 +1745,36 @@ with st.sidebar:
         is_am = title_val == "AM"
         is_dm = title_val == "DM"
         is_mr = title_val == "MR"
-
+        
         st.write(f"👋 **Welcome, {user.get('Employee Name') or 'User'}**")
         st.markdown("---")
-
+        
         # Determine pages based on user role
         if is_hr:
             pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Notifications"]
         elif is_bum:
-            # BUM can see team structure and team leaves
             pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         elif is_am:
-            # AM can see team structure and team leaves
             pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         elif is_dm:
-            # DM can see team structure and team leaves
             pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         elif is_mr:
-            # MR gets My Profile, Leave Request, Ask HR, Request HR, Notifications. Team Leaves is removed.
             pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         else:
-            # Default for other roles
             pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications"]
-
+        
         for p in pages:
             if st.button(p, key=f"nav_{p}", use_container_width=True):
                 st.session_state["current_page"] = p
                 st.rerun()
-
-       st.markdown("---")
-       if st.button("🚪 Logout", use_container_width=True):
-           st.session_state["logged_in_user"] = None
-           st.session_state["current_page"] = "My Profile"
-           st.success("You have been logged out.")
-           st.rerun()
-
+        
+        # 👇 التعديل هنا: حذف المسافة البادئة الزائدة
+        st.markdown("---")
+        if st.button("🚪 Logout", use_container_width=True):
+            st.session_state["logged_in_user"] = None
+            st.session_state["current_page"] = "My Profile"
+            st.success("You have been logged out.")
+            st.rerun()
 # Main Content
 if st.session_state["logged_in_user"]:
     current_page = st.session_state["current_page"]
