@@ -1716,7 +1716,12 @@ if "current_page" not in st.session_state:
 # ============================
 with st.sidebar:
     # 🎯 Always show the title/logo at the top of the sidebar
-    st.markdown('<div class="sidebar-title">HRAS — Averroes Admin</div>', unsafe_allow_html=True)
+    if os.path.exists(LOGO_PATH):
+        st.image(LOGO_PATH, use_container_width=True)
+    else:
+        st.markdown('<div class="sidebar-title">HRAS — Averroes Admin</div>', unsafe_allow_html=True)
+
+    st.markdown("<hr style='border: 1px solid #0b72b9; margin: 10px 0;'>", unsafe_allow_html=True)
     
     # Show login form or menu based on session state
     if not st.session_state["logged_in_user"]:
