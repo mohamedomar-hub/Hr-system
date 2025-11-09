@@ -1715,7 +1715,7 @@ if "current_page" not in st.session_state:
 
 # Sidebar Navigation
 with st.sidebar:
-    st.markdown('<div class="sidebar-title">Menu</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-title">HRAS — Averroes Admin</div>', unsafe_allow_html=True)
     if not st.session_state["logged_in_user"]:
         st.subheader("Login")
         with st.form("login_form"):
@@ -1769,7 +1769,7 @@ with st.sidebar:
                 st.session_state["current_page"] = p
                 st.rerun()
 
-        st.markdown("---")
+       st.markdown("---")
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state["logged_in_user"] = None
             st.session_state["current_page"] = "My Profile"
