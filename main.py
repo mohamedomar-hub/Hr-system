@@ -647,19 +647,32 @@ def page_request_hr(user):
         st.write(f"**From HR:** {row['Request']}")
         if pd.notna(row["Date Sent"]) and row["Date Sent"] != pd.NaT:
             st.write(f"**Date Sent:** {row['Date Sent'].strftime('%d-%m-%Y %H:%M')}")
-        if row["File Attached"]:
-            filepath = os.path.join("hr_request_files", row["File Attached"])
+        
+        # ✅ Safe handling of File Attached
+        file_attached = row.get("File Attached", "")  # Get the value or default to empty string
+        if pd.notna(file_attached) and isinstance(file_attached, str) and file_attached.strip() != "":
+            filepath = os.path.join("hr_request_files", file_attached)
             if os.path.exists(filepath):
                 with open(filepath, "rb") as f:
-                    st.download_button("📥 Download Attached File", f, file_name=row["File Attached"], key=f"dl_req_{idx}")
+                    st.download_button("📥 Download Attached File", f, file_name=file_attached, key=f"dl_req_{idx}")
+            else:
+                st.warning("The attached file does not exist on the server.")
+        else:
+            st.info("No file was attached to this request.")
+
         if row["Status"] == "Completed":
             st.success("✅ This request has been responded to.")
-            if row["Response File"]:
-                resp_path = os.path.join("hr_response_files", row["Response File"])
+            # ✅ Safe handling of Response File
+            response_file = row.get("Response File", "")  # Get the value or default to empty string
+            if pd.notna(response_file) and isinstance(response_file, str) and response_file.strip() != "":
+                resp_path = os.path.join("hr_response_files", response_file)
                 if os.path.exists(resp_path):
                     with open(resp_path, "rb") as f:
-                        st.download_button("📥 Download Your Response", f, file_name=row["Response File"], key=f"dl_resp_{idx}")
+                        st.download_button("📥 Download Your Response", f, file_name=response_file, key=f"dl_resp_{idx}")
+                else:
+                    st.warning("Your response file does not exist on the server.")
             continue
+
         st.markdown("---")
         response_text = st.text_area("Your Response", key=f"resp_text_{idx}")
         uploaded_resp_file = st.file_uploader("Attach Response File (Optional)", type=["pdf", "docx", "xlsx", "jpg", "png"], key=f"resp_file_{idx}")
@@ -670,9 +683,12 @@ def page_request_hr(user):
             requests_df.loc[requests_df["ID"] == row["ID"], "Response"] = response_text.strip()
             requests_df.loc[requests_df["ID"] == row["ID"], "Status"] = "Completed"
             requests_df.loc[requests_df["ID"] == row["ID"], "Date Responded"] = pd.Timestamp.now()
+            response_file_name = ""
             if uploaded_resp_file:
+                # Save the uploaded file
                 resp_filename = save_response_file(uploaded_resp_file, user_code, row["ID"])
                 requests_df.loc[requests_df["ID"] == row["ID"], "Response File"] = resp_filename
+                response_file_name = resp_filename
             save_hr_requests(requests_df)
             add_notification("", "HR", f"Employee {user_code} responded to request ID {row['ID']}.")
             st.success("Response submitted successfully.")
