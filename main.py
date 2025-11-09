@@ -34,15 +34,13 @@ hide_streamlit_style = """
 #MainMenu {visibility: hidden;}
 /* Hide the Streamlit footer */
 footer {visibility: hidden;}
-/* Hide the Streamlit header (the top bar with Share, Edit, etc.) */
-header {visibility: hidden;}
+/* ✅ Removed header hiding line to keep sidebar visible */
 /* Optional: Hide the "Manage app" button in the bottom right */
 div[data-testid="stDeployButton"] {
     display: none;
 }
 </style>
 """
-
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 enhanced_dark_css = """
