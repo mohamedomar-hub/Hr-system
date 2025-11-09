@@ -1057,8 +1057,8 @@ def page_employee_photos(user):
         emp_name = code_to_name.get(emp_code, "Unknown")
         with col:
             st.image(filepath, use_column_width=True)
-            st.caption(f"{emp_code}
-{emp_name}")
+            st.caption(f"""{emp_code}
+{emp_name}""")
             with open(filepath, "rb") as f:
                 st.download_button("📥 Download", f, file_name=filename, key=f"dl_{filename}")
     # ============================
