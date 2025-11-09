@@ -2111,7 +2111,7 @@ def page_ask_hr(user):
             st.markdown("**🕒 HR Reply:** Pending")
 
         st.markdown("</div>")
-        st.mark down("---")
+        st.markdown("---")
 
 # ============================
 # Main App Flow
