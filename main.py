@@ -646,7 +646,7 @@ def page_request_hr(user):
             st.success("Response submitted successfully.")
             st.rerun()
 # ============================
-# Team Hierarchy — NEW: Recursive Function (Updated for Summary and Unique Keys)
+# Team Hierarchy — NEW: Recursive Function (Updated for Summary)
 # ============================
 def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
     """
@@ -748,8 +748,51 @@ def page_my_team(user, role="AM"):
         st.info(f"Could not build team structure for your code: {user_code}. Check your manager assignment or title.")
         return
 
+    # Add custom CSS for the team structure
+    st.markdown("""
+    <style>
+    .team-node {
+        background-color: #0b1220;
+        border-left: 4px solid #0b72b9;
+        padding: 12px;
+        margin: 8px 0;
+        border-radius: 6px;
+    }
+    .team-node-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 600;
+        color: #ffd166;
+        margin-bottom: 8px;
+    }
+    .team-node-summary {
+        font-size: 0.9rem;
+        color: #9fb0c8;
+        margin-top: 4px;
+    }
+    .team-node-children {
+        margin-left: 20px;
+        margin-top: 8px;
+    }
+    .team-member {
+        display: flex;
+        align-items: center;
+        padding: 6px 12px;
+        background-color: #111827;
+        border-radius: 4px;
+        margin: 4px 0;
+        font-size: 0.95rem;
+    }
+    .team-member-icon {
+        margin-right: 8px;
+        font-size: 1.1rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     # Function to recursively render the tree structure with summaries
-    def render_tree(node, level=0, path=""):
+    def render_tree(node, level=0):
         if not node: # Check if node is empty
             return
 
@@ -769,20 +812,29 @@ def page_my_team(user, role="AM"):
 
         summary_str = " | ".join(summary_parts) if summary_parts else "No direct reports"
 
-        # Create a unique key for the expander based on the full path
-        # We'll use the manager code and level to create a unique identifier
-        expander_key = f"exp_{path}_{node.get('Manager Code', 'unknown')}"
+        # Render the node header
+        indent = "&nbsp;" * (level * 4) # 4 spaces per level
+        manager_info = node.get("Manager", "Unknown")
+        manager_code = node.get("Manager Code", "N/A")
+        st.markdown(f"""
+        <div class="team-node">
+            <div class="team-node-header">
+                {indent}<span>👤 <strong>{manager_info}</strong> (Code: {manager_code})</span>
+                <span class="team-node-summary">{summary_str}</span>
+            </div>
+        """, unsafe_allow_html=True)
 
-        # Render the node with an expander for better UX
-        with st.expander(f"👤 **{node.get('Manager', 'Unknown')}** (Code: {node.get('Manager Code', 'N/A')}) — {summary_str}", expanded=True):
-            # Display the team members
-            for i, team_member in enumerate(node.get("Team", [])):
-                # Build the new path for the child node
-                child_path = f"{path}_{i}" if path else str(i)
-                render_tree(team_member, level + 1, child_path)
+        # Display the team members
+        if node.get("Team"):
+            st.markdown('<div class="team-node-children">', unsafe_allow_html=True)
+            for team_member in node.get("Team", []):
+                render_tree(team_member, level + 1)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # Render the main hierarchy starting from the user's node
-    render_tree(hierarchy, 0, "root")
+    render_tree(hierarchy, 0)
 
     # If the user themselves is a leaf node (e.g., MR with no subordinates)
     # or if the hierarchy is just the root node itself with no team members
@@ -1640,7 +1692,7 @@ with st.sidebar:
             pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         elif is_mr:
             # MR gets My Profile, Leave Request, Ask HR, Request HR, Notifications. Team Leaves is removed.
-            pages = ["My Profile", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
+            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         else:
             # Default for other roles
             pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications"]
