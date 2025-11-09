@@ -531,16 +531,41 @@ def page_ask_employees(user):
     if df.empty:
         st.error("Employee data not loaded.")
         return
+
+    # ============================
+    # ✅ Flexible Column Mapping for Employee Code and Name
+    # ============================
     col_map = {c.lower().strip(): c for c in df.columns}
-    code_col = col_map.get("Employee Code") or col_map.get("employee code")
-    name_col = col_map.get("Employee Name") or col_map.get("name")
-    if not code_col or not name_col:
-        st.error("Employee Code or Name column missing.")
+    # Try to find the Employee Code column
+    code_col_options = ["employee_code", "employee code", "emp code", "code", "employeeid", "emp_id"]
+    code_col = None
+    for opt in code_col_options:
+        if opt in col_map:
+            code_col = col_map[opt]
+            break
+    if not code_col:
+        st.error("Could not find any column for Employee Code. Please check your Excel sheet headers.")
         return
-    df[code_col] = df[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+
+    # Try to find the Employee Name column
+    name_col_options = ["employee_name", "employee name", "name", "emp name", "full name", "first name"]
+    name_col = None
+    for opt in name_col_options:
+        if opt in col_map:
+            name_col = col_map[opt]
+            break
+    if not name_col:
+        st.error("Could not find any column for Employee Name. Please check your Excel sheet headers.")
+        return
+
+    # Ensure columns are strings and clean them
+    df[code_col] = df[code_col].astype(str).str.strip()
     df[name_col] = df[name_col].astype(str).str.strip()
+
+    # Create display options for the selectbox
     emp_options = df[[code_col, name_col]].copy()
     emp_options["Display"] = emp_options[name_col] + " (Code: " + emp_options[code_col] + ")"
+
     # ============================
     # ✅ Search Box with Note
     # ============================
@@ -557,6 +582,7 @@ def page_ask_employees(user):
             return
     else:
         filtered_options = emp_options.copy()
+
     if len(filtered_options) == 1:
         selected_row = filtered_options.iloc[0]
     elif len(filtered_options) > 1:
@@ -564,21 +590,26 @@ def page_ask_employees(user):
         selected_row = filtered_options[filtered_options["Display"] == selected_display].iloc[0]
     else:
         return
+
     selected_code = selected_row[code_col]
     selected_name = selected_row[name_col]
     st.success(f"✅ Selected: {selected_name} (Code: {selected_code})")
+
     request_text = st.text_area("Request Details", height=100)
     uploaded_file = st.file_uploader("Attach File (Optional)", type=["pdf", "docx", "xlsx", "jpg", "png"])
+
     if st.button("Send Request"):
         if not request_text.strip():
             st.warning("Please enter a request message.")
             return
+
         hr_code = str(user.get("Employee Code", "N/A")).strip().replace(".0", "")
         requests_df = load_hr_requests()
         new_id = int(requests_df["ID"].max()) + 1 if "ID" in requests_df.columns and not requests_df.empty else 1
         file_attached = ""
         if uploaded_file:
             file_attached = save_request_file(uploaded_file, selected_code, new_id)
+
         new_row = pd.DataFrame([{
             "ID": new_id,
             "HR Code": hr_code,
@@ -592,6 +623,7 @@ def page_ask_employees(user):
             "Date Sent": pd.Timestamp.now(),
             "Date Responded": pd.NaT
         }])
+
         requests_df = pd.concat([requests_df, new_row], ignore_index=True)
         save_hr_requests(requests_df)
         add_notification(selected_code, "", f"HR has sent you a new request (ID: {new_id}). Check 'Request HR' page.")
