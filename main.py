@@ -400,7 +400,7 @@ def mark_all_as_read(user):
     notifications.loc[mask, "Is Read"] = True
     save_notifications(notifications)
 def page_notifications(user):
-    st.subheader("🔔 Notifications")
+    st.subheader("Notifications")
     notifications = load_notifications()
     if notifications.empty:
         st.info("No notifications.")
@@ -646,7 +646,7 @@ def page_request_hr(user):
             st.success("Response submitted successfully.")
             st.rerun()
 # ============================
-# Team Hierarchy — NEW: Recursive Function (Updated for Summary)
+# Team Hierarchy — NEW: Recursive Function (Updated for Summary and Unique Keys)
 # ============================
 def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
     """
@@ -749,11 +749,9 @@ def page_my_team(user, role="AM"):
         return
 
     # Function to recursively render the tree structure with summaries
-    def render_tree(node, level=0):
+    def render_tree(node, level=0, path=""):
         if not node: # Check if node is empty
             return
-        # Create a unique key for the expander based on level and manager code
-        expander_key = f"exp_{level}_{node.get('Manager Code', 'unknown')}"
 
         # Get summary counts
         am_count = node["Summary"]["AM"]
@@ -771,14 +769,20 @@ def page_my_team(user, role="AM"):
 
         summary_str = " | ".join(summary_parts) if summary_parts else "No direct reports"
 
+        # Create a unique key for the expander based on the full path
+        # We'll use the manager code and level to create a unique identifier
+        expander_key = f"exp_{path}_{node.get('Manager Code', 'unknown')}"
+
         # Render the node with an expander for better UX
         with st.expander(f"👤 **{node.get('Manager', 'Unknown')}** (Code: {node.get('Manager Code', 'N/A')}) — {summary_str}", expanded=True):
             # Display the team members
-            for team_member in node.get("Team", []):
-                render_tree(team_member, level + 1)
+            for i, team_member in enumerate(node.get("Team", [])):
+                # Build the new path for the child node
+                child_path = f"{path}_{i}" if path else str(i)
+                render_tree(team_member, level + 1, child_path)
 
     # Render the main hierarchy starting from the user's node
-    render_tree(hierarchy, 0)
+    render_tree(hierarchy, 0, "root")
 
     # If the user themselves is a leaf node (e.g., MR with no subordinates)
     # or if the hierarchy is just the root node itself with no team members
@@ -1636,7 +1640,7 @@ with st.sidebar:
             pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         elif is_mr:
             # MR gets My Profile, Leave Request, Ask HR, Request HR, Notifications. Team Leaves is removed.
-            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications"]
+            pages = ["My Profile", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         else:
             # Default for other roles
             pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications"]
@@ -1671,11 +1675,11 @@ if st.session_state["logged_in_user"]:
     elif current_page == "Leave Request":
         page_leave_request(user)
     elif current_page == "Team Leaves":
-        # Now accessible by BUM, AM, DM
-        if is_bum or is_am or is_dm:
+        # Now accessible by BUM, AM, DM, MR
+        if is_bum or is_am or is_dm or is_mr:
             page_manager_leaves(user)
         else:
-            st.error("Access denied. BUM, AM, or DM only.")
+            st.error("Access denied. BUM, AM, DM, or MR only.")
     elif current_page == "Dashboard":
         page_dashboard(user)
     elif current_page == "Reports":
