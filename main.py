@@ -1,4 +1,4 @@
-# hr_system_dark_mode_v3_final_with_responded_requests.py
+# hr_system_dark_mode_v3_final_with_responded_requests_and_hierarchical_structure.py
 import streamlit as st
 import pandas as pd
 import requests
@@ -530,31 +530,18 @@ def page_ask_employees(user):
         st.error("Employee data not loaded.")
         return
 
-    # ============================
-    # ✅ Robust Column Detection (Case-insensitive, flexible names)
-    # ============================
-    emp_code_col = None
-    emp_name_col = None
-
-    for col in df.columns:
-        col_lower = col.lower().strip()
-        if "employee" in col_lower and ("code" in col_lower or "id" in col_lower):
-            emp_code_col = col
-        elif "employee" in col_lower and ("name" in col_lower or "full" in col_lower):
-            emp_name_col = col
-
-    if not emp_code_col:
-        st.error("Column 'Employee Code' not found. Please check your Excel sheet.")
-        st.write("Available columns:", list(df.columns))
+    col_map = {c.lower().strip(): c for c in df.columns}
+    code_col = col_map.get("Employee Code") or col_map.get("employee code")
+    name_col = col_map.get("Employee Name") or col_map.get("name")
+    if not code_col or not name_col:
+        st.error("Employee Code or Name column missing.")
         return
 
-    if not emp_name_col:
-        st.warning("Column 'Employee Name' not found. Using Employee Code as display name.")
-        emp_name_col = emp_code_col
+    df[code_col] = df[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    df[name_col] = df[name_col].astype(str).str.strip()
 
-    # Clean the Employee Code column (remove .0, strip spaces)
-    df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-    df[emp_name_col] = df[emp_name_col].astype(str).str.strip()
+    emp_options = df[[code_col, name_col]].copy()
+    emp_options["Display"] = emp_options[name_col] + " (Code: " + emp_options[code_col] + ")"
 
     # ============================
     # ✅ Search Box with Note
@@ -564,27 +551,26 @@ def page_ask_employees(user):
 
     if search_term:
         mask = (
-            df[emp_name_col].str.contains(search_term, case=False, na=False) |
-            df[emp_code_col].str.contains(search_term, case=False, na=False)
+            emp_options[name_col].str.contains(search_term, case=False, na=False) |
+            emp_options[code_col].str.contains(search_term, case=False, na=False)
         )
-        filtered_options = df[mask].copy()
+        filtered_options = emp_options[mask].copy()
         if filtered_options.empty:
             st.warning("No employee found matching your search.")
             return
     else:
-        filtered_options = df.copy()
+        filtered_options = emp_options.copy()
 
     if len(filtered_options) == 1:
         selected_row = filtered_options.iloc[0]
     elif len(filtered_options) > 1:
-        filtered_options["Display"] = filtered_options[emp_name_col] + " (Code: " + filtered_options[emp_code_col] + ")"
         selected_display = st.selectbox("Select Employee", filtered_options["Display"].tolist())
         selected_row = filtered_options[filtered_options["Display"] == selected_display].iloc[0]
     else:
         return
 
-    selected_code = selected_row[emp_code_col]
-    selected_name = selected_row[emp_name_col]
+    selected_code = selected_row[code_col]
+    selected_name = selected_row[name_col]
 
     st.success(f"✅ Selected: {selected_name} (Code: {selected_code})")
 
@@ -668,66 +654,86 @@ def page_request_hr(user):
                 requests_df.loc[requests_df["ID"] == row["ID"], "Response File"] = resp_filename
             save_hr_requests(requests_df)
             add_notification("", "HR", f"Employee {user_code} responded to request ID {row['ID']}.")
-            st.success("✅ Response submitted successfully.")
+            st.success("Response submitted successfully.")
             st.rerun()
 
 # ============================
-# Team Hierarchy — unchanged
+# Team Hierarchy — NEW: Recursive Function
 # ============================
-def build_team_hierarchy(df, manager_code, manager_title="AM"):
+def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
+    """
+    Recursively builds the team hierarchy starting from the given manager.
+    Returns a dictionary representing the tree structure.
+    """
     emp_code_col = "Employee Code"
     emp_name_col = "Employee Name"
     mgr_code_col = "Manager Code"
     title_col = "Title"
-    addr_col = "Address as 702 bricks"
+    addr_col = "Address as 702 bricks" # Assuming this column exists
+
     required_cols = [emp_code_col, emp_name_col, mgr_code_col, title_col]
     if not all(col in df.columns for col in required_cols):
         missing = [col for col in required_cols if col not in df.columns]
         st.warning(f"Missing required columns: {missing}")
         return {}
+
     df = df.copy()
     df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     df[mgr_code_col] = df[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     df[title_col] = df[title_col].astype(str).str.strip().str.upper()
-    hierarchy = {"Manager": None, "Team": []}
+
+    # Find the manager's own row to get their name and title
     mgr_row = df[df[emp_code_col] == str(manager_code)]
-    if not mgr_row.empty:
-        mgr_name = mgr_row.iloc[0][emp_name_col]
-        hierarchy["Manager"] = f"{mgr_name} ({manager_title})"
-    if manager_title == "AM":
-        dms = df[(df[mgr_code_col] == str(manager_code)) & (df[title_col] == "DM")]
-        for _, dm_row in dms.iterrows():
-            dm_code = dm_row[emp_code_col]
-            dm_name = dm_row[emp_name_col]
-            dm_addr = dm_row.get(addr_col, "") if addr_col in df.columns else ""
-            mrs = df[(df[mgr_code_col] == dm_code) & (df[title_col] == "MR")]
-            mr_list = []
-            for _, mr_row in mrs.iterrows():
-                mr_list.append({
-                    "Code": mr_row[emp_code_col],
-                    "Name": mr_row[emp_name_col],
-                    "Address": mr_row.get(addr_col, "") if addr_col in df.columns else ""
-                })
-            hierarchy["Team"].append({
-                "Type": "DM",
-                "Code": dm_code,
-                "Name": dm_name,
-                "Address": dm_addr,
-                "Subordinates": mr_list
-            })
-    elif manager_title == "DM":
-        mrs = df[(df[mgr_code_col] == str(manager_code)) & (df[title_col] == "MR")]
-        for _, mr_row in mrs.iterrows():
-            hierarchy["Team"].append({
-                "Type": "MR",
-                "Code": mr_row[emp_code_col],
-                "Name": mr_row[emp_name_col],
-                "Address": mr_row.get(addr_col, "") if addr_col in df.columns else ""
-            })
-    return hierarchy
+    if mgr_row.empty:
+        st.warning(f"Manager with code {manager_code} not found in data.")
+        return {}
+
+    mgr_name = mgr_row.iloc[0][emp_name_col]
+    current_title = mgr_row.iloc[0][title_col]
+
+    # Determine the levels under this manager based on their title
+    subordinates_filter = df[df[mgr_code_col] == str(manager_code)]
+
+    # For BUM, look for AMs and DMs directly under them
+    if current_title == "BUM":
+        subordinate_types = ["AM", "DM"]
+    # For AM, look for DMs
+    elif current_title == "AM":
+        subordinate_types = ["DM"]
+    # For DM, look for MRs
+    elif current_title == "DM":
+        subordinate_types = ["MR"]
+    # For others, no subordinates in this context
+    else:
+        subordinate_types = []
+
+    # Filter subordinates based on determined types
+    if subordinate_types:
+        subordinates_filtered = subordinates_filter[subordinates_filter[title_col].isin(subordinate_types)]
+    else:
+        subordinates_filtered = pd.DataFrame(columns=df.columns) # Empty dataframe
+
+    # Build the node for the current manager
+    node = {
+        "Manager": f"{mgr_name} ({current_title})",
+        "Manager Code": str(manager_code),
+        "Team": []
+    }
+
+    # Recursively build nodes for each subordinate
+    for _, sub_row in subordinates_filtered.iterrows():
+        sub_code = sub_row[emp_code_col]
+        sub_title = sub_row[title_col]
+        # Recursively call the function for the subordinate
+        child_node = build_team_hierarchy_recursive(df, sub_code, sub_title)
+        # Only add the child node if it has its own team or itself is a leaf (like MR)
+        if child_node.get("Team") or sub_title == "MR": # MRs are always added as leaves
+            node["Team"].append(child_node)
+
+    return node
 
 def page_my_team(user, role="AM"):
-    st.subheader("My Team")
+    st.subheader("My Team Structure")
     user_code = None
     for key, val in user.items():
         if key == "Employee Code":
@@ -736,30 +742,34 @@ def page_my_team(user, role="AM"):
     if not user_code:
         st.error("Your Employee Code not found.")
         return
+
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.error("Employee data not loaded.")
         return
-    hierarchy = build_team_hierarchy(df, user_code, manager_title=role)
-    if not hierarchy["Team"]:
+
+    # Use the recursive function to build the hierarchy starting from the current user
+    hierarchy = build_team_hierarchy_recursive(df, user_code, role.upper())
+
+    if not hierarchy or not hierarchy.get("Team"):
         st.info(f"No team members found under your supervision.")
         return
-    st.markdown(f"### 👤 {hierarchy['Manager']}")
-    if role == "AM":
-        for member in hierarchy["Team"]:
-            addr = f" — {member['Address']}" if member['Address'] else ""
-            st.markdown(f"#### 🧑‍💼 {member['Name']}{addr} — DM")
-            if member["Subordinates"]:
-                for mr in member["Subordinates"]:
-                    mr_addr = f" ({mr['Address']})" if mr['Address'] else ""
-                    st.markdown(f"- 👤 {mr['Name']}{mr_addr}")
-            else:
-                st.markdown("_No MRs under this DM._")
-            st.markdown("---")
-    elif role == "DM":
-        for mr in hierarchy["Team"]:
-            mr_addr = f" ({mr['Address']})" if mr['Address'] else ""
-            st.markdown(f"- 👤 {mr['Name']}{mr_addr}")
+
+    # Function to recursively render the tree structure
+    def render_tree(node, level=0):
+        indent = "&nbsp;" * (level * 4) # 4 spaces per level
+        manager_info = node.get("Manager", "Unknown")
+        manager_code = node.get("Manager Code", "N/A")
+        st.markdown(f"{indent} 👤 **{manager_info}** (Code: {manager_code})")
+
+        for team_member in node.get("Team", []):
+            render_tree(team_member, level + 1)
+
+    # Render the main hierarchy starting from the user's node (which might just be the root)
+    # If the user's node itself has subordinates, render them
+    for team_member in hierarchy.get("Team", []):
+        render_tree(team_member, 0)
+
 
 # ============================
 # Pages
@@ -1517,6 +1527,7 @@ with st.sidebar:
         user = st.session_state["logged_in_user"]
         title_val = str(user.get("Title") or user.get("title") or "").strip().upper()
         is_hr = "HR" in title_val
+        is_bum = title_val == "BUM"
         is_am = title_val == "AM"
         is_dm = title_val == "DM"
         is_mr = title_val == "MR"
@@ -1524,7 +1535,7 @@ with st.sidebar:
         st.markdown("---")
         if is_hr:
             pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Notifications"]
-        elif is_am or is_dm:
+        elif is_bum or is_am or is_dm:
             pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         elif is_mr:
             pages = ["My Profile", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
@@ -1547,6 +1558,9 @@ if st.session_state["logged_in_user"]:
     user = st.session_state["logged_in_user"]
     title_val = str(user.get("Title") or "").strip().upper()
     is_hr = "HR" in title_val
+    is_bum = title_val == "BUM"
+    is_am = title_val == "AM"
+    is_dm = title_val == "DM"
     if current_page == "My Profile":
         page_my_profile(user)
     elif current_page == "Notifications":
@@ -1562,15 +1576,18 @@ if st.session_state["logged_in_user"]:
     elif current_page == "HR Manager":
         page_hr_manager(user)
     elif current_page == "Team Structure":
-        if is_am:
-            page_my_team(user, role="AM")
+        # Allow BUM, AM, DM to see this page
+        if is_bum or is_am or is_dm:
+            page_my_team(user, role=title_val)
         else:
-            st.error("Access denied. Only Area Manager (AM) can view Team Structure.")
+            st.error("Access denied. BUM, AM, or DM only.")
     elif current_page == "My Team":
+        # Keep old "My Team" for DM if needed, otherwise remove or redirect
+        # For simplicity, we'll assume "Team Structure" covers this now for DM too
         if is_dm:
             page_my_team(user, role="DM")
         else:
-            st.error("Access denied. Only District Manager (DM) can view My Team.")
+            st.error("Access denied. DM only for legacy 'My Team'. Use 'Team Structure' instead.")
     elif current_page == "HR Inbox":
         if is_hr:
             page_hr_inbox(user)
