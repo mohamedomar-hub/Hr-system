@@ -26,6 +26,25 @@ FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FI
 # Styling - Enhanced Dark Mode CSS with Bell, Fonts, and Sidebar Improvements
 # ============================
 st.set_page_config(page_title="HRAS — Averroes Admin", page_icon="👥", layout="wide")
+
+# ✅ Add this CSS to hide Streamlit's default toolbar
+hide_streamlit_style = """
+<style>
+/* Hide the Streamlit menu bar */
+#MainMenu {visibility: hidden;}
+/* Hide the Streamlit footer */
+footer {visibility: hidden;}
+/* Hide the Streamlit header (the top bar with Share, Edit, etc.) */
+header {visibility: hidden;}
+/* Optional: Hide the "Manage app" button in the bottom right */
+div[data-testid="stDeployButton"] {
+    display: none;
+}
+</style>
+"""
+
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
 enhanced_dark_css = """
 <style>
 /* Fonts */
@@ -1454,7 +1473,7 @@ def page_hr_manager(user):
                 if GITHUB_TOKEN:
                     st.warning("Saved locally but GitHub push failed.")
                 else:
-                    st.info("Saved locally. GitHub not configured.")
+                    st.info("Saved locally. GitHub token not configured.")
         else:
             st.error("Failed to save dataset locally.")
 
