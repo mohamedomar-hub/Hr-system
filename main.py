@@ -1770,11 +1770,11 @@ with st.sidebar:
                 st.rerun()
 
        st.markdown("---")
-        if st.button("🚪 Logout", use_container_width=True):
-            st.session_state["logged_in_user"] = None
-            st.session_state["current_page"] = "My Profile"
-            st.success("You have been logged out.")
-            st.rerun()
+       if st.button("🚪 Logout", use_container_width=True):
+           st.session_state["logged_in_user"] = None
+           st.session_state["current_page"] = "My Profile"
+           st.success("You have been logged out.")
+           st.rerun()
 
 # Main Content
 if st.session_state["logged_in_user"]:
