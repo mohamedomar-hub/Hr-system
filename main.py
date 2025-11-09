@@ -158,6 +158,44 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     line-height: 1.4;
     margin-bottom: 8px;
 }
+/* Team Hierarchy Styling */
+.team-node {
+    background-color: #0b1220;
+    border-left: 4px solid #0b72b9;
+    padding: 12px;
+    margin: 8px 0;
+    border-radius: 6px;
+}
+.team-node-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    color: #ffd166;
+    margin-bottom: 8px;
+}
+.team-node-summary {
+    font-size: 0.9rem;
+    color: #9fb0c8;
+    margin-top: 4px;
+}
+.team-node-children {
+    margin-left: 20px;
+    margin-top: 8px;
+}
+.team-member {
+    display: flex;
+    align-items: center;
+    padding: 6px 12px;
+    background-color: #111827;
+    border-radius: 4px;
+    margin: 4px 0;
+    font-size: 0.95rem;
+}
+.team-member-icon {
+    margin-right: 8px;
+    font-size: 1.1rem;
+}
 </style>
 """
 st.markdown(enhanced_dark_css, unsafe_allow_html=True)
@@ -374,8 +412,6 @@ def page_notifications(user):
             user_code = str(val).strip().replace(".0", "")
         if key == "Title":
             user_title = str(val).strip().upper()
-    if not user_code and not user_title:
-        return 0
     user_notifs = notifications[
         (notifications["Recipient Code"].astype(str) == user_code) |
         (notifications["Recipient Title"].astype(str).str.upper() == user_title)
@@ -610,7 +646,7 @@ def page_request_hr(user):
             st.success("Response submitted successfully.")
             st.rerun()
 # ============================
-# Team Hierarchy — NEW: Recursive Function (Updated)
+# Team Hierarchy — NEW: Recursive Function (Updated for Summary)
 # ============================
 def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
     """
@@ -662,7 +698,12 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
     node = {
         "Manager": f"{mgr_name} ({current_title})",
         "Manager Code": str(manager_code),
-        "Team": []
+        "Team": [],
+        "Summary": {
+            "AM": 0,
+            "DM": 0,
+            "MR": 0
+        }
     }
 
     # Recursively build nodes for each subordinate
@@ -674,6 +715,13 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
         # Only add the child node if it has its own team or itself is a leaf (like MR)
         if child_node.get("Team") or sub_title == "MR": # MRs are always added as leaves
             node["Team"].append(child_node)
+            # Update summary based on the child's title
+            if sub_title == "AM":
+                node["Summary"]["AM"] += 1
+            elif sub_title == "DM":
+                node["Summary"]["DM"] += 1
+            elif sub_title == "MR":
+                node["Summary"]["MR"] += 1
 
     return node
 
@@ -700,21 +748,38 @@ def page_my_team(user, role="AM"):
         st.info(f"Could not build team structure for your code: {user_code}. Check your manager assignment or title.")
         return
 
-    # Function to recursively render the tree structure
+    # Function to recursively render the tree structure with summaries
     def render_tree(node, level=0):
         if not node: # Check if node is empty
             return
-        indent = "&nbsp;" * (level * 4) # 4 spaces per level
-        manager_info = node.get("Manager", "Unknown")
-        manager_code = node.get("Manager Code", "N/A")
-        st.markdown(f"{indent} 👤 **{manager_info}** (Code: {manager_code})")
-        for team_member in node.get("Team", []):
-            render_tree(team_member, level + 1)
+        # Create a unique key for the expander based on level and manager code
+        expander_key = f"exp_{level}_{node.get('Manager Code', 'unknown')}"
 
-    # Render the main hierarchy starting from the user's node (which might just be the root)
-    # If the user's node itself has subordinates, render them
-    for team_member in hierarchy.get("Team", []):
-        render_tree(team_member, 0)
+        # Get summary counts
+        am_count = node["Summary"]["AM"]
+        dm_count = node["Summary"]["DM"]
+        mr_count = node["Summary"]["MR"]
+
+        # Format summary string
+        summary_parts = []
+        if am_count > 0:
+            summary_parts.append(f"🟢 {am_count} AM")
+        if dm_count > 0:
+            summary_parts.append(f"🔵 {dm_count} DM")
+        if mr_count > 0:
+            summary_parts.append(f"🟣 {mr_count} MR")
+
+        summary_str = " | ".join(summary_parts) if summary_parts else "No direct reports"
+
+        # Render the node with an expander for better UX
+        with st.expander(f"👤 **{node.get('Manager', 'Unknown')}** (Code: {node.get('Manager Code', 'N/A')}) — {summary_str}", expanded=True):
+            # Display the team members
+            for team_member in node.get("Team", []):
+                render_tree(team_member, level + 1)
+
+    # Render the main hierarchy starting from the user's node
+    render_tree(hierarchy, 0)
+
     # If the user themselves is a leaf node (e.g., MR with no subordinates)
     # or if the hierarchy is just the root node itself with no team members
     if not hierarchy.get("Team"): # If the root node has no team members
@@ -723,7 +788,6 @@ def page_my_team(user, role="AM"):
         root_manager_code = hierarchy.get("Manager Code", "N/A")
         st.markdown(f"👤 **{root_manager_info}** (Code: {root_manager_code})")
         st.info("No direct subordinates found under your supervision.")
-
 
 # ============================
 # Pages
@@ -1571,9 +1635,8 @@ with st.sidebar:
             # DM can see team structure and team leaves
             pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         elif is_mr:
-            # MR can see team leaves (to manage their direct reports if they have any, or for general view if needed)
-            # Based on your request, MR also gets 'Team Leaves'
-            pages = ["My Profile", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
+            # MR gets My Profile, Leave Request, Ask HR, Request HR, Notifications. Team Leaves is removed.
+            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         else:
             # Default for other roles
             pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications"]
@@ -1608,11 +1671,11 @@ if st.session_state["logged_in_user"]:
     elif current_page == "Leave Request":
         page_leave_request(user)
     elif current_page == "Team Leaves":
-        # Now accessible by BUM, AM, DM, and MR
-        if is_bum or is_am or is_dm or is_mr:
+        # Now accessible by BUM, AM, DM
+        if is_bum or is_am or is_dm:
             page_manager_leaves(user)
         else:
-            st.error("Access denied. BUM, AM, DM, or MR only.")
+            st.error("Access denied. BUM, AM, or DM only.")
     elif current_page == "Dashboard":
         page_dashboard(user)
     elif current_page == "Reports":
