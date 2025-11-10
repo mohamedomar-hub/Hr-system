@@ -819,47 +819,9 @@ def page_my_team(user, role="AM"):
     if not hierarchy:
         st.info(f"Could not build team structure for your code: {user_code}. Check your manager assignment or title.")
         return
-    # Add custom CSS for the team structure with colors and expanders
+    # Add custom CSS for colors
     st.markdown("""
     <style>
-    .team-node {
-        background-color: #0b1220;
-        border-left: 4px solid #0b72b9;
-        padding: 12px;
-        margin: 8px 0;
-        border-radius: 6px;
-    }
-    .team-node-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-weight: 600;
-        color: #ffd166;
-        margin-bottom: 8px;
-    }
-    .team-node-summary {
-        font-size: 0.9rem;
-        color: #9fb0c8;
-        margin-top: 4px;
-    }
-    .team-node-children {
-        margin-left: 20px;
-        margin-top: 8px;
-    }
-    .team-member {
-        display: flex;
-        align-items: center;
-        padding: 6px 12px;
-        background-color: #111827;
-        border-radius: 4px;
-        margin: 4px 0;
-        font-size: 0.95rem;
-    }
-    .team-member-icon {
-        margin-right: 8px;
-        font-size: 1.1rem;
-    }
-    /* Colors for different roles */
     .am-role {
         color: #4ecdc4; /* Light Blue for AM */
     }
@@ -872,7 +834,7 @@ def page_my_team(user, role="AM"):
     </style>
     """, unsafe_allow_html=True)
 
-    # Function to recursively render the tree structure with summaries and expanders
+    # Function to recursively render the tree structure with expanders and colors
     def render_tree(node, level=0):
         if not node: # Check if node is empty
             return
@@ -892,13 +854,11 @@ def page_my_team(user, role="AM"):
             summary_parts.append(f'<span style="color: #2ecc71;">🟣 {mr_count} MR</span>')
         summary_str = " | ".join(summary_parts) if summary_parts else "No direct reports"
 
-        # Render the node header
-        indent = "&nbsp;" * (level * 4) # 4 spaces per level
+        # Determine the role for coloring
         manager_info = node.get("Manager", "Unknown")
         manager_code = node.get("Manager Code", "N/A")
-
-        # Determine the role for coloring
         current_title = manager_info.split("(")[-1].split(")")[0] if "(" in manager_info else ""
+
         role_class = ""
         if current_title == "AM":
             role_class = "am-role"
@@ -907,40 +867,15 @@ def page_my_team(user, role="AM"):
         elif current_title == "MR":
             role_class = "mr-role"
 
-        st.markdown(f"""
-        <div class="team-node">
-            <div class="team-node-header">
-                {indent}<span><strong class="{role_class}">{manager_info}</strong> (Code: {manager_code})</span>
-                <span class="team-node-summary">{summary_str}</span>
-            </div>
-        """, unsafe_allow_html=True)
+        # Create the expander label
+        expander_label = f"<span class='{role_class}'>{manager_info} (Code: {manager_code})</span> &nbsp;&nbsp; <span style='color: #9fb0c8;'>{summary_str}</span>"
 
-        # Display the team members as expanders
-        if node.get("Team"):
-            st.markdown('<div class="team-node-children">', unsafe_allow_html=True)
-            for team_member in node.get("Team", []):
-                # Create an expander for each subordinate
-                member_name = team_member.get("Manager", "Unknown")
-                member_code = team_member.get("Manager Code", "N/A")
-                member_title = member_name.split("(")[-1].split(")")[0] if "(" in member_name else ""
-
-                # Determine color based on role
-                member_role_class = ""
-                if member_title == "AM":
-                    member_role_class = "am-role"
-                elif member_title == "DM":
-                    member_role_class = "dm-role"
-                elif member_title == "MR":
-                    member_role_class = "mr-role"
-
-                # Create expander
-                expander_label = f"<span class='{member_role_class}'>{member_name} (Code: {member_code})</span>"
-                with st.expander(expander_label, expanded=False):
-                    # Recursively render the child's team
+        # Create the expander
+        with st.expander(expander_label, expanded=False):
+            # Display the team members as nested expanders
+            if node.get("Team"):
+                for team_member in node.get("Team", []):
                     render_tree(team_member, level + 1)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)
 
     # Render the main hierarchy starting from the user's node
     render_tree(hierarchy, 0)
@@ -1106,7 +1041,7 @@ def page_my_profile(user):
 # Rest of pages unchanged: leave_request, manager_leaves, dashboard, hr_manager, reports, hr_inbox, ask_hr
 def calculate_leave_balance(user_code, leaves_df):
     """Calculates Annual Leave Balance, Used Days, and Remaining Days."""
-    annual_balance = 21  # Default annual leave balance
+    annual_balance = 21 # Default annual leave balance
     # Filter leaves for the specific user and approved status
     user_approved_leaves = leaves_df[
         (leaves_df["Employee Code"].astype(str) == str(user_code)) &
@@ -1115,19 +1050,11 @@ def calculate_leave_balance(user_code, leaves_df):
     if user_approved_leaves.empty:
         used_days = 0
     else:
-        # Ensure date columns are datetime
-        user_approved_leaves["Start Date"] = pd.to_datetime(user_approved_leaves["Start Date"], errors="coerce")
-        user_approved_leaves["End Date"] = pd.to_datetime(user_approved_leaves["End Date"], errors="coerce")
-        # Drop rows with invalid dates
-        user_approved_leaves = user_approved_leaves.dropna(subset=["Start Date", "End Date"])
-        # Calculate leave days: (End - Start).days (without +1)
-        # This means End Date is the return date, not the last day of absence.
-        user_approved_leaves["Leave Days"] = (
-            (user_approved_leaves["End Date"] - user_approved_leaves["Start Date"]).dt.days
-        )
-        # Clamp to at least 0 days (in case of negative or zero)
-        user_approved_leaves["Leave Days"] = user_approved_leaves["Leave Days"].clip(lower=0)
-        used_days = int(user_approved_leaves["Leave Days"].sum())
+        # Calculate the difference in days for each approved leave
+        user_approved_leaves["Start Date"] = pd.to_datetime(user_approved_leaves["Start Date"])
+        user_approved_leaves["End Date"] = pd.to_datetime(user_approved_leaves["End Date"])
+        user_approved_leaves["Leave Days"] = (user_approved_leaves["End Date"] - user_approved_leaves["Start Date"]).dt.days + 1
+        used_days = user_approved_leaves["Leave Days"].sum()
     remaining_days = annual_balance - used_days
     return annual_balance, used_days, remaining_days
 def page_leave_request(user):
