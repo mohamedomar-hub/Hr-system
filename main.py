@@ -879,9 +879,9 @@ def page_my_team(user, role="AM"):
         unsafe_allow_html=True
        )
        # Display the team members as nested expanders
-       if node.get('Team'):
-            for team_member in node.get('Team', []):
-                render_tree(team_member, level + 1)
+       if node.get("Team"):
+                for team_member in node.get("Team", []):
+                    render_tree(team_member, level + 1)
 
 
     # Render the main hierarchy starting from the user's node
