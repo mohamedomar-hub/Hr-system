@@ -867,15 +867,22 @@ def page_my_team(user, role="AM"):
         elif current_title == "MR":
             role_class = "mr-role"
 
-        # Create the expander label
-        expander_label = f"<span class='{role_class}'>{manager_info} (Code: {manager_code})</span> &nbsp;&nbsp; <span style='color: #9fb0c8;'>{summary_str}</span>"
+        # Create clean expander title (no HTML)
+        expander_title = f"{manager_info} (Code: {manager_code})"
+        with st.expander(expander_title, expanded=False):
+            # Display formatted info inside expander using HTML safely
+            st.markdown(
+                f"<div style='margin-left:10px;'>"
+                f"<span class='{role_class}'>{manager_info} (Code: {manager_code})</span><br>"
+                f"<span style='color: #9fb0c8;'>{summary_str}</span>"
+                f"</div>",
+        unsafe_allow_html=True
+       )
+       # Display the team members as nested expanders
+       if node.get('Team'):
+            for team_member in node.get('Team', []):
+                render_tree(team_member, level + 1)
 
-        # Create the expander
-        with st.expander(expander_label, expanded=False):
-            # Display the team members as nested expanders
-            if node.get("Team"):
-                for team_member in node.get("Team", []):
-                    render_tree(team_member, level + 1)
 
     # Render the main hierarchy starting from the user's node
     render_tree(hierarchy, 0)
