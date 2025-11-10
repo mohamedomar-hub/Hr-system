@@ -843,9 +843,8 @@ def render_tree(node, level=0):
         dm_count = node["Summary"]["DM"]
         mr_count = node["Summary"]["MR"]
 
-
-     summary_parts = []
-       if am_count > 0:
+        summary_parts = []
+        if am_count > 0:
             summary_parts.append(f"🟢 {am_count} AM")
         if dm_count > 0:
             summary_parts.append(f"🔵 {dm_count} DM")
