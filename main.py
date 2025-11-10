@@ -299,7 +299,7 @@ def upload_to_github(df, commit_message="Update employees via Streamlit"):
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             df.to_excel(writer, index=False)
         output.seek(0)
-        file_content_b64 = base64.b64encode(output.read()).decode("utf-8")
+        file_content_b64 = base64.b64decode(output.read()).decode("utf-8")
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}"
         sha = get_file_sha()
         payload = {"message": commit_message, "content": file_content_b64, "branch": BRANCH}
@@ -458,6 +458,8 @@ def page_notifications(user):
             user_code = str(val).strip().replace(".0", "")
         if key == "Title":
             user_title = str(val).strip().upper()
+    if not user_code and not user_title:
+        return 0
     user_notifs = notifications[
         (notifications["Recipient Code"].astype(str) == user_code) |
         (notifications["Recipient Title"].astype(str).str.upper() == user_title)
@@ -798,38 +800,265 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
             elif sub_title == "MR":
                 node["Summary"]["MR"] += 1
     return node
-
-def get_all_subordinates_codes(df, manager_code):
-    """
-    Returns a list of all employee codes that report to the given manager, directly or indirectly.
-    Uses the recursive hierarchy function to find all subordinates.
-    """
-    hierarchy = build_team_hierarchy_recursive(df, manager_code)
+def page_my_team(user, role="AM"):
+    st.subheader("My Team Structure")
+    user_code = None
+    for key, val in user.items():
+        if key == "Employee Code":
+            user_code = str(val).strip().replace(".0", "")
+            break
+    if not user_code:
+        st.error("Your Employee Code not found.")
+        return
+    df = st.session_state.get("df", pd.DataFrame())
+    if df.empty:
+        st.error("Employee data not loaded.")
+        return
+    # Use the recursive function to build the hierarchy starting from the current user
+    hierarchy = build_team_hierarchy_recursive(df, user_code, role.upper())
     if not hierarchy:
-        return []
-    subordinates = []
-
-    def collect_subordinates(node):
-        if node:
-            # Add the manager's own code (if needed, but usually we want direct/indirect reports)
-            # For our purpose, we want everyone under him, so we start from his direct reports
-            for child in node.get("Team", []):
-                # Add the child's code
-                subordinates.append(child["Manager Code"])
-                # Recursively collect their subordinates
-                collect_subordinates(child)
-
-    collect_subordinates(hierarchy)
-    return subordinates
-
+        st.info(f"Could not build team structure for your code: {user_code}. Check your manager assignment or title.")
+        return
+    # Add custom CSS for the team structure
+    st.markdown("""
+    <style>
+    .team-node {
+        background-color: #0b1220;
+        border-left: 4px solid #0b72b9;
+        padding: 12px;
+        margin: 8px 0;
+        border-radius: 6px;
+    }
+    .team-node-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 600;
+        color: #ffd166;
+        margin-bottom: 8px;
+    }
+    .team-node-summary {
+        font-size: 0.9rem;
+        color: #9fb0c8;
+        margin-top: 4px;
+    }
+    .team-node-children {
+        margin-left: 20px;
+        margin-top: 8px;
+    }
+    .team-member {
+        display: flex;
+        align-items: center;
+        padding: 6px 12px;
+        background-color: #111827;
+        border-radius: 4px;
+        margin: 4px 0;
+        font-size: 0.95rem;
+    }
+    .team-member-icon {
+        margin-right: 8px;
+        font-size: 1.1rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    # Function to recursively render the tree structure with summaries
+    def render_tree(node, level=0):
+        if not node: # Check if node is empty
+            return
+        # Get summary counts
+        am_count = node["Summary"]["AM"]
+        dm_count = node["Summary"]["DM"]
+        mr_count = node["Summary"]["MR"]
+        # Format summary string
+        summary_parts = []
+        if am_count > 0:
+            summary_parts.append(f"🟢 {am_count} AM")
+        if dm_count > 0:
+            summary_parts.append(f"🔵 {dm_count} DM")
+        if mr_count > 0:
+            summary_parts.append(f"🟣 {mr_count} MR")
+        summary_str = " | ".join(summary_parts) if summary_parts else "No direct reports"
+        # Render the node header
+        indent = "&nbsp;" * (level * 4) # 4 spaces per level
+        manager_info = node.get("Manager", "Unknown")
+        manager_code = node.get("Manager Code", "N/A")
+        st.markdown(f"""
+        <div class="team-node">
+            <div class="team-node-header">
+                {indent}<span>👤 <strong>{manager_info}</strong> (Code: {manager_code})</span>
+                <span class="team-node-summary">{summary_str}</span>
+            </div>
+        """, unsafe_allow_html=True)
+        # Display the team members
+        if node.get("Team"):
+            st.markdown('<div class="team-node-children">', unsafe_allow_html=True)
+            for team_member in node.get("Team", []):
+                render_tree(team_member, level + 1)
+            st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+    # Render the main hierarchy starting from the user's node
+    render_tree(hierarchy, 0)
+    # If the user themselves is a leaf node (e.g., MR with no subordinates)
+    # or if the hierarchy is just the root node itself with no team members
+    if not hierarchy.get("Team"): # If the root node has no team members
+        # Render the root node itself (the user)
+        root_manager_info = hierarchy.get("Manager", "Unknown")
+        root_manager_code = hierarchy.get("Manager Code", "N/A")
+        st.markdown(f"👤 **{root_manager_info}** (Code: {root_manager_code})")
+        st.info("No direct subordinates found under your supervision.")
 # ============================
-# NEW: Centralized Leave Balance Calculation Function (Corrected)
+# Pages
 # ============================
+def render_logo_and_title():
+    cols = st.columns([1,6,1])
+    with cols[1]:
+        st.markdown("""
+        <div style="text-align: center; margin-bottom: 12px;">
+            <h1 style="color: #ffd166; font-weight: 800; font-size: 2.4rem; text-shadow: 0 2px 6px rgba(0,0,0,0.4); letter-spacing: -0.5px;">
+                HRAS
+            </h1>
+            <p style="color: #aab8c9; font-size: 1rem; margin-top: 6px;">
+                Averroes Admin System — Dark Mode
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    user = st.session_state.get("logged_in_user")
+    if user:
+        unread = get_unread_count(user)
+        if unread > 0:
+            st.markdown(f'<div class="notification-bell">{unread}<div class="notification-badge">{unread}</div></div>', unsafe_allow_html=True)
+# ============================
+# ✅ NEW: Employee Photos Page for HR
+# ============================
+def page_employee_photos(user):
+    st.subheader("📸 Employee Photos (HR Only)")
+    os.makedirs("employee_photos", exist_ok=True)
+    photo_files = os.listdir("employee_photos")
+    if not photo_files:
+        st.info("No employee photos uploaded yet.")
+        return
+    df = st.session_state.get("df", pd.DataFrame())
+    if df.empty:
+        st.warning("Employee data not loaded.")
+        return
+    # Map Employee Code to Name
+    code_to_name = {}
+    col_map = {c.lower().strip(): c for c in df.columns}
+    emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
+    emp_name_col = col_map.get("employee_name") or col_map.get("name") or col_map.get("employee name")
+    if emp_code_col and emp_name_col:
+        df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+        for _, row in df.iterrows():
+            code = row[emp_code_col]
+            name = row.get(emp_name_col, "N/A")
+            code_to_name[code] = name
+    # Display photos in grid
+    cols_per_row = 4
+    cols = st.columns(cols_per_row)
+    for i, filename in enumerate(sorted(photo_files)):
+        col = cols[i % cols_per_row]
+        filepath = os.path.join("employee_photos", filename)
+        emp_code = filename.rsplit(".", 1)[0]  # e.g., "1025.jpg" → "1025"
+        emp_name = code_to_name.get(emp_code, "Unknown")
+        with col:
+            st.image(filepath, use_column_width=True)
+            st.caption(f"{emp_code}<br>{emp_name}")
+            with open(filepath, "rb") as f:
+                st.download_button("📥 Download", f, file_name=filename, key=f"dl_{filename}")
+    # ============================
+    # ✅ Download All Button
+    # ============================
+    st.markdown("---")
+    if st.button("📥 Download All Employee Photos (ZIP)"):
+        zip_path = "employee_photos_all.zip"
+        with zipfile.ZipFile(zip_path, 'w') as zipf:
+            photo_dir = "employee_photos"
+            if os.path.exists(photo_dir):
+                for filename in os.listdir(photo_dir):
+                    file_path = os.path.join(photo_dir, filename)
+                    if os.path.isfile(file_path):
+                        zipf.write(file_path, filename)
+        with open(zip_path, "rb") as f:
+            st.download_button(
+                label="Download All Photos",
+                data=f,
+                file_name="employee_photos_all.zip",
+                mime="application/zip"
+            )
+        st.success("✅ ZIP file created. Click the button to download.")
+# ============================
+# Modified: My Profile with Photo Upload
+# ============================
+def page_my_profile(user):
+    st.subheader("My Profile")
+    st.markdown(f"### 👋 Welcome, {user.get('Employee Name', 'User')}")
+    df = st.session_state.get("df", pd.DataFrame())
+    if df.empty:
+        st.info("No employee data available.")
+        return
+    col_map = {c.lower().strip(): c for c in df.columns}
+    code_col = col_map.get("employee_code") or col_map.get("employee code")
+    if not code_col:
+        st.error("Employee code column not found in dataset.")
+        return
+    user_code = None
+    for key in user.keys():
+        if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
+            val = str(user[key]).strip()
+            if val.endswith('.0'):
+                val = val[:-2]
+            user_code = val
+            break
+    if user_code is None:
+        st.error("Your Employee Code not found in session.")
+        return
+    df[code_col] = df[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    row = df[df[code_col] == user_code]
+    if row.empty:
+        st.error("Your record was not found.")
+        return
+    st.dataframe(row.reset_index(drop=True), use_container_width=True)
+    buf = BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        row.to_excel(writer, index=False, sheet_name="MyProfile")
+    buf.seek(0)
+    st.download_button("Download My Profile (Excel)", data=buf, file_name="my_profile.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    # === Photo Upload Section ===
+    st.markdown("### 📸 Personal Photo")
+    emp_code_clean = None
+    for key, val in user.items():
+        if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
+            emp_code_clean = str(val).strip().replace(".0", "")
+            break
+    if emp_code_clean:
+        # Check if photo exists
+        photo_path = None
+        for ext in ["jpg", "jpeg", "png"]:
+            p = os.path.join("employee_photos", f"{emp_code_clean}.{ext}")
+            if os.path.exists(p):
+                photo_path = p
+                break
+        if photo_path:
+            st.image(photo_path, width=150, caption="Your current photo")
+        else:
+            st.info("No photo uploaded yet.")
+        uploaded_file = st.file_uploader(
+            "Upload your personal photo (JPG/PNG)",
+            type=["jpg", "jpeg", "png"],
+            key="photo_uploader"
+        )
+        if uploaded_file:
+            if st.button("✅ Save Photo"):
+                try:
+                    filename = save_employee_photo(emp_code_clean, uploaded_file)
+                    add_notification("", "HR", f"Employee {emp_code_clean} uploaded a new photo.")
+                    st.success(f"Photo saved as: {filename}")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed to save photo: {e}")
+# Rest of pages unchanged: leave_request, manager_leaves, dashboard, hr_manager, reports, hr_inbox, ask_hr
 def calculate_leave_balance(user_code, leaves_df):
-    """
-    Calculates Annual Leave Balance, Used Days, and Remaining Days for a specific user.
-    This function now uses a more robust method to calculate days, ensuring accuracy.
-    """
+    """Calculates Annual Leave Balance, Used Days, and Remaining Days."""
     annual_balance = 21 # Default annual leave balance
     # Filter leaves for the specific user and approved status
     user_approved_leaves = leaves_df[
@@ -840,30 +1069,14 @@ def calculate_leave_balance(user_code, leaves_df):
     if user_approved_leaves.empty:
         used_days = 0
     else:
-        # Ensure dates are in datetime format before calculation
-        user_approved_leaves["Start Date"] = pd.to_datetime(user_approved_leaves["Start Date"], errors='coerce')
-        user_approved_leaves["End Date"] = pd.to_datetime(user_approved_leaves["End Date"], errors='coerce')
-
-        # Check for any invalid dates after conversion
-        if user_approved_leaves["Start Date"].isna().any() or user_approved_leaves["End Date"].isna().any():
-            st.warning(f"Warning: Invalid date found for user {user_code} in approved leaves. Calculation may be inaccurate.")
-            # Drop rows with NaT (Not a Time) if any invalid dates were found
-            user_approved_leaves = user_approved_leaves.dropna(subset=["Start Date", "End Date"])
-
         # Calculate the difference in days for each approved leave
-        # We add 1 to include both start and end date
-        # Using .dt.days directly after subtraction
+        user_approved_leaves["Start Date"] = pd.to_datetime(user_approved_leaves["Start Date"])
+        user_approved_leaves["End Date"] = pd.to_datetime(user_approved_leaves["End Date"])
         user_approved_leaves["Leave Days"] = (user_approved_leaves["End Date"] - user_approved_leaves["Start Date"]).dt.days + 1
-
-        # Handle any NaN or negative values that might result from bad data or same-day requests
-        # Fill NaN with 0 and ensure no negative values (clip to 0)
-        user_approved_leaves["Leave Days"] = user_approved_leaves["Leave Days"].fillna(0).clip(lower=0)
-
-        used_days = int(user_approved_leaves["Leave Days"].sum()) # Ensure it's an integer
+        used_days = user_approved_leaves["Leave Days"].sum()
 
     remaining_days = annual_balance - used_days
     return annual_balance, used_days, remaining_days
-
 
 def page_leave_request(user):
     st.subheader("Request Leave")
@@ -994,43 +1207,27 @@ def page_manager_leaves(user):
         st.info("No leave requests found.")
         return
 
-    # Get all subordinates codes for this manager (direct and indirect)
-    df_emp = st.session_state.get("df", pd.DataFrame())
-    if df_emp.empty:
-        st.error("Employee data not loaded.")
-        return
-
-    # Get all subordinates under this manager (including DMs and MRs if he is BUM or AM)
-    all_subordinate_codes = get_all_subordinates_codes(df_emp, manager_code)
-    # Also include the manager's own code if he wants to see his own requests (optional, usually not needed)
-    # For clarity, let's assume we only want his direct and indirect reports
-    # So we don't add manager_code itself to the list
-
-    # If the manager has no subordinates, show a message
-    if not all_subordinate_codes:
-        st.info("You have no direct or indirect reports under your supervision.")
-        return
-
-    # Filter leaves for all subordinates
-    team_leaves = leaves_df[leaves_df["Employee Code"].astype(str).isin(all_subordinate_codes)].copy()
-
+    team_leaves = leaves_df[leaves_df["Manager Code"].astype(str) == manager_code].copy()
     if team_leaves.empty:
-        st.info("No leave requests from your team members.")
+        st.info("No leave requests from your team.")
         return
 
-    # Merge with employee names for better display
-    col_map = {c.lower().strip(): c for c in df_emp.columns}
-    emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
-    emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
-    if emp_code_col and emp_name_col:
-        df_emp[emp_code_col] = df_emp[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-        team_leaves["Employee Code"] = team_leaves["Employee Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-        team_leaves = team_leaves.merge(
-            df_emp[[emp_code_col, emp_name_col]],
-            left_on="Employee Code",
-            right_on=emp_code_col,
-            how="left"
-        )
+    df_emp = st.session_state.get("df", pd.DataFrame())
+    name_col_to_use = "Employee Code"
+    if not df_emp.empty:
+        col_map = {c.lower().strip(): c for c in df_emp.columns}
+        emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
+        emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
+        if emp_code_col and emp_name_col:
+            df_emp[emp_code_col] = df_emp[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+            team_leaves["Employee Code"] = team_leaves["Employee Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+            team_leaves = team_leaves.merge(
+                df_emp[[emp_code_col, emp_name_col]],
+                left_on="Employee Code",
+                right_on=emp_code_col,
+                how="left"
+            )
+            name_col_to_use = emp_name_col
 
     pending_leaves = team_leaves[team_leaves["Status"] == "Pending"].reset_index(drop=True)
     all_leaves = team_leaves.copy()
@@ -1038,7 +1235,7 @@ def page_manager_leaves(user):
     st.markdown("### 🟡 Pending Requests")
     if not pending_leaves.empty:
         for idx, row in pending_leaves.iterrows():
-            emp_name = row.get(emp_name_col, "") if emp_name_col in row else ""
+            emp_name = row.get(name_col_to_use, "") if name_col_to_use in row else ""
             emp_display = f"{emp_name} ({row['Employee Code']})" if emp_name else row['Employee Code']
             st.markdown(f"**Employee**: {emp_display} | **Dates**: {row['Start Date'].strftime('%d-%m-%Y')} → {row['End Date'].strftime('%d-%m-%Y')} | **Type**: {row['Leave Type']}")
             st.write(f"**Reason**: {row['Reason']}")
@@ -1111,6 +1308,7 @@ def page_manager_leaves(user):
                 if st.button("🗑️", key=f"del_{idx}_{row['Employee Code']}"):
                     current_leaves = load_leaves_data()
                     mask = (
+                        (current_leaves["Manager Code"].astype(str) == manager_code) &  # only his team
                         (current_leaves["Employee Code"].astype(str) == str(row['Employee Code'])) &
                         (current_leaves["Start Date"] == row['Start Date'])
                     )
@@ -1120,7 +1318,7 @@ def page_manager_leaves(user):
                         st.success("Request deleted!")
                         st.rerun()
                     else:
-                        st.warning("Request not found.")
+                        st.warning("Only your team's requests can be deleted.")
             st.markdown("---")
     else:
         st.info("No pending requests.")
@@ -1135,15 +1333,13 @@ def page_manager_leaves(user):
 
         unique_employees = all_leaves_with_balance["Employee Code"].unique()
         for emp_code in unique_employees:
-            # Use the centralized function here
             _, used, remaining = calculate_leave_balance(emp_code, leaves_df)
             mask = all_leaves_with_balance["Employee Code"] == emp_code
             all_leaves_with_balance.loc[mask, "Used Days"] = used
             all_leaves_with_balance.loc[mask, "Remaining Days"] = remaining
 
-        # Use the name column if available
-        if emp_name_col in all_leaves_with_balance.columns:
-            all_leaves_with_balance["Employee Name"] = all_leaves_with_balance[emp_name_col]
+        if name_col_to_use in all_leaves_with_balance.columns:
+            all_leaves_with_balance["Employee Name"] = all_leaves_with_balance[name_col_to_use]
         else:
             all_leaves_with_balance["Employee Name"] = all_leaves_with_balance["Employee Code"]
 
@@ -1526,158 +1722,6 @@ def page_ask_hr(user):
             st.markdown("**🕒 HR Reply:** Pending")
         st.markdown("</div>")
         st.markdown("---")
-
-# ============================
-# Pages
-# ============================
-def render_logo_and_title():
-    cols = st.columns([1,6,1])
-    with cols[1]:
-        st.markdown("""
-        <div style="text-align: center; margin-bottom: 12px;">
-            <h1 style="color: #ffd166; font-weight: 800; font-size: 2.4rem; text-shadow: 0 2px 6px rgba(0,0,0,0.4); letter-spacing: -0.5px;">
-                HRAS
-            </h1>
-            <p style="color: #aab8c9; font-size: 1rem; margin-top: 6px;">
-                Averroes Admin System — Dark Mode
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    user = st.session_state.get("logged_in_user")
-    if user:
-        unread = get_unread_count(user)
-        if unread > 0:
-            st.markdown(f'<div class="notification-bell">{unread}<div class="notification-badge">{unread}</div></div>', unsafe_allow_html=True)
-
-# ============================
-# ✅ NEW: Employee Photos Page for HR
-# ============================
-def page_employee_photos(user):
-    st.subheader("📸 Employee Photos (HR Only)")
-    os.makedirs("employee_photos", exist_ok=True)
-    photo_files = os.listdir("employee_photos")
-    if not photo_files:
-        st.info("No employee photos uploaded yet.")
-        return
-    df = st.session_state.get("df", pd.DataFrame())
-    if df.empty:
-        st.warning("Employee data not loaded.")
-        return
-    # Map Employee Code to Name
-    code_to_name = {}
-    col_map = {c.lower().strip(): c for c in df.columns}
-    emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
-    emp_name_col = col_map.get("employee_name") or col_map.get("name") or col_map.get("employee name")
-    if emp_code_col and emp_name_col:
-        df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-        for _, row in df.iterrows():
-            code = row[emp_code_col]
-            name = row.get(emp_name_col, "N/A")
-            code_to_name[code] = name
-    # Display photos in grid
-    cols_per_row = 4
-    cols = st.columns(cols_per_row)
-    for i, filename in enumerate(sorted(photo_files)):
-        col = cols[i % cols_per_row]
-        filepath = os.path.join("employee_photos", filename)
-        emp_code = filename.rsplit(".", 1)[0]  # e.g., "1025.jpg" → "1025"
-        emp_name = code_to_name.get(emp_code, "Unknown")
-        with col:
-            st.image(filepath, use_column_width=True)
-            st.caption(f"{emp_code}<br>{emp_name}")
-            with open(filepath, "rb") as f:
-                st.download_button("📥 Download", f, file_name=filename, key=f"dl_{filename}")
-    # ============================
-    # ✅ Download All Button
-    # ============================
-    st.markdown("---")
-    if st.button("📥 Download All Employee Photos (ZIP)"):
-        zip_path = "employee_photos_all.zip"
-        with zipfile.ZipFile(zip_path, 'w') as zipf:
-            photo_dir = "employee_photos"
-            if os.path.exists(photo_dir):
-                for filename in os.listdir(photo_dir):
-                    file_path = os.path.join(photo_dir, filename)
-                    if os.path.isfile(file_path):
-                        zipf.write(file_path, filename)
-        with open(zip_path, "rb") as f:
-            st.download_button(
-                label="Download All Photos",
-                data=f,
-                file_name="employee_photos_all.zip",
-                mime="application/zip"
-            )
-        st.success("✅ ZIP file created. Click the button to download.")
-# ============================
-# Modified: My Profile with Photo Upload
-# ============================
-def page_my_profile(user):
-    st.subheader("My Profile")
-    st.markdown(f"### 👋 Welcome, {user.get('Employee Name', 'User')}")
-    df = st.session_state.get("df", pd.DataFrame())
-    if df.empty:
-        st.info("No employee data available.")
-        return
-    col_map = {c.lower().strip(): c for c in df.columns}
-    code_col = col_map.get("employee_code") or col_map.get("employee code")
-    if not code_col:
-        st.error("Employee code column not found in dataset.")
-        return
-    user_code = None
-    for key in user.keys():
-        if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
-            val = str(user[key]).strip()
-            if val.endswith('.0'):
-                val = val[:-2]
-            user_code = val
-            break
-    if user_code is None:
-        st.error("Your Employee Code not found in session.")
-        return
-    df[code_col] = df[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-    row = df[df[code_col] == user_code]
-    if row.empty:
-        st.error("Your record was not found.")
-        return
-    st.dataframe(row.reset_index(drop=True), use_container_width=True)
-    buf = BytesIO()
-    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        row.to_excel(writer, index=False, sheet_name="MyProfile")
-    buf.seek(0)
-    st.download_button("Download My Profile (Excel)", data=buf, file_name="my_profile.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    # === Photo Upload Section ===
-    st.markdown("### 📸 Personal Photo")
-    emp_code_clean = None
-    for key, val in user.items():
-        if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
-            emp_code_clean = str(val).strip().replace(".0", "")
-            break
-    if emp_code_clean:
-        # Check if photo exists
-        photo_path = None
-        for ext in ["jpg", "jpeg", "png"]:
-            p = os.path.join("employee_photos", f"{emp_code_clean}.{ext}")
-            if os.path.exists(p):
-                photo_path = p
-                break
-        if photo_path:
-            st.image(photo_path, width=150, caption="Your current photo")
-        else:
-            st.info("No photo uploaded yet.")
-        uploaded_file = st.file_uploader(
-            "Upload your personal photo (JPG/PNG)",
-            type=["jpg", "jpeg", "png"],
-            key="photo_uploader"
-        )
-        if uploaded_file:
-            if st.button("✅ Save Photo"):
-                try:
-                    filename = save_employee_photo(emp_code_clean, uploaded_file)
-                    add_notification("", "HR", f"Employee {emp_code_clean} uploaded a new photo.")
-                    st.success(f"Photo saved as: {filename}")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Failed to save photo: {e}")
 
 # ============================
 # Main App Flow
