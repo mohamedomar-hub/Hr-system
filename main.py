@@ -834,16 +834,21 @@ def calculate_leave_balance(user_code, leaves_df):
     if user_approved_leaves.empty:
         used_days = 0
     else:
+        # Ensure Start Date and End Date are in correct datetime format
+        user_approved_leaves["Start Date"] = pd.to_datetime(user_approved_leaves["Start Date"], errors='coerce')
+        user_approved_leaves["End Date"] = pd.to_datetime(user_approved_leaves["End Date"], errors='coerce')
+
         # Calculate the difference in days for each approved leave
-        user_approved_leaves["Start Date"] = pd.to_datetime(user_approved_leaves["Start Date"])
-        user_approved_leaves["End Date"] = pd.to_datetime(user_approved_leaves["End Date"])
-        # Calculate number of days including start and end date
+        # We add 1 to include both start and end date
         user_approved_leaves["Leave Days"] = (user_approved_leaves["End Date"] - user_approved_leaves["Start Date"]).dt.days + 1
+
+        # Handle any NaN or negative values that might result from bad data
+        user_approved_leaves["Leave Days"] = user_approved_leaves["Leave Days"].fillna(0).clip(lower=0)
+
         used_days = user_approved_leaves["Leave Days"].sum()
 
     remaining_days = annual_balance - used_days
     return annual_balance, used_days, remaining_days
-
 def page_leave_request(user):
     st.subheader("Request Leave")
     df_emp = st.session_state.get("df", pd.DataFrame())
