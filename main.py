@@ -834,9 +834,9 @@ def page_my_team(user, role="AM"):
     </style>
     """, unsafe_allow_html=True)
     # Function to recursively render the tree structure with expanders and colors
-         def render_tree(node, level=0):
-            if not node:
-                return
+def render_tree(node, level=0):
+    if not node:
+         return
 
         # حساب ملخص الفريق
         am_count = node["Summary"]["AM"]
