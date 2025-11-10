@@ -1070,8 +1070,8 @@ def calculate_leave_balance(user_code, leaves_df):
         used_days = 0
     else:
         # Calculate the difference in days for each approved leave
-        user_approved_leaves["Start Date"] = pd.to_datetime(user_approved_leaves["Start Date"]), errors="coerce")
-        user_approved_leaves["End Date"] = pd.to_datetime(user_approved_leaves["End Date"]), errors="coerce")
+        user_approved_leaves["Start Date"] = pd.to_datetime(user_approved_leaves["Start Date"], errors="coerce")
+        user_approved_leaves["End Date"] = pd.to_datetime(user_approved_leaves["End Date"], errors="coerce")
         user_approved_leaves = user_approved_leaves.dropna(subset=["Start Date", "End Date"])
         user_approved_leaves["Leave Days"] =(
          (user_approved_leaves["End Date"] - user_approved_leaves["Start Date"]).dt.days + 1
