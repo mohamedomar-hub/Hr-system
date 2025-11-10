@@ -819,10 +819,8 @@ def page_my_team(user, role="AM"):
     if not hierarchy:
         st.info(f"Could not build team structure for your code: {user_code}. Check your manager assignment or title.")
         return
-
     # Determine the user's role for displaying cards
     user_role = role.upper()
-
     # Display Cards based on user role
     if user_role == "BUM":
         # Cards for BUM: AM, DM, MR counts
@@ -872,7 +870,7 @@ def page_my_team(user, role="AM"):
                 <div class="leave-balance-value">{total_mr}</div>
             </div>
             """, unsafe_allow_html=True)
-
+    # DM does not get new cards, only the tree view.
     # Add custom CSS for colors
     st.markdown("""
     <style>
@@ -915,7 +913,7 @@ def page_my_team(user, role="AM"):
             role_class = "dm-role"
         elif current_title == "MR":
             role_class = "mr-role"
-          # Create clean expander title (no HTML)
+        # Create clean expander title (no HTML)
         expander_title = f"{manager_info} (Code: {manager_code})"
         with st.expander(expander_title, expanded=False):
             # Display formatted info inside expander using HTML safely
@@ -1105,9 +1103,6 @@ def calculate_leave_balance(user_code, leaves_df):
         # Calculate the difference in days for each approved leave
         user_approved_leaves["Start Date"] = pd.to_datetime(user_approved_leaves["Start Date"])
         user_approved_leaves["End Date"] = pd.to_datetime(user_approved_leaves["End Date"])
-        # The correct way to calculate days between two dates inclusive is:
-        # (end_date - start_date).days + 1
-        # However, the requirement was to calculate only the calendar days difference, so:
         user_approved_leaves["Leave Days"] = (user_approved_leaves["End Date"] - user_approved_leaves["Start Date"]).dt.days + 1
         used_days = user_approved_leaves["Leave Days"].sum()
     remaining_days = annual_balance - used_days
