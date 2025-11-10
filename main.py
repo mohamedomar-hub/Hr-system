@@ -835,22 +835,23 @@ def page_my_team(user, role="AM"):
     """, unsafe_allow_html=True)
     # Function to recursively render the tree structure with expanders and colors
 def render_tree(node, level=0):
-    if not node:
-         return
+        if not node:
+            return
 
         # حساب ملخص الفريق
         am_count = node["Summary"]["AM"]
         dm_count = node["Summary"]["DM"]
         mr_count = node["Summary"]["MR"]
 
-        summary_parts = []
-        if am_count > 0:
+
+     summary_parts = []
+       if am_count > 0:
             summary_parts.append(f"🟢 {am_count} AM")
         if dm_count > 0:
             summary_parts.append(f"🔵 {dm_count} DM")
         if mr_count > 0:
             summary_parts.append(f"🟣 {mr_count} MR")
-
+            
         summary_str = " | ".join(summary_parts) if summary_parts else "No direct reports"
 
         # بيانات المدير
