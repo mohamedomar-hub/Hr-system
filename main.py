@@ -834,15 +834,13 @@ def page_my_team(user, role="AM"):
     </style>
     """, unsafe_allow_html=True)
     # Function to recursively render the tree structure with expanders and colors
-def render_tree(node, level=0):
+    def render_tree(node, level=0):
         if not node:
             return
-
         # حساب ملخص الفريق
         am_count = node["Summary"]["AM"]
         dm_count = node["Summary"]["DM"]
         mr_count = node["Summary"]["MR"]
-
         summary_parts = []
         if am_count > 0:
             summary_parts.append(f"🟢 {am_count} AM")
@@ -850,20 +848,15 @@ def render_tree(node, level=0):
             summary_parts.append(f"🔵 {dm_count} DM")
         if mr_count > 0:
             summary_parts.append(f"🟣 {mr_count} MR")
-            
         summary_str = " | ".join(summary_parts) if summary_parts else "No direct reports"
-
         # بيانات المدير
         manager_info = node.get("Manager", "Unknown")
         manager_code = node.get("Manager Code", "N/A")
-
         # لون المستوى حسب الدور
         color_map = {0: "#ffd166", 1: "#4ecdc4", 2: "#9b59b6", 3: "#2ecc71"}
         color = color_map.get(level, "#9fb0c8")
-
-        # إنشاء مساحة بادئة للمستويات
+        # إنشاء مسافة بادئة للمستويات
         indent = "&nbsp;" * (level * 6)
-
         # عرض السطر الرئيسي لكل مدير
         st.markdown(
             f"{indent}<span style='color:{color}; font-weight:bold;'>{manager_info}</span> "
@@ -871,18 +864,15 @@ def render_tree(node, level=0):
             f"{indent}<span style='color:#9fb0c8; font-size:13px;'>{summary_str}</span><br><br>",
             unsafe_allow_html=True
         )
-
         # عرض الفريق التابع (لو موجود)
         if node.get("Team"):
             for team_member in node.get("Team", []):
                 render_tree(team_member, level + 1)
-
-
     # Render the main hierarchy starting from the user's node
-render_tree(hierarchy, 0)
+    render_tree(hierarchy, 0)
     # If the user themselves is a leaf node (e.g., MR with no subordinates)
     # or if the hierarchy is just the root node itself with no team members
-        if not hierarchy.get("Team"): # If the root node has no team members
+    if not hierarchy.get("Team"): # If the root node has no team members
         # Render the root node itself (the user)
         root_manager_info = hierarchy.get("Manager", "Unknown")
         root_manager_code = hierarchy.get("Manager Code", "N/A")
