@@ -1048,6 +1048,7 @@ def page_manager_leaves(user):
                 </div>
                 """, unsafe_allow_html=True)
 
+            # Create columns for buttons inside the loop for each pending request
             col1, col2, col3 = st.columns([2, 2, 1])
             with col1:
                 if st.button("✅ Approve", key=f"app_{idx}_{row['Employee Code']}"):
@@ -1134,6 +1135,7 @@ def page_manager_leaves(user):
         ]], use_container_width=True)
     else:
         st.info("No leave history for your team.")
+
 
 def page_dashboard(user):
     st.subheader("Dashboard")
@@ -1504,6 +1506,158 @@ def page_ask_hr(user):
             st.markdown("**🕒 HR Reply:** Pending")
         st.markdown("</div>")
         st.markdown("---")
+
+# ============================
+# Pages
+# ============================
+def render_logo_and_title():
+    cols = st.columns([1,6,1])
+    with cols[1]:
+        st.markdown("""
+        <div style="text-align: center; margin-bottom: 12px;">
+            <h1 style="color: #ffd166; font-weight: 800; font-size: 2.4rem; text-shadow: 0 2px 6px rgba(0,0,0,0.4); letter-spacing: -0.5px;">
+                HRAS
+            </h1>
+            <p style="color: #aab8c9; font-size: 1rem; margin-top: 6px;">
+                Averroes Admin System — Dark Mode
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    user = st.session_state.get("logged_in_user")
+    if user:
+        unread = get_unread_count(user)
+        if unread > 0:
+            st.markdown(f'<div class="notification-bell">{unread}<div class="notification-badge">{unread}</div></div>', unsafe_allow_html=True)
+
+# ============================
+# ✅ NEW: Employee Photos Page for HR
+# ============================
+def page_employee_photos(user):
+    st.subheader("📸 Employee Photos (HR Only)")
+    os.makedirs("employee_photos", exist_ok=True)
+    photo_files = os.listdir("employee_photos")
+    if not photo_files:
+        st.info("No employee photos uploaded yet.")
+        return
+    df = st.session_state.get("df", pd.DataFrame())
+    if df.empty:
+        st.warning("Employee data not loaded.")
+        return
+    # Map Employee Code to Name
+    code_to_name = {}
+    col_map = {c.lower().strip(): c for c in df.columns}
+    emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
+    emp_name_col = col_map.get("employee_name") or col_map.get("name") or col_map.get("employee name")
+    if emp_code_col and emp_name_col:
+        df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+        for _, row in df.iterrows():
+            code = row[emp_code_col]
+            name = row.get(emp_name_col, "N/A")
+            code_to_name[code] = name
+    # Display photos in grid
+    cols_per_row = 4
+    cols = st.columns(cols_per_row)
+    for i, filename in enumerate(sorted(photo_files)):
+        col = cols[i % cols_per_row]
+        filepath = os.path.join("employee_photos", filename)
+        emp_code = filename.rsplit(".", 1)[0]  # e.g., "1025.jpg" → "1025"
+        emp_name = code_to_name.get(emp_code, "Unknown")
+        with col:
+            st.image(filepath, use_column_width=True)
+            st.caption(f"{emp_code}<br>{emp_name}")
+            with open(filepath, "rb") as f:
+                st.download_button("📥 Download", f, file_name=filename, key=f"dl_{filename}")
+    # ============================
+    # ✅ Download All Button
+    # ============================
+    st.markdown("---")
+    if st.button("📥 Download All Employee Photos (ZIP)"):
+        zip_path = "employee_photos_all.zip"
+        with zipfile.ZipFile(zip_path, 'w') as zipf:
+            photo_dir = "employee_photos"
+            if os.path.exists(photo_dir):
+                for filename in os.listdir(photo_dir):
+                    file_path = os.path.join(photo_dir, filename)
+                    if os.path.isfile(file_path):
+                        zipf.write(file_path, filename)
+        with open(zip_path, "rb") as f:
+            st.download_button(
+                label="Download All Photos",
+                data=f,
+                file_name="employee_photos_all.zip",
+                mime="application/zip"
+            )
+        st.success("✅ ZIP file created. Click the button to download.")
+# ============================
+# Modified: My Profile with Photo Upload
+# ============================
+def page_my_profile(user):
+    st.subheader("My Profile")
+    st.markdown(f"### 👋 Welcome, {user.get('Employee Name', 'User')}")
+    df = st.session_state.get("df", pd.DataFrame())
+    if df.empty:
+        st.info("No employee data available.")
+        return
+    col_map = {c.lower().strip(): c for c in df.columns}
+    code_col = col_map.get("employee_code") or col_map.get("employee code")
+    if not code_col:
+        st.error("Employee code column not found in dataset.")
+        return
+    user_code = None
+    for key in user.keys():
+        if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
+            val = str(user[key]).strip()
+            if val.endswith('.0'):
+                val = val[:-2]
+            user_code = val
+            break
+    if user_code is None:
+        st.error("Your Employee Code not found in session.")
+        return
+    df[code_col] = df[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    row = df[df[code_col] == user_code]
+    if row.empty:
+        st.error("Your record was not found.")
+        return
+    st.dataframe(row.reset_index(drop=True), use_container_width=True)
+    buf = BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        row.to_excel(writer, index=False, sheet_name="MyProfile")
+    buf.seek(0)
+    st.download_button("Download My Profile (Excel)", data=buf, file_name="my_profile.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    # === Photo Upload Section ===
+    st.markdown("### 📸 Personal Photo")
+    emp_code_clean = None
+    for key, val in user.items():
+        if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
+            emp_code_clean = str(val).strip().replace(".0", "")
+            break
+    if emp_code_clean:
+        # Check if photo exists
+        photo_path = None
+        for ext in ["jpg", "jpeg", "png"]:
+            p = os.path.join("employee_photos", f"{emp_code_clean}.{ext}")
+            if os.path.exists(p):
+                photo_path = p
+                break
+        if photo_path:
+            st.image(photo_path, width=150, caption="Your current photo")
+        else:
+            st.info("No photo uploaded yet.")
+        uploaded_file = st.file_uploader(
+            "Upload your personal photo (JPG/PNG)",
+            type=["jpg", "jpeg", "png"],
+            key="photo_uploader"
+        )
+        if uploaded_file:
+            if st.button("✅ Save Photo"):
+                try:
+                    filename = save_employee_photo(emp_code_clean, uploaded_file)
+                    add_notification("", "HR", f"Employee {emp_code_clean} uploaded a new photo.")
+                    st.success(f"Photo saved as: {filename}")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed to save photo: {e}")
 
 # ============================
 # Main App Flow
