@@ -1073,12 +1073,13 @@ def calculate_leave_balance(user_code, leaves_df):
         user_approved_leaves["End Date"] = pd.to_datetime(user_approved_leaves["End Date"], errors="coerce")
         # Drop rows with invalid dates
         user_approved_leaves = user_approved_leaves.dropna(subset=["Start Date", "End Date"])
-        # Calculate leave days: (End - Start).days + 1, but ensure minimum 1 day
+        # Calculate leave days: (End - Start).days (without +1)
+        # This means End Date is the return date, not the last day of absence.
         user_approved_leaves["Leave Days"] = (
-            (user_approved_leaves["End Date"] - user_approved_leaves["Start Date"]).dt.days + 1
+            (user_approved_leaves["End Date"] - user_approved_leaves["Start Date"]).dt.days
         )
-        # Clamp to at least 1 day (in case of negative or zero)
-        user_approved_leaves["Leave Days"] = user_approved_leaves["Leave Days"].clip(lower=1)
+        # Clamp to at least 0 days (in case of negative or zero)
+        user_approved_leaves["Leave Days"] = user_approved_leaves["Leave Days"].clip(lower=0)
         used_days = int(user_approved_leaves["Leave Days"].sum())
     remaining_days = annual_balance - used_days
     return annual_balance, used_days, remaining_days
