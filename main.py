@@ -833,17 +833,14 @@ def page_my_team(user, role="AM"):
     }
     </style>
     """, unsafe_allow_html=True)
-
     # Function to recursively render the tree structure with expanders and colors
     def render_tree(node, level=0):
         if not node: # Check if node is empty
             return
-
         # Get summary counts
         am_count = node["Summary"]["AM"]
         dm_count = node["Summary"]["DM"]
         mr_count = node["Summary"]["MR"]
-
         # Format summary string with colored badges
         summary_parts = []
         if am_count > 0:
@@ -853,12 +850,10 @@ def page_my_team(user, role="AM"):
         if mr_count > 0:
             summary_parts.append(f'<span style="color: #2ecc71;">🟣 {mr_count} MR</span>')
         summary_str = " | ".join(summary_parts) if summary_parts else "No direct reports"
-
         # Determine the role for coloring
         manager_info = node.get("Manager", "Unknown")
         manager_code = node.get("Manager Code", "N/A")
         current_title = manager_info.split("(")[-1].split(")")[0] if "(" in manager_info else ""
-
         role_class = ""
         if current_title == "AM":
             role_class = "am-role"
@@ -866,7 +861,6 @@ def page_my_team(user, role="AM"):
             role_class = "dm-role"
         elif current_title == "MR":
             role_class = "mr-role"
-
           # Create clean expander title (no HTML)
         expander_title = f"{manager_info} (Code: {manager_code})"
         with st.expander(expander_title, expanded=False):
@@ -882,10 +876,8 @@ def page_my_team(user, role="AM"):
             if node.get("Team"):
                 for team_member in node.get("Team", []):
                     render_tree(team_member, level + 1)
-
     # Render the main hierarchy starting from the user's node
     render_tree(hierarchy, 0)
-
     # If the user themselves is a leaf node (e.g., MR with no subordinates)
     # or if the hierarchy is just the root node itself with no team members
     if not hierarchy.get("Team"): # If the root node has no team members
