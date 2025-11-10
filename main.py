@@ -854,21 +854,18 @@ def page_my_team(user, role="AM"):
         manager_info = node.get("Manager", "Unknown")
         manager_code = node.get("Manager Code", "N/A")
         current_title = manager_info.split("(")[-1].split(")")[0] if "(" in manager_info else ""
-        role_class = ""
-        if current_title == "AM":
-            role_class = "am-role"
-        elif current_title == "DM":
-            role_class = "dm-role"
-        elif current_title == "MR":
-            role_class = "mr-role"
+       # Pick color based on role
+        color_map = {"AM": "#4ecdc4", "DM": "#9b59b6", "MR": "#2ecc71"}
+        color = color_map.get(current_title, "#ffd166")
+
           # Create clean expander title (no HTML)
         expander_title = f"{manager_info} (Code: {manager_code})"
         with st.expander(expander_title, expanded=False):
             # Display formatted info inside expander using HTML safely
             st.markdown(
-                f"<div style='margin-left:10px;'>"
-                f"<span class='{role_class}'>{manager_info} (Code: {manager_code})</span><br>"
-                f"<span style='color: #9fb0c8;'>{summary_str}</span>"
+                f"<div style='margin-left:10px; line-height:1.6;'>"
+                f"<b style='color:{color}; font-size:15px;'>{manager_info}</b><br>"
+                f"<span style='color:#9fb0c8; font-size:13px;'>{summary_str}</span>"
                 f"</div>",
                 unsafe_allow_html=True
             )
