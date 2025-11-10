@@ -879,10 +879,10 @@ def render_tree(node, level=0):
 
 
     # Render the main hierarchy starting from the user's node
-    render_tree(hierarchy, 0)
+render_tree(hierarchy, 0)
     # If the user themselves is a leaf node (e.g., MR with no subordinates)
     # or if the hierarchy is just the root node itself with no team members
-    if not hierarchy.get("Team"): # If the root node has no team members
+        if not hierarchy.get("Team"): # If the root node has no team members
         # Render the root node itself (the user)
         root_manager_info = hierarchy.get("Manager", "Unknown")
         root_manager_code = hierarchy.get("Manager Code", "N/A")
