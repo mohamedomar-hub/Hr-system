@@ -819,7 +819,7 @@ def page_my_team(user, role="AM"):
     if not hierarchy:
         st.info(f"Could not build team structure for your code: {user_code}. Check your manager assignment or title.")
         return
-    # Add custom CSS for the team structure
+    # Add custom CSS for the team structure with colors and expanders
     st.markdown("""
     <style>
     .team-node {
@@ -859,45 +859,92 @@ def page_my_team(user, role="AM"):
         margin-right: 8px;
         font-size: 1.1rem;
     }
+    /* Colors for different roles */
+    .am-role {
+        color: #4ecdc4; /* Light Blue for AM */
+    }
+    .dm-role {
+        color: #9b59b6; /* Purple for DM */
+    }
+    .mr-role {
+        color: #2ecc71; /* Green for MR */
+    }
     </style>
     """, unsafe_allow_html=True)
-    # Function to recursively render the tree structure with summaries
+
+    # Function to recursively render the tree structure with summaries and expanders
     def render_tree(node, level=0):
         if not node: # Check if node is empty
             return
+
         # Get summary counts
         am_count = node["Summary"]["AM"]
         dm_count = node["Summary"]["DM"]
         mr_count = node["Summary"]["MR"]
-        # Format summary string
+
+        # Format summary string with colored badges
         summary_parts = []
         if am_count > 0:
-            summary_parts.append(f"🟢 {am_count} AM")
+            summary_parts.append(f'<span style="color: #4ecdc4;">🟢 {am_count} AM</span>')
         if dm_count > 0:
-            summary_parts.append(f"🔵 {dm_count} DM")
+            summary_parts.append(f'<span style="color: #9b59b6;">🔵 {dm_count} DM</span>')
         if mr_count > 0:
-            summary_parts.append(f"🟣 {mr_count} MR")
+            summary_parts.append(f'<span style="color: #2ecc71;">🟣 {mr_count} MR</span>')
         summary_str = " | ".join(summary_parts) if summary_parts else "No direct reports"
+
         # Render the node header
         indent = "&nbsp;" * (level * 4) # 4 spaces per level
         manager_info = node.get("Manager", "Unknown")
         manager_code = node.get("Manager Code", "N/A")
+
+        # Determine the role for coloring
+        current_title = manager_info.split("(")[-1].split(")")[0] if "(" in manager_info else ""
+        role_class = ""
+        if current_title == "AM":
+            role_class = "am-role"
+        elif current_title == "DM":
+            role_class = "dm-role"
+        elif current_title == "MR":
+            role_class = "mr-role"
+
         st.markdown(f"""
         <div class="team-node">
             <div class="team-node-header">
-                {indent}<span>👤 <strong>{manager_info}</strong> (Code: {manager_code})</span>
+                {indent}<span><strong class="{role_class}">{manager_info}</strong> (Code: {manager_code})</span>
                 <span class="team-node-summary">{summary_str}</span>
             </div>
         """, unsafe_allow_html=True)
-        # Display the team members
+
+        # Display the team members as expanders
         if node.get("Team"):
             st.markdown('<div class="team-node-children">', unsafe_allow_html=True)
             for team_member in node.get("Team", []):
-                render_tree(team_member, level + 1)
+                # Create an expander for each subordinate
+                member_name = team_member.get("Manager", "Unknown")
+                member_code = team_member.get("Manager Code", "N/A")
+                member_title = member_name.split("(")[-1].split(")")[0] if "(" in member_name else ""
+
+                # Determine color based on role
+                member_role_class = ""
+                if member_title == "AM":
+                    member_role_class = "am-role"
+                elif member_title == "DM":
+                    member_role_class = "dm-role"
+                elif member_title == "MR":
+                    member_role_class = "mr-role"
+
+                # Create expander
+                expander_label = f"<span class='{member_role_class}'>{member_name} (Code: {member_code})</span>"
+                with st.expander(expander_label, expanded=False):
+                    # Recursively render the child's team
+                    render_tree(team_member, level + 1)
             st.markdown('</div>', unsafe_allow_html=True)
+
         st.markdown('</div>', unsafe_allow_html=True)
+
     # Render the main hierarchy starting from the user's node
     render_tree(hierarchy, 0)
+
     # If the user themselves is a leaf node (e.g., MR with no subordinates)
     # or if the hierarchy is just the root node itself with no team members
     if not hierarchy.get("Team"): # If the root node has no team members
