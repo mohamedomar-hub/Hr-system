@@ -822,8 +822,14 @@ def get_all_subordinates_codes(df, manager_code):
     collect_subordinates(hierarchy)
     return subordinates
 
+# ============================
+# NEW: Centralized Leave Balance Calculation Function (Corrected)
+# ============================
 def calculate_leave_balance(user_code, leaves_df):
-    """Calculates Annual Leave Balance, Used Days, and Remaining Days."""
+    """
+    Calculates Annual Leave Balance, Used Days, and Remaining Days for a specific user.
+    This function now uses a more robust method to calculate days, ensuring accuracy.
+    """
     annual_balance = 21 # Default annual leave balance
     # Filter leaves for the specific user and approved status
     user_approved_leaves = leaves_df[
@@ -834,21 +840,31 @@ def calculate_leave_balance(user_code, leaves_df):
     if user_approved_leaves.empty:
         used_days = 0
     else:
-        # Ensure Start Date and End Date are in correct datetime format
+        # Ensure dates are in datetime format before calculation
         user_approved_leaves["Start Date"] = pd.to_datetime(user_approved_leaves["Start Date"], errors='coerce')
         user_approved_leaves["End Date"] = pd.to_datetime(user_approved_leaves["End Date"], errors='coerce')
 
+        # Check for any invalid dates after conversion
+        if user_approved_leaves["Start Date"].isna().any() or user_approved_leaves["End Date"].isna().any():
+            st.warning(f"Warning: Invalid date found for user {user_code} in approved leaves. Calculation may be inaccurate.")
+            # Drop rows with NaT (Not a Time) if any invalid dates were found
+            user_approved_leaves = user_approved_leaves.dropna(subset=["Start Date", "End Date"])
+
         # Calculate the difference in days for each approved leave
         # We add 1 to include both start and end date
+        # Using .dt.days directly after subtraction
         user_approved_leaves["Leave Days"] = (user_approved_leaves["End Date"] - user_approved_leaves["Start Date"]).dt.days + 1
 
-        # Handle any NaN or negative values that might result from bad data
+        # Handle any NaN or negative values that might result from bad data or same-day requests
+        # Fill NaN with 0 and ensure no negative values (clip to 0)
         user_approved_leaves["Leave Days"] = user_approved_leaves["Leave Days"].fillna(0).clip(lower=0)
 
-        used_days = user_approved_leaves["Leave Days"].sum()
+        used_days = int(user_approved_leaves["Leave Days"].sum()) # Ensure it's an integer
 
     remaining_days = annual_balance - used_days
     return annual_balance, used_days, remaining_days
+
+
 def page_leave_request(user):
     st.subheader("Request Leave")
     df_emp = st.session_state.get("df", pd.DataFrame())
@@ -1053,7 +1069,6 @@ def page_manager_leaves(user):
                 </div>
                 """, unsafe_allow_html=True)
 
-            # Create columns for buttons inside the loop for each pending request
             col1, col2, col3 = st.columns([2, 2, 1])
             with col1:
                 if st.button("✅ Approve", key=f"app_{idx}_{row['Employee Code']}"):
@@ -1120,6 +1135,7 @@ def page_manager_leaves(user):
 
         unique_employees = all_leaves_with_balance["Employee Code"].unique()
         for emp_code in unique_employees:
+            # Use the centralized function here
             _, used, remaining = calculate_leave_balance(emp_code, leaves_df)
             mask = all_leaves_with_balance["Employee Code"] == emp_code
             all_leaves_with_balance.loc[mask, "Used Days"] = used
@@ -1140,7 +1156,6 @@ def page_manager_leaves(user):
         ]], use_container_width=True)
     else:
         st.info("No leave history for your team.")
-
 
 def page_dashboard(user):
     st.subheader("Dashboard")
