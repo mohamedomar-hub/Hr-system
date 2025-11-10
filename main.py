@@ -823,7 +823,6 @@ def page_my_team(user, role="AM"):
     user_role = role.upper()
     # Display Cards based on user role
     if user_role == "BUM":
-        # Cards for BUM: AM, DM, MR counts
         total_am = hierarchy["Summary"]["AM"]
         total_dm = hierarchy["Summary"]["DM"]
         total_mr = hierarchy["Summary"]["MR"]
@@ -851,7 +850,6 @@ def page_my_team(user, role="AM"):
             </div>
             """, unsafe_allow_html=True)
     elif user_role == "AM":
-        # Cards for AM: DM, MR counts
         total_dm = hierarchy["Summary"]["DM"]
         total_mr = hierarchy["Summary"]["MR"]
         st.markdown("### Team Summary")
@@ -1103,7 +1101,7 @@ def calculate_leave_balance(user_code, leaves_df):
         # Calculate the difference in days for each approved leave
         user_approved_leaves["Start Date"] = pd.to_datetime(user_approved_leaves["Start Date"])
         user_approved_leaves["End Date"] = pd.to_datetime(user_approved_leaves["End Date"])
-        # The correct formula: (End Date - Start Date).days + 1
+        # Correct calculation: (End Date - Start Date).days + 1
         user_approved_leaves["Leave Days"] = (user_approved_leaves["End Date"] - user_approved_leaves["Start Date"]).dt.days + 1
         # Ensure no negative values (e.g., if Start == End, result should be 1)
         user_approved_leaves["Leave Days"] = user_approved_leaves["Leave Days"].clip(lower=1)
