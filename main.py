@@ -834,45 +834,51 @@ def page_my_team(user, role="AM"):
     </style>
     """, unsafe_allow_html=True)
     # Function to recursively render the tree structure with expanders and colors
-    def render_tree(node, level=0):
-        if not node: # Check if node is empty
+        def render_tree(node, level=0):
+        if not node:
             return
-        # Get summary counts
+
+        # --- Summary counts ---
         am_count = node["Summary"]["AM"]
         dm_count = node["Summary"]["DM"]
         mr_count = node["Summary"]["MR"]
-        # Format summary string with colored badges
+
         summary_parts = []
         if am_count > 0:
-            summary_parts.append(f'<span style="color: #4ecdc4;">🟢 {am_count} AM</span>')
+            summary_parts.append(f"🟢 {am_count} AM")
         if dm_count > 0:
-            summary_parts.append(f'<span style="color: #9b59b6;">🔵 {dm_count} DM</span>')
+            summary_parts.append(f"🔵 {dm_count} DM")
         if mr_count > 0:
-            summary_parts.append(f'<span style="color: #2ecc71;">🟣 {mr_count} MR</span>')
+            summary_parts.append(f"🟣 {mr_count} MR")
         summary_str = " | ".join(summary_parts) if summary_parts else "No direct reports"
-        # Determine the role for coloring
+
         manager_info = node.get("Manager", "Unknown")
         manager_code = node.get("Manager Code", "N/A")
         current_title = manager_info.split("(")[-1].split(")")[0] if "(" in manager_info else ""
-       # Pick color based on role
-        color_map = {"AM": "#4ecdc4", "DM": "#9b59b6", "MR": "#2ecc71"}
-        color = color_map.get(current_title, "#ffd166")
 
-          # Create clean expander title (no HTML)
-        expander_title = f"{manager_info} (Code: {manager_code})"
-        with st.expander(expander_title, expanded=False):
-            # Display formatted info inside expander using HTML safely
-            st.markdown(
-                f"<div style='margin-left:10px; line-height:1.6;'>"
-                f"<b style='color:{color}; font-size:15px;'>{manager_info}</b><br>"
-                f"<span style='color:#9fb0c8; font-size:13px;'>{summary_str}</span>"
-                f"</div>",
-                unsafe_allow_html=True
-            )
-            # Display the team members as nested expanders
+        # --- Color selection ---
+        if current_title == "AM":
+            color = "🟦"
+        elif current_title == "DM":
+            color = "🟪"
+        elif current_title == "MR":
+            color = "🟩"
+        else:
+            color = "🟨"
+
+        # --- Build title cleanly ---
+        title_text = f"{color} {manager_info} (Code: {manager_code})"
+
+        with st.expander(title_text, expanded=False):
+            st.write(f"**Summary:** {summary_str}")
+
+            # Draw children one level indented
             if node.get("Team"):
                 for team_member in node.get("Team", []):
+                    # create visual indentation
+                    st.markdown("&nbsp;" * (level * 4), unsafe_allow_html=True)
                     render_tree(team_member, level + 1)
+
     # Render the main hierarchy starting from the user's node
     render_tree(hierarchy, 0)
     # If the user themselves is a leaf node (e.g., MR with no subordinates)
