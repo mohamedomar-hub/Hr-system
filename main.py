@@ -819,22 +819,10 @@ def page_my_team(user, role="AM"):
     if not hierarchy:
         st.info(f"Could not build team structure for your code: {user_code}. Check your manager assignment or title.")
         return
-    # Add custom CSS for colors
-    st.markdown("""
-    <style>
-    .am-role {
-        color: #4ecdc4; /* Light Blue for AM */
-    }
-    .dm-role {
-        color: #9b59b6; /* Purple for DM */
-    }
-    .mr-role {
-        color: #2ecc71; /* Green for MR */
-    }
-    </style>
-    """, unsafe_allow_html=True)
+
     # Determine the user's role for displaying cards
     user_role = role.upper()
+
     # Display Cards based on user role
     if user_role == "BUM":
         # Cards for BUM: AM, DM, MR counts
@@ -884,6 +872,21 @@ def page_my_team(user, role="AM"):
                 <div class="leave-balance-value">{total_mr}</div>
             </div>
             """, unsafe_allow_html=True)
+
+    # Add custom CSS for colors
+    st.markdown("""
+    <style>
+    .am-role {
+        color: #4ecdc4; /* Light Blue for AM */
+    }
+    .dm-role {
+        color: #9b59b6; /* Purple for DM */
+    }
+    .mr-role {
+        color: #2ecc71; /* Green for MR */
+    }
+    </style>
+    """, unsafe_allow_html=True)
     # Function to recursively render the tree structure with expanders and colors
     def render_tree(node, level=0):
         if not node: # Check if node is empty
@@ -912,10 +915,17 @@ def page_my_team(user, role="AM"):
             role_class = "dm-role"
         elif current_title == "MR":
             role_class = "mr-role"
-        # Create the expander label
-        expander_label = f"<span class='{role_class}'>{manager_info} (Code: {manager_code})</span> &nbsp;&nbsp; <span style='color: #9fb0c8;'>{summary_str}</span>"
-        # Create the expander
-        with st.expander(expander_label, expanded=False):
+          # Create clean expander title (no HTML)
+        expander_title = f"{manager_info} (Code: {manager_code})"
+        with st.expander(expander_title, expanded=False):
+            # Display formatted info inside expander using HTML safely
+            st.markdown(
+                f"<div style='margin-left:10px;'>"
+                f"<span class='{role_class}'>{manager_info} (Code: {manager_code})</span><br>"
+                f"<span style='color: #9fb0c8;'>{summary_str}</span>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
             # Display the team members as nested expanders
             if node.get("Team"):
                 for team_member in node.get("Team", []):
