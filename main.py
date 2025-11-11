@@ -768,6 +768,7 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
     Recursively builds the team hierarchy starting from the given manager.
     Returns a dictionary representing the tree structure.
     This function now works for BUM, AM, and DM.
+    It now calculates the total count of all subordinates (AM, DM, MR) under each manager.
     """
     emp_code_col = "Employee Code"
     emp_name_col = "Employee Name"
@@ -814,7 +815,8 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
         "Summary": {
             "AM": 0,
             "DM": 0,
-            "MR": 0
+            "MR": 0,
+            "Total": 0  # New: Total count of ALL subordinates (AM, DM, MR)
         }
     }
     # Recursively build nodes for each subordinate
@@ -833,6 +835,9 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
                 node["Summary"]["DM"] += 1
             elif sub_title == "MR":
                 node["Summary"]["MR"] += 1
+            # Also update the total count by adding the child's total (including their own team)
+            node["Summary"]["Total"] += 1  # Count the direct subordinate
+            node["Summary"]["Total"] += child_node["Summary"]["Total"]  # Add all their subordinates
     return node
 def page_my_team(user, role="AM"):
     st.subheader("My Team Structure")
@@ -952,6 +957,7 @@ def page_my_team(user, role="AM"):
         am_count = node["Summary"]["AM"]
         dm_count = node["Summary"]["DM"]
         mr_count = node["Summary"]["MR"]
+        total_count = node["Summary"]["Total"] # Get total count
         # Format summary string
         summary_parts = []
         if am_count > 0:
@@ -960,6 +966,8 @@ def page_my_team(user, role="AM"):
             summary_parts.append(f"🔵 {dm_count} DM")
         if mr_count > 0:
             summary_parts.append(f"🟣 {mr_count} MR")
+        if total_count > 0:
+            summary_parts.append(f"🔢 {total_count} Total")
         summary_str = " | ".join(summary_parts) if summary_parts else "No direct reports"
         # Render the node header
         indent = "&nbsp;" * (level * 4) # 4 spaces per level
@@ -1385,7 +1393,6 @@ def page_manager_leaves(user):
                         current_leaves.loc[mask, "Status"] = "Approved"
                         current_leaves.loc[mask, "Decision Date"] = pd.Timestamp.now()
                         save_leaves_data(current_leaves)
-                        # Add notification for employee
                         add_notification(row['Employee Code'], "", "Your leave request has been approved!")
                         # Send notification to HR about approval with manager details
                         mgr_name = manager_code_to_name.get(manager_code, manager_code)
