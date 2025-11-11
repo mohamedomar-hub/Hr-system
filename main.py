@@ -1065,26 +1065,26 @@ def calculate_leave_balance(user_code, leaves_df):
         (leaves_df["Employee Code"].astype(str) == str(user_code)) &
         (leaves_df["Status"] == "Approved")
     ].copy()
-
     if user_approved_leaves.empty:
         used_days = 0
     else:
         # Calculate the difference in days for each approved leave
         user_approved_leaves["Start Date"] = pd.to_datetime(user_approved_leaves["Start Date"])
         user_approved_leaves["End Date"] = pd.to_datetime(user_approved_leaves["End Date"])
-        user_approved_leaves["Leave Days"] = (user_approved_leaves["End Date"] - user_approved_leaves["Start Date"]).dt.days + 1
+        # ✅ MODIFICATION: Calculate Leave Days as (End Date - Start Date).dt.days only
+        # This means a leave from 2023-01-10 to 2023-01-11 counts as 1 day (only 2023-01-10)
+        user_approved_leaves["Leave Days"] = (user_approved_leaves["End Date"] - user_approved_leaves["Start Date"]).dt.days
+        # Ensure no negative days are counted if dates are accidentally reversed
+        user_approved_leaves["Leave Days"] = user_approved_leaves["Leave Days"].clip(lower=0)
         used_days = user_approved_leaves["Leave Days"].sum()
-
     remaining_days = annual_balance - used_days
     return annual_balance, used_days, remaining_days
-
 def page_leave_request(user):
     st.subheader("Request Leave")
     df_emp = st.session_state.get("df", pd.DataFrame())
     if df_emp.empty:
         st.error("Employee data not loaded.")
         return
-
     user_code = None
     for key, val in user.items():
         if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
@@ -1095,13 +1095,10 @@ def page_leave_request(user):
     if not user_code:
         st.error("Your Employee Code not found.")
         return
-
     # Load leaves data
     leaves_df = load_leaves_data()
-
     # Calculate leave balance for the current user
     annual_balance, used_days, remaining_days = calculate_leave_balance(user_code, leaves_df)
-
     # Display Leave Balance Cards
     st.markdown("### Leave Balance Summary")
     col1, col2, col3 = st.columns(3)
@@ -1126,7 +1123,6 @@ def page_leave_request(user):
             <div class="leave-balance-value remaining">{remaining_days} Days</div>
         </div>
         """, unsafe_allow_html=True)
-
     # Original leave request form
     col_map = {c.lower().strip(): c for c in df_emp.columns}
     emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
@@ -1145,7 +1141,6 @@ def page_leave_request(user):
     manager_code = str(manager_code).strip()
     if manager_code.endswith('.0'):
         manager_code = manager_code[:-2]
-
     with st.form("leave_form"):
         start_date = st.date_input("Start Date")
         end_date = st.date_input("End Date")
@@ -1174,7 +1169,6 @@ def page_leave_request(user):
                 st.balloons()
             else:
                 st.error("❌ Failed to save leave request.")
-
     st.markdown("### Your Leave Requests")
     if not leaves_df.empty:
         user_leaves = leaves_df[leaves_df["Employee Code"].astype(str) == user_code].copy()
@@ -1188,7 +1182,6 @@ def page_leave_request(user):
             st.info("You haven't submitted any leave requests yet.")
     else:
         st.info("No leave requests found.")
-
 def page_manager_leaves(user):
     st.subheader("Leave Requests from Your Team")
     manager_code = None
@@ -1201,17 +1194,14 @@ def page_manager_leaves(user):
     if not manager_code:
         st.error("Your Employee Code not found.")
         return
-
     leaves_df = load_leaves_data()
     if leaves_df.empty:
         st.info("No leave requests found.")
         return
-
     team_leaves = leaves_df[leaves_df["Manager Code"].astype(str) == manager_code].copy()
     if team_leaves.empty:
         st.info("No leave requests from your team.")
         return
-
     df_emp = st.session_state.get("df", pd.DataFrame())
     name_col_to_use = "Employee Code"
     if not df_emp.empty:
@@ -1228,10 +1218,8 @@ def page_manager_leaves(user):
                 how="left"
             )
             name_col_to_use = emp_name_col
-
     pending_leaves = team_leaves[team_leaves["Status"] == "Pending"].reset_index(drop=True)
     all_leaves = team_leaves.copy()
-
     st.markdown("### 🟡 Pending Requests")
     if not pending_leaves.empty:
         for idx, row in pending_leaves.iterrows():
@@ -1239,7 +1227,6 @@ def page_manager_leaves(user):
             emp_display = f"{emp_name} ({row['Employee Code']})" if emp_name else row['Employee Code']
             st.markdown(f"**Employee**: {emp_display} | **Dates**: {row['Start Date'].strftime('%d-%m-%Y')} → {row['End Date'].strftime('%d-%m-%Y')} | **Type**: {row['Leave Type']}")
             st.write(f"**Reason**: {row['Reason']}")
-
             # Calculate and display balance for the specific employee in the pending list
             emp_code = str(row['Employee Code'])
             annual_balance, used_days, remaining_days = calculate_leave_balance(emp_code, leaves_df)
@@ -1265,7 +1252,6 @@ def page_manager_leaves(user):
                     <div class="leave-balance-value remaining">{remaining_days}</div>
                 </div>
                 """, unsafe_allow_html=True)
-
             col1, col2, col3 = st.columns([2, 2, 1])
             with col1:
                 if st.button("✅ Approve", key=f"app_{idx}_{row['Employee Code']}"):
@@ -1322,7 +1308,6 @@ def page_manager_leaves(user):
             st.markdown("---")
     else:
         st.info("No pending requests.")
-
     st.markdown("### 📋 All Team Leave History")
     if not all_leaves.empty:
         # Calculate balances for the entire team history
@@ -1330,29 +1315,24 @@ def page_manager_leaves(user):
         all_leaves_with_balance["Annual Balance"] = 21 # Add default balance column
         all_leaves_with_balance["Used Days"] = 0
         all_leaves_with_balance["Remaining Days"] = 21
-
         unique_employees = all_leaves_with_balance["Employee Code"].unique()
         for emp_code in unique_employees:
             _, used, remaining = calculate_leave_balance(emp_code, leaves_df)
             mask = all_leaves_with_balance["Employee Code"] == emp_code
             all_leaves_with_balance.loc[mask, "Used Days"] = used
             all_leaves_with_balance.loc[mask, "Remaining Days"] = remaining
-
         if name_col_to_use in all_leaves_with_balance.columns:
             all_leaves_with_balance["Employee Name"] = all_leaves_with_balance[name_col_to_use]
         else:
             all_leaves_with_balance["Employee Name"] = all_leaves_with_balance["Employee Code"]
-
         all_leaves_with_balance["Start Date"] = pd.to_datetime(all_leaves_with_balance["Start Date"]).dt.strftime("%d-%m-%Y")
         all_leaves_with_balance["End Date"] = pd.to_datetime(all_leaves_with_balance["End Date"]).dt.strftime("%d-%m-%Y")
-
         # Display the dataframe with the new balance columns
         st.dataframe(all_leaves_with_balance[[
             "Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment", "Annual Balance", "Used Days", "Remaining Days"
         ]], use_container_width=True)
     else:
         st.info("No leave history for your team.")
-
 def page_dashboard(user):
     st.subheader("Dashboard")
     df = st.session_state.get("df", pd.DataFrame())
@@ -1551,7 +1531,6 @@ def page_hr_manager(user):
             st.rerun()
         except Exception as e:
             st.error(f"❌ Failed to clear: {e}")
-
 def page_reports(user):
     st.subheader("Reports (Placeholder)")
     st.info("Reports section - ready to be expanded.")
@@ -1566,7 +1545,6 @@ def page_reports(user):
         df.to_excel(writer, index=False, sheet_name="Employees")
     buf.seek(0)
     st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
 def page_hr_inbox(user):
     st.subheader("📬 HR Inbox")
     st.markdown("View employee queries and reply to them here.")
@@ -1645,7 +1623,6 @@ def page_hr_inbox(user):
                     st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("---")
-
 def page_ask_hr(user):
     st.subheader("💬 Ask HR")
     if user is None:
@@ -1722,7 +1699,6 @@ def page_ask_hr(user):
             st.markdown("**🕒 HR Reply:** Pending")
         st.markdown("</div>")
         st.markdown("---")
-
 # ============================
 # Main App Flow
 # ============================
@@ -1733,7 +1709,6 @@ if "logged_in_user" not in st.session_state:
     st.session_state["logged_in_user"] = None
 if "current_page" not in st.session_state:
     st.session_state["current_page"] = "My Profile"
-
 # ============================
 # Sidebar Navigation - Always Visible
 # ============================
@@ -1795,7 +1770,6 @@ with st.sidebar:
             st.session_state["current_page"] = "My Profile"
             st.success("You have been logged out.")
             st.rerun()
-
 # Main Content
 if st.session_state["logged_in_user"]:
     current_page = st.session_state["current_page"]
@@ -1806,7 +1780,6 @@ if st.session_state["logged_in_user"]:
     is_am = title_val == "AM"
     is_dm = title_val == "DM"
     is_mr = title_val == "MR" # Added for clarity
-
     if current_page == "My Profile":
         page_my_profile(user)
     elif current_page == "Notifications":
