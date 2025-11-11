@@ -276,6 +276,9 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
 .team-structure-value.mr {
     color: #81c784; /* Green for MR */
 }
+.team-structure-value.total {
+    color: #ff9800; /* Orange for Total */
+}
 </style>
 """
 st.markdown(enhanced_dark_css, unsafe_allow_html=True)
