@@ -2062,3 +2062,160 @@ if st.session_state["logged_in_user"]:
         page_request_hr(user)
 else:
     st.info("Please log in to access the system.")
+
+
+
+# ===================== PATCH START =====================
+# تحديث build_team_hierarchy_recursive لحساب الكروت بدقة
+def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
+    import streamlit as st
+    import pandas as pd
+
+    emp_code_col = "Employee Code"
+    emp_name_col = "Employee Name"
+    mgr_code_col = "Manager Code"
+    title_col = "Title"
+
+    required_cols = [emp_code_col, emp_name_col, mgr_code_col, title_col]
+    if not all(col in df.columns for col in required_cols):
+        missing = [col for col in required_cols if col not in df.columns]
+        st.warning(f"Missing required columns: {missing}")
+        return {}
+
+    df = df.copy()
+    df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(".0", "", regex=False)
+    df[mgr_code_col] = df[mgr_code_col].astype(str).str.strip().str.replace(".0", "", regex=False)
+    df[title_col] = df[title_col].astype(str).str.strip().str.upper()
+
+    mgr_row = df[df[emp_code_col] == str(manager_code)]
+    if mgr_row.empty:
+        st.warning(f"Manager with code {manager_code} not found in data.")
+        return {}
+
+    mgr_name = mgr_row.iloc[0][emp_name_col]
+    current_title = mgr_row.iloc[0][title_col]
+
+    if current_title == "BUM":
+        subordinate_types = ["AM", "DM"]
+    elif current_title == "AM":
+        subordinate_types = ["DM"]
+    elif current_title == "DM":
+        subordinate_types = ["MR"]
+    else:
+        subordinate_types = []
+
+    direct_subs = df[df[mgr_code_col] == str(manager_code)]
+    if subordinate_types:
+        direct_subs = direct_subs[direct_subs[title_col].isin(subordinate_types)]
+
+    node = {
+        "Manager": f"{mgr_name} ({current_title})",
+        "Manager Code": str(manager_code),
+        "Team": [],
+        "Summary": {"AM": 0, "DM": 0, "MR": 0, "Total": 0}
+    }
+
+    for _, sub_row in direct_subs.iterrows():
+        sub_code = sub_row[emp_code_col]
+        sub_title = sub_row[title_col]
+        child_node = build_team_hierarchy_recursive(df, sub_code, sub_title)
+        if not child_node:
+            leaf_node = {
+                "Manager": f"{sub_row.get(emp_name_col, sub_code)} ({sub_title})",
+                "Manager Code": str(sub_code),
+                "Team": [],
+                "Summary": {"AM": 0, "DM": 0, "MR": 0, "Total": 0}
+            }
+            if sub_title == "AM":
+                leaf_node["Summary"]["AM"] = 1
+            elif sub_title == "DM":
+                leaf_node["Summary"]["DM"] = 1
+            elif sub_title == "MR":
+                leaf_node["Summary"]["MR"] = 1
+            leaf_node["Summary"]["Total"] = sum(leaf_node["Summary"].values())
+            node["Team"].append(leaf_node)
+        else:
+            node["Team"].append(child_node)
+
+    def collect_descendants_codes(start_code):
+        descendants = set()
+        stack = [str(start_code)]
+        while stack:
+            cur = stack.pop()
+            direct = df[df[mgr_code_col] == str(cur)]
+            for _, r in direct.iterrows():
+                code = r[emp_code_col]
+                title = r[title_col]
+                if code not in descendants:
+                    descendants.add(code)
+                    if title in ["AM", "DM", "BUM"]:
+                        stack.append(code)
+        return list(descendants)
+
+    all_desc = collect_descendants_codes(manager_code)
+    if all_desc:
+        desc_df = df[df[emp_code_col].isin(all_desc)]
+        node["Summary"]["AM"] = int((desc_df[title_col] == "AM").sum())
+        node["Summary"]["DM"] = int((desc_df[title_col] == "DM").sum())
+        node["Summary"]["MR"] = int((desc_df[title_col] == "MR").sum())
+        node["Summary"]["Total"] = node["Summary"]["AM"] + node["Summary"]["DM"] + node["Summary"]["MR"]
+    else:
+        node["Summary"] = {"AM": 0, "DM": 0, "MR": 0, "Total": 0}
+
+    return node
+
+
+# ===================== HR Report Integration =====================
+def send_full_leaves_report_to_hr(leaves_df, df_emp, out_path="HR_Leaves_Report.xlsx"):
+    import pandas as pd
+    try:
+        df_emp_local = df_emp.copy()
+    except Exception:
+        df_emp_local = pd.DataFrame()
+
+    col_map = {c.lower().strip(): c for c in df_emp_local.columns} if not df_emp_local.empty else {}
+    emp_code_col = col_map.get("employee_code") or col_map.get("employee code") or "Employee Code"
+    emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or "Employee Name"
+
+    leaves = leaves_df.copy()
+    if "Employee Code" in leaves.columns:
+        leaves["Employee Code"] = leaves["Employee Code"].astype(str).str.strip()
+    if "Manager Code" in leaves.columns:
+        leaves["Manager Code"] = leaves["Manager Code"].astype(str).str.strip()
+
+    if emp_code_col in df_emp_local.columns and emp_name_col in df_emp_local.columns:
+        df_emp_local[emp_code_col] = df_emp_local[emp_code_col].astype(str).str.strip().str.replace(".0", "", regex=False)
+        leaves = leaves.merge(
+            df_emp_local[[emp_code_col, emp_name_col]].rename(columns={emp_code_col: "Employee Code", emp_name_col: "Employee Name"}),
+            on="Employee Code", how="left"
+        )
+        leaves = leaves.merge(
+            df_emp_local[[emp_code_col, emp_name_col]].rename(columns={emp_code_col: "Manager Code", emp_name_col: "Manager Name"}),
+            on="Manager Code", how="left"
+        )
+    else:
+        leaves["Employee Name"] = leaves.get("Employee Code", "")
+        if "Manager Code" in leaves.columns:
+            leaves["Manager Name"] = leaves.get("Manager Code", "")
+
+    if "Start Date" in leaves.columns:
+        leaves["Start Date"] = pd.to_datetime(leaves["Start Date"], errors="coerce").dt.strftime("%d-%m-%Y")
+    if "End Date" in leaves.columns:
+        leaves["End Date"] = pd.to_datetime(leaves["End Date"], errors="coerce").dt.strftime("%d-%m-%Y")
+
+    export_cols = [c for c in ["Employee Name", "Employee Code", "Start Date", "End Date", "Leave Type", "Status", "Comment", "Manager Name", "Manager Code"] if c in leaves.columns]
+    report_df = leaves[export_cols].copy()
+
+    try:
+        with pd.ExcelWriter(out_path, engine="openpyxl") as writer:
+            report_df.to_excel(writer, index=False)
+        try:
+            add_notification("", "HR", f"Full leaves report generated: {out_path}")
+        except Exception:
+            pass
+        return True, out_path
+    except Exception as e:
+        return False, str(e)
+
+
+# ===================== PATCH END =====================
