@@ -955,6 +955,7 @@ def page_my_team(user, role="AM"):
         justify-content: space-between;
         align-items: center;
         font-weight: 600;
+        color: #ffd166;
         margin-bottom: 8px;
     }
     .team-node-summary {
@@ -1027,99 +1028,108 @@ def page_my_team(user, role="AM"):
             </div>
             """, unsafe_allow_html=True)
 
-    # Function to recursively render the tree structure with summaries and hierarchical lines
-    def render_tree(node, level=0, is_last_child=False):
-        if not node: # Check if node is empty
-            return
-
-        # Get summary counts
-        am_count = node["Summary"]["AM"]
-        dm_count = node["Summary"]["DM"]
-        mr_count = node["Summary"]["MR"]
-        total_count = node["Summary"]["Total"] # Get total count
-
-        # Format summary string
-        summary_parts = []
-        if am_count > 0:
-            summary_parts.append(f"🟢 {am_count} AM")
-        if dm_count > 0:
-            summary_parts.append(f"🔵 {dm_count} DM")
-        if mr_count > 0:
-            summary_parts.append(f"🟣 {mr_count} MR")
-        if total_count > 0:
-            summary_parts.append(f"🔢 {total_count} Total")
-        summary_str = " | ".join(summary_parts) if summary_parts else "No direct reports"
-
-        # Extract manager info and role
+    # Function to convert hierarchy to a format suitable for streamlit-organizational-chart
+    def convert_to_org_chart_format(node, parent_id=None):
+        nodes = []
+        links = []
+        # Create node for current level
         manager_info = node.get("Manager", "Unknown")
         manager_code = node.get("Manager Code", "N/A")
-
-        # Determine role from manager_info (e.g., "Name (Role)")
         role = "MR"  # Default
         if "(" in manager_info and ")" in manager_info:
             role_part = manager_info.split("(")[-1].split(")")[0].strip()
             if role_part in ROLE_ICONS:
                 role = role_part
-
-        # Get icon and color
         icon = ROLE_ICONS.get(role, "👤")
-        color = ROLE_COLORS.get(role, "#e6eef8")  # Default text color
+        color = ROLE_COLORS.get(role, "#e6eef8")
+        node_id = f"{manager_code}_{role}"  # Unique ID for this node
+        node_label = f"{icon} {manager_info} (Code: {manager_code})"
+        nodes.append({
+            "id": node_id,
+            "label": node_label,
+            "color": color,
+            "shape": "rect"  # You can change this to "circle" or other shapes
+        })
+        # If there is a parent, create a link
+        if parent_id:
+            links.append({
+                "source": parent_id,
+                "target": node_id,
+                "color": "#0b72b9"  # Color of the connecting line
+            })
+        # Recursively process children
+        for child_node in node.get("Team", []):
+            child_nodes, child_links = convert_to_org_chart_format(child_node, node_id)
+            nodes.extend(child_nodes)
+            links.extend(child_links)
+        return nodes, links
 
-        # Build the hierarchical line prefix based on level and position
-        prefix = ""
-        if level > 0:
-            # For levels deeper than 0, add vertical lines for all parents except the last one
-            for i in range(level - 1):
-                prefix += "│   "
-            # Add the connector for the current level
-            if is_last_child:
-                prefix += "└── "
-            else:
-                prefix += "├── "
-        else:
-            # For root level, no prefix needed
-            prefix = ""
+    # Convert the hierarchy to org chart format
+    org_nodes, org_links = convert_to_org_chart_format(hierarchy)
 
-        # Render the node header with icon, color, and hierarchical prefix
-        st.markdown(f"""
-        <div class="team-node">
-            <div class="team-node-header">
-                <span style="color: {color};">{prefix}{icon} <strong>{manager_info}</strong> (Code: {manager_code})</span>
-                <span class="team-node-summary">{summary_str}</span>
-            </div>
-        """, unsafe_allow_html=True)
-
-        # Display the team members
-        if node.get("Team"):
-            st.markdown('<div class="team-node-children">', unsafe_allow_html=True)
-            team_count = len(node.get("Team", []))
-            for i, team_member in enumerate(node.get("Team", [])):
-                is_last = (i == team_count - 1)
-                render_tree(team_member, level + 1, is_last)
+    # Render the organizational chart
+    st.markdown("### 🏢 Organizational Chart")
+    try:
+        import streamlit_organizational_chart as st_org_chart
+        st_org_chart.organizational_chart(
+            nodes=org_nodes,
+            links=org_links,
+            height=800,  # Adjust height as needed
+            width="100%",
+            show_legend=False  # Optional: Show legend for node colors
+        )
+    except ImportError:
+        st.error("The 'streamlit-organizational-chart' library is not installed. Please install it using 'pip install streamlit-organizational-chart' or add it to your requirements.txt file.")
+        # Fallback to the old tree view if the library is not available
+        st.info("Displaying fallback text-based hierarchy:")
+        def render_tree(node, level=0):
+            if not node: # Check if node is empty
+                return
+            # Get summary counts
+            am_count = node["Summary"]["AM"]
+            dm_count = node["Summary"]["DM"]
+            mr_count = node["Summary"]["MR"]
+            total_count = node["Summary"]["Total"] # Get total count
+            # Format summary string
+            summary_parts = []
+            if am_count > 0:
+                summary_parts.append(f"🟢 {am_count} AM")
+            if dm_count > 0:
+                summary_parts.append(f"🔵 {dm_count} DM")
+            if mr_count > 0:
+                summary_parts.append(f"🟣 {mr_count} MR")
+            if total_count > 0:
+                summary_parts.append(f"🔢 {total_count} Total")
+            summary_str = " | ".join(summary_parts) if summary_parts else "No direct reports"
+            # Render the node header
+            indent = "&nbsp;" * (level * 4) # 4 spaces per level
+            manager_info = node.get("Manager", "Unknown")
+            manager_code = node.get("Manager Code", "N/A")
+            st.markdown(f"""
+            <div class="team-node">
+                <div class="team-node-header">
+                    {indent}<span>👤 <strong>{manager_info}</strong> (Code: {manager_code})</span>
+                    <span class="team-node-summary">{summary_str}</span>
+                </div>
+            """, unsafe_allow_html=True)
+            # Display the team members
+            if node.get("Team"):
+                st.markdown('<div class="team-node-children">', unsafe_allow_html=True)
+                for team_member in node.get("Team", []):
+                    render_tree(team_member, level + 1)
+                st.markdown('</div>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        # Render the main hierarchy starting from the user's node
+        render_tree(hierarchy, 0)
+        # If the user themselves is a leaf node (e.g., MR with no subordinates)
+        # or if the hierarchy is just the root node itself with no team members
+        if not hierarchy.get("Team"): # If the root node has no team members
+            # Render the root node itself (the user)
+            root_manager_info = hierarchy.get("Manager", "Unknown")
+            root_manager_code = hierarchy.get("Manager Code", "N/A")
+            st.markdown(f"👤 **{root_manager_info}** (Code: {root_manager_code})")
+            st.info("No direct subordinates found under your supervision.")
 
-    # Render the main hierarchy starting from the user's node
-    render_tree(hierarchy, 0, True)
-
-    # If the user themselves is a leaf node (e.g., MR with no subordinates)
-    # or if the hierarchy is just the root node itself with no team members
-    if not hierarchy.get("Team"): # If the root node has no team members
-        # Render the root node itself (the user)
-        root_manager_info = hierarchy.get("Manager", "Unknown")
-        root_manager_code = hierarchy.get("Manager Code", "N/A")
-        # Determine role from manager_info (e.g., "Name (Role)")
-        role = "MR"  # Default
-        if "(" in root_manager_info and ")" in root_manager_info:
-            role_part = root_manager_info.split("(")[-1].split(")")[0].strip()
-            if role_part in ROLE_ICONS:
-                role = role_part
-
-        # Get icon and color
-        icon = ROLE_ICONS.get(role, "👤")
-        color = ROLE_COLORS.get(role, "#e6eef8")  # Default text color
-        st.markdown(f'<span style="color: {color};">{icon} <strong>{root_manager_info}</strong> (Code: {root_manager_code})</span>', unsafe_allow_html=True)
-        st.info("No direct subordinates found under your supervision.")
 # ============================
 # Pages
 # ============================
@@ -1279,7 +1289,7 @@ def calculate_leave_balance(user_code, leaves_df):
         (leaves_df["Employee Code"].astype(str) == str(user_code)) &
         (leaves_df["Status"] == "Approved")
     ].copy()
-    if user_approved_leaves.empty:
+    if user_approved_file.empty:
         used_days = 0
     else:
         # Calculate the difference in days for each approved leave
