@@ -924,6 +924,22 @@ def page_my_team(user, role="AM"):
     if not hierarchy:
         st.info(f"Could not build team structure for your code: {user_code}. Check your manager assignment or title.")
         return
+
+    # Define icons and colors for different roles
+    ROLE_ICONS = {
+        "BUM": "🏢",
+        "AM": "👨‍💼",
+        "DM": "👩‍💼",
+        "MR": "🧑‍⚕️"
+    }
+
+    ROLE_COLORS = {
+        "BUM": "#ffd166",  # Golden
+        "AM": "#0b72b9",  # Blue
+        "DM": "#4ecdc4",  # Greenish
+        "MR": "#9fb0c8"   # Grayish
+    }
+
     # Add custom CSS for the team structure
     st.markdown("""
     <style>
@@ -963,41 +979,8 @@ def page_my_team(user, role="AM"):
         margin-right: 8px;
         font-size: 1.1rem;
     }
-    /* NEW: Styling for hierarchy lines */
-    .tree-line {
-        position: absolute;
-        left: -10px;
-        top: 0;
-        bottom: 0;
-        width: 2px;
-        background-color: #0b72b9;
-    }
-    .tree-line::before {
-        content: "";
-        position: absolute;
-        left: -10px;
-        top: 0;
-        bottom: 0;
-        width: 10px;
-        border-left: 1px dashed #0b72b9;
-        border-bottom: 1px dashed #0b72b9;
-    }
     </style>
     """, unsafe_allow_html=True)
-    # Define icons and colors for different roles
-    ROLE_ICONS = {
-        "BUM": "🏢",
-        "AM": "👨‍💼",
-        "DM": "👩‍💼",
-        "MR": "🧑‍⚕️"
-    }
-
-    ROLE_COLORS = {
-        "BUM": "#ffd166",  # Golden
-        "AM": "#0b72b9",  # Blue
-        "DM": "#4ecdc4",  # Greenish
-        "MR": "#9fb0c8"   # Grayish
-    }
     # Determine user's title for card display
     user_title = role.upper()
     # Display Cards for BUM
@@ -1043,15 +1026,18 @@ def page_my_team(user, role="AM"):
                 <div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
             </div>
             """, unsafe_allow_html=True)
-    # Function to recursively render the tree structure with summaries
+
+    # Function to recursively render the tree structure with summaries and hierarchical lines
     def render_tree(node, level=0, is_last_child=False):
         if not node: # Check if node is empty
             return
+
         # Get summary counts
         am_count = node["Summary"]["AM"]
         dm_count = node["Summary"]["DM"]
         mr_count = node["Summary"]["MR"]
         total_count = node["Summary"]["Total"] # Get total count
+
         # Format summary string
         summary_parts = []
         if am_count > 0:
@@ -1079,19 +1065,26 @@ def page_my_team(user, role="AM"):
         icon = ROLE_ICONS.get(role, "👤")
         color = ROLE_COLORS.get(role, "#e6eef8")  # Default text color
 
-        # Render the node header with icon and color
-        indent = "&nbsp;" * (level * 4) # 4 spaces per level
-        # Add tree line character based on level and position
-        tree_char = ""
+        # Build the hierarchical line prefix based on level and position
+        prefix = ""
         if level > 0:
+            # For levels deeper than 0, add vertical lines for all parents except the last one
+            for i in range(level - 1):
+                prefix += "│   "
+            # Add the connector for the current level
             if is_last_child:
-                tree_char = "└─ "
+                prefix += "└── "
             else:
-                tree_char = "├─ "
+                prefix += "├── "
+        else:
+            # For root level, no prefix needed
+            prefix = ""
+
+        # Render the node header with icon, color, and hierarchical prefix
         st.markdown(f"""
         <div class="team-node">
             <div class="team-node-header">
-                {indent}{tree_char}<span style="color: {color};">{icon} <strong>{manager_info}</strong> (Code: {manager_code})</span>
+                <span style="color: {color};">{prefix}{icon} <strong>{manager_info}</strong> (Code: {manager_code})</span>
                 <span class="team-node-summary">{summary_str}</span>
             </div>
         """, unsafe_allow_html=True)
