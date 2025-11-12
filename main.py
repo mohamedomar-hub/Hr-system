@@ -924,6 +924,7 @@ def page_my_team(user, role="AM"):
     if not hierarchy:
         st.info(f"Could not build team structure for your code: {user_code}. Check your manager assignment or title.")
         return
+
     # Define icons and colors for different roles
     ROLE_ICONS = {
         "BUM": "🏢",
@@ -931,12 +932,14 @@ def page_my_team(user, role="AM"):
         "DM": "👩‍💼",
         "MR": "🧑‍⚕️"
     }
+
     ROLE_COLORS = {
         "BUM": "#ffd166",  # Golden
         "AM": "#0b72b9",  # Blue
         "DM": "#4ecdc4",  # Greenish
         "MR": "#9fb0c8"   # Grayish
     }
+
     # Add custom CSS for the team structure
     st.markdown("""
     <style>
@@ -1023,15 +1026,18 @@ def page_my_team(user, role="AM"):
                 <div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
             </div>
             """, unsafe_allow_html=True)
+
     # Function to recursively render the tree structure with summaries and hierarchical lines
     def render_tree(node, level=0, is_last_child=False):
         if not node: # Check if node is empty
             return
+
         # Get summary counts
         am_count = node["Summary"]["AM"]
         dm_count = node["Summary"]["DM"]
         mr_count = node["Summary"]["MR"]
         total_count = node["Summary"]["Total"] # Get total count
+
         # Format summary string
         summary_parts = []
         if am_count > 0:
@@ -1043,18 +1049,22 @@ def page_my_team(user, role="AM"):
         if total_count > 0:
             summary_parts.append(f"🔢 {total_count} Total")
         summary_str = " | ".join(summary_parts) if summary_parts else "No direct reports"
+
         # Extract manager info and role
         manager_info = node.get("Manager", "Unknown")
         manager_code = node.get("Manager Code", "N/A")
+
         # Determine role from manager_info (e.g., "Name (Role)")
         role = "MR"  # Default
         if "(" in manager_info and ")" in manager_info:
             role_part = manager_info.split("(")[-1].split(")")[0].strip()
             if role_part in ROLE_ICONS:
                 role = role_part
+
         # Get icon and color
         icon = ROLE_ICONS.get(role, "👤")
         color = ROLE_COLORS.get(role, "#e6eef8")  # Default text color
+
         # Build the hierarchical line prefix based on level and position
         prefix = ""
         if level > 0:
@@ -1069,6 +1079,7 @@ def page_my_team(user, role="AM"):
         else:
             # For root level, no prefix needed
             prefix = ""
+
         # Render the node header with icon, color, and hierarchical prefix
         st.markdown(f"""
         <div class="team-node">
@@ -1077,6 +1088,7 @@ def page_my_team(user, role="AM"):
                 <span class="team-node-summary">{summary_str}</span>
             </div>
         """, unsafe_allow_html=True)
+
         # Display the team members
         if node.get("Team"):
             st.markdown('<div class="team-node-children">', unsafe_allow_html=True)
@@ -1086,8 +1098,10 @@ def page_my_team(user, role="AM"):
                 render_tree(team_member, level + 1, is_last)
             st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
+
     # Render the main hierarchy starting from the user's node
     render_tree(hierarchy, 0, True)
+
     # If the user themselves is a leaf node (e.g., MR with no subordinates)
     # or if the hierarchy is just the root node itself with no team members
     if not hierarchy.get("Team"): # If the root node has no team members
@@ -1100,6 +1114,7 @@ def page_my_team(user, role="AM"):
             role_part = root_manager_info.split("(")[-1].split(")")[0].strip()
             if role_part in ROLE_ICONS:
                 role = role_part
+
         # Get icon and color
         icon = ROLE_ICONS.get(role, "👤")
         color = ROLE_COLORS.get(role, "#e6eef8")  # Default text color
@@ -1116,7 +1131,7 @@ def page_directory(user):
         return
 
     st.info("Search and filter employees below.")
-    
+
     # Create filters (example: by Name and Code)
     col1, col2 = st.columns(2)
     with col1:
@@ -1137,12 +1152,12 @@ def page_directory(user):
             filtered_df = filtered_df[filtered_df[emp_name_col].astype(str).str.contains(search_name, case=False, na=False)]
         else:
             st.warning("Employee Name column not found for search.")
-            
+
     if search_code:
         # Assuming 'Employee Code' column exists, adjust if different
         emp_code_col = None
         for col in df.columns:
-            if col.lower().replace(" ", "_").replace("-", "_") in ["employee_code", "code", "employee code", "emp_code", "emp_code"]:
+            if col.lower().replace(" ", "_").replace("-", "_") in ["employee_code", "code", "employee code", "emp_code", "emp_id"]:
                 emp_code_col = col
                 break
         if emp_code_col:
@@ -1647,7 +1662,15 @@ def page_manager_leaves(user):
                     # Filter leaves for all subordinates
                     detailed_report_df = leaves_df[leaves_df["Employee Code"].isin(all_subordinate_codes)].copy()
                     if not detailed_report_df.empty:
-                        # Merge to get employee names and manager names
+                        # ✅ التحويل الآمن للأنواع قبل الدمج
+                        # تحويل عمود Employee Code في جدول الإجازات إلى نص
+                        detailed_report_df["Employee Code"] = detailed_report_df["Employee Code"].astype(str).str.strip()
+                        # تحويل عمود Manager Code في جدول الإجازات إلى نص
+                        detailed_report_df["Manager Code"] = detailed_report_df["Manager Code"].astype(str).str.strip()
+                        # تحويل أعمدة الموظفين إلى نص أيضًا لضمان التطابق
+                        df_full[emp_code_col] = df_full[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+                        df_full[mgr_code_col] = df_full[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+                        # الآن الدمج آمن
                         detailed_report_df = detailed_report_df.merge(
                             df_full[[emp_code_col, emp_name_col]].rename(columns={emp_name_col: "Employee Name"}),
                             left_on="Employee Code",
@@ -1747,18 +1770,15 @@ def page_hr_manager(user):
         emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
         emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
         mgr_code_col = col_map.get("manager_code") or col_map.get("manager code")
-
         if emp_code_col and emp_name_col and mgr_code_col:
             # ✅ التحويل الآمن للأنواع قبل الدمج
             # تحويل عمود Employee Code في جدول الإجازات إلى نص
             leaves_df_all["Employee Code"] = leaves_df_all["Employee Code"].astype(str).str.strip()
             # تحويل عمود Manager Code في جدول الإجازات إلى نص
             leaves_df_all["Manager Code"] = leaves_df_all["Manager Code"].astype(str).str.strip()
-
             # تحويل أعمدة الموظفين إلى نص أيضًا لضمان التطابق
             df_emp_global[emp_code_col] = df_emp_global[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
             df_emp_global[mgr_code_col] = df_emp_global[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-
             # الآن الدمج آمن
             leaves_with_names = leaves_df_all.merge(
                 df_emp_global[[emp_code_col, emp_name_col]].rename(columns={emp_code_col: "Employee Code", emp_name_col: "Employee Name"}),
@@ -1770,11 +1790,9 @@ def page_hr_manager(user):
                 on="Manager Code",
                 how="left"
             )
-
             # Format dates
             leaves_with_names["Start Date"] = pd.to_datetime(leaves_with_names["Start Date"]).dt.strftime("%d-%m-%Y")
             leaves_with_names["End Date"] = pd.to_datetime(leaves_with_names["End Date"]).dt.strftime("%d-%m-%Y")
-
             # Calculate balances
             leaves_with_names["Annual Balance"] = 21
             leaves_with_names["Used Days"] = 0
@@ -1785,7 +1803,6 @@ def page_hr_manager(user):
                 mask = leaves_with_names["Employee Code"] == emp_code
                 leaves_with_names.loc[mask, "Used Days"] = used
                 leaves_with_names.loc[mask, "Remaining Days"] = remaining
-
             # Display the detailed report
             st.dataframe(leaves_with_names[[
                 "Employee Name", "Employee Code", "Start Date", "End Date", "Leave Type", "Status", "Comment", "Manager Name", "Manager Code", "Annual Balance", "Used Days", "Remaining Days"
@@ -1794,7 +1811,6 @@ def page_hr_manager(user):
             st.warning("Required columns (Employee Code, Employee Name, Manager Code) not found in employee data for detailed report.")
     else:
         st.info("No employee or leave data available for the detailed report.")
-
     st.markdown("---")
     st.markdown("### Upload Employees Excel (will replace current dataset)")
     uploaded_file = st.file_uploader("Upload Excel file (.xlsx) to replace the current employees dataset", type=["xlsx"])
@@ -2201,9 +2217,7 @@ if st.session_state["logged_in_user"]:
         # Now accessible by BUM, AM, DM, MR
         if is_bum or is_am or is_dm or is_mr:
             page_manager_leaves(user)
-    elif current_page == "Directory":
-            page_directory(user)       
-else:
+        else:
             st.error("Access denied. BUM, AM, DM, or MR only.")
     elif current_page == "Dashboard":
         page_dashboard(user)
