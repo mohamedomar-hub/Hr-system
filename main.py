@@ -855,7 +855,6 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
     else:
         node["Summary"] = {"AM":0, "DM":0, "MR":0, "Total":0}
     return node
-
 # ============================
 # NEW: Helper function to send full leaves report to HR - FROM edit.txt
 # ============================
@@ -906,7 +905,6 @@ def send_full_leaves_report_to_hr(leaves_df, df_emp, out_path="HR_Leaves_Report.
         return True, out_path
     except Exception as e:
         return False, str(e)
-
 def page_my_team(user, role="AM"):
     st.subheader("My Team Structure")
     user_code = None
@@ -941,7 +939,6 @@ def page_my_team(user, role="AM"):
         justify-content: space-between;
         align-items: center;
         font-weight: 600;
-        color: #ffd166;
         margin-bottom: 8px;
     }
     .team-node-summary {
@@ -966,12 +963,43 @@ def page_my_team(user, role="AM"):
         margin-right: 8px;
         font-size: 1.1rem;
     }
+    /* NEW: Styling for hierarchy lines */
+    .tree-line {
+        position: absolute;
+        left: -10px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background-color: #0b72b9;
+    }
+    .tree-line::before {
+        content: "";
+        position: absolute;
+        left: -10px;
+        top: 0;
+        bottom: 0;
+        width: 10px;
+        border-left: 1px dashed #0b72b9;
+        border-bottom: 1px dashed #0b72b9;
+    }
     </style>
     """, unsafe_allow_html=True)
+    # Define icons and colors for different roles
+    ROLE_ICONS = {
+        "BUM": "🏢",
+        "AM": "👨‍💼",
+        "DM": "👩‍💼",
+        "MR": "🧑‍⚕️"
+    }
 
+    ROLE_COLORS = {
+        "BUM": "#ffd166",  # Golden
+        "AM": "#0b72b9",  # Blue
+        "DM": "#4ecdc4",  # Greenish
+        "MR": "#9fb0c8"   # Grayish
+    }
     # Determine user's title for card display
     user_title = role.upper()
-
     # Display Cards for BUM
     if user_title == "BUM":
         st.markdown("### Team Structure Summary")
@@ -997,7 +1025,6 @@ def page_my_team(user, role="AM"):
                 <div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
             </div>
             """, unsafe_allow_html=True)
-
     # Display Cards for AM
     elif user_title == "AM":
         st.markdown("### Team Structure Summary")
@@ -1016,9 +1043,8 @@ def page_my_team(user, role="AM"):
                 <div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
             </div>
             """, unsafe_allow_html=True)
-
     # Function to recursively render the tree structure with summaries
-    def render_tree(node, level=0):
+    def render_tree(node, level=0, is_last_child=False):
         if not node: # Check if node is empty
             return
         # Get summary counts
@@ -1037,36 +1063,70 @@ def page_my_team(user, role="AM"):
         if total_count > 0:
             summary_parts.append(f"🔢 {total_count} Total")
         summary_str = " | ".join(summary_parts) if summary_parts else "No direct reports"
-        # Render the node header
-        indent = "&nbsp;" * (level * 4) # 4 spaces per level
+
+        # Extract manager info and role
         manager_info = node.get("Manager", "Unknown")
         manager_code = node.get("Manager Code", "N/A")
+
+        # Determine role from manager_info (e.g., "Name (Role)")
+        role = "MR"  # Default
+        if "(" in manager_info and ")" in manager_info:
+            role_part = manager_info.split("(")[-1].split(")")[0].strip()
+            if role_part in ROLE_ICONS:
+                role = role_part
+
+        # Get icon and color
+        icon = ROLE_ICONS.get(role, "👤")
+        color = ROLE_COLORS.get(role, "#e6eef8")  # Default text color
+
+        # Render the node header with icon and color
+        indent = "&nbsp;" * (level * 4) # 4 spaces per level
+        # Add tree line character based on level and position
+        tree_char = ""
+        if level > 0:
+            if is_last_child:
+                tree_char = "└─ "
+            else:
+                tree_char = "├─ "
         st.markdown(f"""
         <div class="team-node">
             <div class="team-node-header">
-                {indent}<span>👤 <strong>{manager_info}</strong> (Code: {manager_code})</span>
+                {indent}{tree_char}<span style="color: {color};">{icon} <strong>{manager_info}</strong> (Code: {manager_code})</span>
                 <span class="team-node-summary">{summary_str}</span>
             </div>
         """, unsafe_allow_html=True)
+
         # Display the team members
         if node.get("Team"):
             st.markdown('<div class="team-node-children">', unsafe_allow_html=True)
-            for team_member in node.get("Team", []):
-                render_tree(team_member, level + 1)
+            team_count = len(node.get("Team", []))
+            for i, team_member in enumerate(node.get("Team", [])):
+                is_last = (i == team_count - 1)
+                render_tree(team_member, level + 1, is_last)
             st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
     # Render the main hierarchy starting from the user's node
-    render_tree(hierarchy, 0)
+    render_tree(hierarchy, 0, True)
+
     # If the user themselves is a leaf node (e.g., MR with no subordinates)
     # or if the hierarchy is just the root node itself with no team members
     if not hierarchy.get("Team"): # If the root node has no team members
         # Render the root node itself (the user)
         root_manager_info = hierarchy.get("Manager", "Unknown")
         root_manager_code = hierarchy.get("Manager Code", "N/A")
-        st.markdown(f"👤 **{root_manager_info}** (Code: {root_manager_code})")
-        st.info("No direct subordinates found under your supervision.")
+        # Determine role from manager_info (e.g., "Name (Role)")
+        role = "MR"  # Default
+        if "(" in root_manager_info and ")" in root_manager_info:
+            role_part = root_manager_info.split("(")[-1].split(")")[0].strip()
+            if role_part in ROLE_ICONS:
+                role = role_part
 
+        # Get icon and color
+        icon = ROLE_ICONS.get(role, "👤")
+        color = ROLE_COLORS.get(role, "#e6eef8")  # Default text color
+        st.markdown(f'<span style="color: {color};">{icon} <strong>{root_manager_info}</strong> (Code: {root_manager_code})</span>', unsafe_allow_html=True)
+        st.info("No direct subordinates found under your supervision.")
 # ============================
 # Pages
 # ============================
@@ -1088,7 +1148,6 @@ def render_logo_and_title():
         unread = get_unread_count(user)
         if unread > 0:
             st.markdown(f'<div class="notification-bell">{unread}<div class="notification-badge">{unread}</div></div>', unsafe_allow_html=True)
-
 # ============================
 # ✅ NEW: Employee Photos Page for HR
 # ============================
@@ -1148,7 +1207,6 @@ def page_employee_photos(user):
                 mime="application/zip"
             )
         st.success("✅ ZIP file created. Click the button to download.")
-
 # ============================
 # Modified: My Profile with Photo Upload
 # ============================
@@ -1219,9 +1277,7 @@ def page_my_profile(user):
                     st.rerun()
                 except Exception as e:
                     st.error(f"Failed to save photo: {e}")
-
 # Rest of pages unchanged: leave_request, manager_leaves, dashboard, hr_manager, reports, hr_inbox, ask_hr
-
 def calculate_leave_balance(user_code, leaves_df):
     """Calculates Annual Leave Balance, Used Days, and Remaining Days."""
     annual_balance = 21 # Default annual leave balance
@@ -1244,7 +1300,6 @@ def calculate_leave_balance(user_code, leaves_df):
         used_days = user_approved_leaves["Leave Days"].sum()
     remaining_days = annual_balance - used_days
     return annual_balance, used_days, remaining_days
-
 def page_leave_request(user):
     st.subheader("Request Leave")
     df_emp = st.session_state.get("df", pd.DataFrame())
@@ -1348,7 +1403,6 @@ def page_leave_request(user):
             st.info("You haven't submitted any leave requests yet.")
     else:
         st.info("No leave requests found.")
-
 def page_manager_leaves(user):
     st.subheader("Leave Requests from Your Team")
     manager_code = None
@@ -1361,15 +1415,12 @@ def page_manager_leaves(user):
     if not manager_code:
         st.error("Your Employee Code not found.")
         return
-
     # Load data
     leaves_df = load_leaves_data()
     df_emp = st.session_state.get("df", pd.DataFrame())
-
     if leaves_df.empty:
         st.info("No leave requests found.")
         return
-
     # Map Manager Code to Manager Name for display
     manager_code_to_name = {}
     if not df_emp.empty:
@@ -1382,17 +1433,14 @@ def page_manager_leaves(user):
                 code = row[emp_code_col]
                 name = row.get(emp_name_col, "N/A")
                 manager_code_to_name[code] = name
-
     # Filter leaves for the current manager's team
     team_leaves = leaves_df[leaves_df["Manager Code"].astype(str) == manager_code].copy()
     if team_leaves.empty:
         st.info("No leave requests from your team.")
         return
-
     # Determine user's title
     user_title = str(user.get("Title", "")).strip().upper()
     is_bum = user_title == "BUM"
-
     # Merge with employee data to get employee names
     name_col_to_use = "Employee Code"
     if not df_emp.empty:
@@ -1409,10 +1457,8 @@ def page_manager_leaves(user):
                 how="left"
             )
             name_col_to_use = emp_name_col
-
     pending_leaves = team_leaves[team_leaves["Status"] == "Pending"].reset_index(drop=True)
     all_leaves = team_leaves.copy()
-
     # Display pending requests (as before)
     st.markdown("### 🟡 Pending Requests")
     if not pending_leaves.empty:
@@ -1421,7 +1467,6 @@ def page_manager_leaves(user):
             emp_display = f"{emp_name} ({row['Employee Code']})" if emp_name else row['Employee Code']
             st.markdown(f"**Employee**: {emp_display} | **Dates**: {row['Start Date'].strftime('%d-%m-%Y')} → {row['End Date'].strftime('%d-%m-%Y')} | **Type**: {row['Leave Type']}")
             st.write(f"**Reason**: {row['Reason']}")
-
             # Calculate and display balance for the specific employee in the pending list
             emp_code = str(row['Employee Code'])
             annual_balance, used_days, remaining_days = calculate_leave_balance(emp_code, leaves_df)
@@ -1447,7 +1492,6 @@ def page_manager_leaves(user):
                     <div class="leave-balance-value remaining">{remaining_days}</div>
                 </div>
                 """, unsafe_allow_html=True)
-
             col1, col2, col3 = st.columns([2, 2, 1])
             with col1:
                 if st.button("✅ Approve", key=f"app_{idx}_{row['Employee Code']}"):
@@ -1511,7 +1555,6 @@ def page_manager_leaves(user):
             st.markdown("---")
     else:
         st.info("No pending requests.")
-
     # Display All Team Leave History (as before)
     st.markdown("### 📋 All Team Leave History")
     if not all_leaves.empty:
@@ -1526,25 +1569,20 @@ def page_manager_leaves(user):
             mask = all_leaves_with_balance["Employee Code"] == emp_code
             all_leaves_with_balance.loc[mask, "Used Days"] = used
             all_leaves_with_balance.loc[mask, "Remaining Days"] = remaining
-
         if name_col_to_use in all_leaves_with_balance.columns:
             all_leaves_with_balance["Employee Name"] = all_leaves_with_balance[name_col_to_use]
         else:
             all_leaves_with_balance["Employee Name"] = all_leaves_with_balance["Employee Code"]
-
         all_leaves_with_balance["Start Date"] = pd.to_datetime(all_leaves_with_balance["Start Date"]).dt.strftime("%d-%m-%Y")
         all_leaves_with_balance["End Date"] = pd.to_datetime(all_leaves_with_balance["End Date"]).dt.strftime("%d-%m-%Y")
-
         # Add Manager Name column
         all_leaves_with_balance["Manager Name"] = all_leaves_with_balance["Manager Code"].map(manager_code_to_name).fillna(all_leaves_with_balance["Manager Code"])
-
         # Display the dataframe with the new balance and manager name columns
         st.dataframe(all_leaves_with_balance[[
             "Employee Name", "Employee Code", "Start Date", "End Date", "Leave Type", "Status", "Comment", "Manager Name", "Manager Code", "Annual Balance", "Used Days", "Remaining Days"
         ]], use_container_width=True)
     else:
         st.info("No leave history for your team.")
-
     # NEW SECTION: BUM - Detailed Leave Report for All Subordinates
     if is_bum:
         st.markdown("---")
@@ -1557,12 +1595,10 @@ def page_manager_leaves(user):
             mgr_code_col = col_map.get("manager_code") or col_map.get("manager code")
             title_col = col_map.get("title") or col_map.get("Title")
             emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
-
             if emp_code_col and mgr_code_col and title_col:
                 df_full[emp_code_col] = df_full[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
                 df_full[mgr_code_col] = df_full[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
                 df_full[title_col] = df_full[title_col].astype(str).str.strip().str.upper()
-
                 # Recursive function to find all subordinates
                 def get_all_subordinates_codes(start_manager_code):
                     subordinates = set()
@@ -1579,7 +1615,6 @@ def page_manager_leaves(user):
                             if rep_title in ["AM", "DM", "BUM"]: # Avoid infinite loops by stopping at MR or non-managers if needed
                                 stack.append(rep_code)
                     return list(subordinates)
-
                 all_subordinate_codes = get_all_subordinates_codes(manager_code)
                 if all_subordinate_codes:
                     # Filter leaves for all subordinates
@@ -1598,11 +1633,9 @@ def page_manager_leaves(user):
                             right_on="Manager Code",
                             how="left"
                         )
-
                         # Format dates
                         detailed_report_df["Start Date"] = pd.to_datetime(detailed_report_df["Start Date"]).dt.strftime("%d-%m-%Y")
                         detailed_report_df["End Date"] = pd.to_datetime(detailed_report_df["End Date"]).dt.strftime("%d-%m-%Y")
-
                         # Calculate balances
                         detailed_report_df["Annual Balance"] = 21
                         detailed_report_df["Used Days"] = 0
@@ -1612,7 +1645,6 @@ def page_manager_leaves(user):
                             mask = detailed_report_df["Employee Code"] == emp_code
                             detailed_report_df.loc[mask, "Used Days"] = used
                             detailed_report_df.loc[mask, "Remaining Days"] = remaining
-
                         # Display the detailed report
                         st.dataframe(detailed_report_df[[
                             "Employee Name", "Employee Code", "Start Date", "End Date", "Leave Type", "Status", "Comment", "Manager Name", "Manager Code", "Annual Balance", "Used Days", "Remaining Days"
@@ -1623,7 +1655,6 @@ def page_manager_leaves(user):
                     st.info("No subordinates found under your management.")
             else:
                 st.warning("Required columns (Employee Code, Manager Code, Title) not found for detailed report.")
-
 def page_dashboard(user):
     st.subheader("Dashboard")
     df = st.session_state.get("df", pd.DataFrame())
@@ -1672,7 +1703,6 @@ def page_dashboard(user):
                     st.info("Saved locally. GitHub token not configured.")
         else:
             st.error("Failed to save dataset locally.")
-
 def page_hr_manager(user):
     st.subheader("HR Manager")
     st.info("Upload new employee sheet, manage employees, and perform administrative actions.")
@@ -1823,7 +1853,6 @@ def page_hr_manager(user):
             st.rerun()
         except Exception as e:
             st.error(f"❌ Failed to clear: {e}")
-
 def page_reports(user):
     st.subheader("Reports (Placeholder)")
     st.info("Reports section - ready to be expanded.")
@@ -1838,7 +1867,6 @@ def page_reports(user):
         df.to_excel(writer, index=False, sheet_name="Employees")
     buf.seek(0)
     st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
 def page_hr_inbox(user):
     st.subheader("📬 HR Inbox")
     st.markdown("View employee queries and reply to them here.")
@@ -1917,7 +1945,6 @@ def page_hr_inbox(user):
                     st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("---")
-
 def page_ask_hr(user):
     st.subheader("💬 Ask HR")
     if user is None:
@@ -1994,7 +2021,6 @@ def page_ask_hr(user):
             st.markdown("**🕒 HR Reply:** Pending")
         st.markdown("</div>")
         st.markdown("---")
-
 # ============================
 # Main App Flow
 # ============================
@@ -2005,7 +2031,6 @@ if "logged_in_user" not in st.session_state:
     st.session_state["logged_in_user"] = None
 if "current_page" not in st.session_state:
     st.session_state["current_page"] = "My Profile"
-
 # ============================
 # Sidebar Navigation - Always Visible
 # ============================
@@ -2067,7 +2092,6 @@ with st.sidebar:
             st.session_state["current_page"] = "My Profile"
             st.success("You have been logged out.")
             st.rerun()
-
 # Main Content
 if st.session_state["logged_in_user"]:
     current_page = st.session_state["current_page"]
