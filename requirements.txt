@@ -3,3 +3,4 @@ pandas
 streamlit
 requests
 plotly
+streamlit-organizational-chart
