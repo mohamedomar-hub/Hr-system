@@ -2201,6 +2201,8 @@ if st.session_state["logged_in_user"]:
         # Now accessible by BUM, AM, DM, MR
         if is_bum or is_am or is_dm or is_mr:
             page_manager_leaves(user)
+     elif current_page == "Directory":
+        page_directory(user)       
         else:
             st.error("Access denied. BUM, AM, DM, or MR only.")
     elif current_page == "Dashboard":
