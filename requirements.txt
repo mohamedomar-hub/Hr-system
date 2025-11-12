@@ -1,6 +1,6 @@
-openpyxl
-pandas
-streamlit
-requests
+openpyxl==3.1.5
+pandas==2.2.0
+streamlit==1.36.0
+requests==2.31.0
 plotly
 streamlit-organizational-chart
