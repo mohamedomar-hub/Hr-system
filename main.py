@@ -131,6 +131,7 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
 .notification-bell:hover {
     background: #0a5aa0;
     transform: scale(1.1);
+    animation: bellRing 0.6s ease; /* إضافة انيميشن */
 }
 .notification-badge {
     position: absolute;
@@ -223,8 +224,9 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     transition: transform 0.2s ease;
 }
 .leave-balance-card:hover {
-    transform: translateY(-5px);
+    transform: translateY(-5px) scale(1.02);
     background-color: #0c1525;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
 }
 .leave-balance-title {
     font-size: 14px;
@@ -254,8 +256,9 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     transition: transform 0.2s ease;
 }
 .team-structure-card:hover {
-    transform: translateY(-5px);
+    transform: translateY(-5px) scale(1.02);
     background-color: #0c1525;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
 }
 .team-structure-title {
     font-size: 14px;
@@ -278,6 +281,30 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
 }
 .team-structure-value.total {
     color: #ff9800; /* Orange for Total */
+}
+/* Sidebar Buttons */
+[data-testid="stSidebar"] .stButton>button {
+    background-color: #0b72b9;
+    color: white;
+    border-radius: 8px;
+    padding: 8px 16px;
+    border: none;
+    transition: all 0.2s ease;
+    width: 100%; /* لجعل الأزرار تأخذ العرض الكامل */
+    margin: 4px 0; /* مسافة بين الأزرار */
+}
+[data-testid="stSidebar"] .stButton>button:hover {
+    background-color: #0a5aa0;
+    transform: scale(1.02); /* تكبير طفيف */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+/* Animation for notification bell */
+@keyframes bellRing {
+    0% { transform: scale(1) rotate(0deg); }
+    25% { transform: scale(1.1) rotate(10deg); }
+    50% { transform: scale(1.1) rotate(-10deg); }
+    75% { transform: scale(1.1) rotate(10deg); }
+    100% { transform: scale(1.1) rotate(0deg); }
 }
 </style>
 """
@@ -924,7 +951,6 @@ def page_my_team(user, role="AM"):
     if not hierarchy:
         st.info(f"Could not build team structure for your code: {user_code}. Check your manager assignment or title.")
         return
-
     # Define icons and colors for different roles
     ROLE_ICONS = {
         "BUM": "🏢",
@@ -932,14 +958,12 @@ def page_my_team(user, role="AM"):
         "DM": "👩‍💼",
         "MR": "🧑‍⚕️"
     }
-
     ROLE_COLORS = {
         "BUM": "#ffd166",  # Golden
         "AM": "#0b72b9",  # Blue
         "DM": "#4ecdc4",  # Greenish
         "MR": "#9fb0c8"   # Grayish
     }
-
     # Add custom CSS for the team structure
     st.markdown("""
     <style>
@@ -1027,18 +1051,15 @@ def page_my_team(user, role="AM"):
                 <div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
             </div>
             """, unsafe_allow_html=True)
-
     # Function to recursively render the tree structure with summaries and hierarchical lines
     def render_tree(node, level=0, is_last_child=False):
         if not node: # Check if node is empty
             return
-
         # Get summary counts
         am_count = node["Summary"]["AM"]
         dm_count = node["Summary"]["DM"]
         mr_count = node["Summary"]["MR"]
         total_count = node["Summary"]["Total"] # Get total count
-
         # Format summary string
         summary_parts = []
         if am_count > 0:
@@ -1050,22 +1071,18 @@ def page_my_team(user, role="AM"):
         if total_count > 0:
             summary_parts.append(f"🔢 {total_count} Total")
         summary_str = " | ".join(summary_parts) if summary_parts else "No direct reports"
-
         # Extract manager info and role
         manager_info = node.get("Manager", "Unknown")
         manager_code = node.get("Manager Code", "N/A")
-
         # Determine role from manager_info (e.g., "Name (Role)")
         role = "MR"  # Default
         if "(" in manager_info and ")" in manager_info:
             role_part = manager_info.split("(")[-1].split(")")[0].strip()
             if role_part in ROLE_ICONS:
                 role = role_part
-
         # Get icon and color
         icon = ROLE_ICONS.get(role, "👤")
         color = ROLE_COLORS.get(role, "#e6eef8")  # Default text color
-
         # Build the hierarchical line prefix based on level and position
         prefix = ""
         if level > 0:
@@ -1080,7 +1097,6 @@ def page_my_team(user, role="AM"):
         else:
             # For root level, no prefix needed
             prefix = ""
-
         # Render the node header with icon, color, and hierarchical prefix
         st.markdown(f"""
         <div class="team-node">
@@ -1089,7 +1105,6 @@ def page_my_team(user, role="AM"):
                 <span class="team-node-summary">{summary_str}</span>
             </div>
         """, unsafe_allow_html=True)
-
         # Display the team members
         if node.get("Team"):
             st.markdown('<div class="team-node-children">', unsafe_allow_html=True)
@@ -1099,10 +1114,8 @@ def page_my_team(user, role="AM"):
                 render_tree(team_member, level + 1, is_last)
             st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
-
     # Render the main hierarchy starting from the user's node
     render_tree(hierarchy, 0, True)
-
     # If the user themselves is a leaf node (e.g., MR with no subordinates)
     # or if the hierarchy is just the root node itself with no team members
     if not hierarchy.get("Team"): # If the root node has no team members
@@ -1115,7 +1128,6 @@ def page_my_team(user, role="AM"):
             role_part = root_manager_info.split("(")[-1].split(")")[0].strip()
             if role_part in ROLE_ICONS:
                 role = role_part
-
         # Get icon and color
         icon = ROLE_ICONS.get(role, "👤")
         color = ROLE_COLORS.get(role, "#e6eef8")  # Default text color
@@ -1130,9 +1142,7 @@ def page_directory(user):
     if df.empty:
         st.info("Employee data not loaded.")
         return
-
     st.info("Search and filter employees below.")
-
     # Define the specific columns you want to display
     COLUMNS_TO_SHOW = [
         "Employee Code",
@@ -1144,7 +1154,6 @@ def page_directory(user):
         "E-Mail",
         "Address as 702 bricks"
     ]
-
     # Try to map flexible column names to the desired ones
     col_map = {c.lower().strip(): c for c in df.columns}
     final_columns = []
@@ -1166,14 +1175,12 @@ def page_directory(user):
             final_columns.append(found_col)
         else:
             st.warning(f"Column '{col_name}' not found in data.")
-
     # Apply filters (example: by Name and Code)
     col1, col2 = st.columns(2)
     with col1:
         search_name = st.text_input("Search by Employee Name")
     with col2:
         search_code = st.text_input("Search by Employee Code")
-
     # Apply filters
     filtered_df = df.copy()
     if search_name:
@@ -1198,7 +1205,6 @@ def page_directory(user):
             filtered_df = filtered_df[filtered_df[emp_code_col].astype(str).str.contains(search_code, case=False, na=False)]
         else:
             st.warning("Employee Code column not found for search.")
-
     # Display the (potentially filtered) dataframe with only the specified columns
     if final_columns:
         # Ensure we have at least one column to show
@@ -1207,8 +1213,6 @@ def page_directory(user):
         st.info(f"Showing {len(display_df)} of {len(df)} employees.")
     else:
         st.error("No columns could be mapped for display. Please check your Excel sheet headers.")
-
-
 # ============================
 # Pages
 # ============================
@@ -1290,7 +1294,7 @@ def page_employee_photos(user):
             )
         st.success("✅ ZIP file created. Click the button to download.")
 # ============================
-# Modified: My Profile with Photo Upload
+# Modified: My Profile with Photo Upload and Tabs
 # ============================
 def page_my_profile(user):
     st.subheader("My Profile")
@@ -1320,45 +1324,49 @@ def page_my_profile(user):
     if row.empty:
         st.error("Your record was not found.")
         return
-    st.dataframe(row.reset_index(drop=True), use_container_width=True)
-    buf = BytesIO()
-    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        row.to_excel(writer, index=False, sheet_name="MyProfile")
-    buf.seek(0)
-    st.download_button("Download My Profile (Excel)", data=buf, file_name="my_profile.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    # === Photo Upload Section ===
-    st.markdown("### 📸 Personal Photo")
-    emp_code_clean = None
-    for key, val in user.items():
-        if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
-            emp_code_clean = str(val).strip().replace(".0", "")
-            break
-    if emp_code_clean:
-        # Check if photo exists
-        photo_path = None
-        for ext in ["jpg", "jpeg", "png"]:
-            p = os.path.join("employee_photos", f"{emp_code_clean}.{ext}")
-            if os.path.exists(p):
-                photo_path = p
+
+    # === Photo Upload Section with Tabs ===
+    tab1, tab2 = st.tabs(["Profile Data", "Personal Photo"])
+    with tab1:
+        st.dataframe(row.reset_index(drop=True), use_container_width=True)
+        buf = BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            row.to_excel(writer, index=False, sheet_name="MyProfile")
+        buf.seek(0)
+        st.download_button("Download My Profile (Excel)", data=buf, file_name="my_profile.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    with tab2:
+        emp_code_clean = None
+        for key, val in user.items():
+            if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
+                emp_code_clean = str(val).strip().replace(".0", "")
                 break
-        if photo_path:
-            st.image(photo_path, width=150, caption="Your current photo")
-        else:
-            st.info("No photo uploaded yet.")
-        uploaded_file = st.file_uploader(
-            "Upload your personal photo (JPG/PNG)",
-            type=["jpg", "jpeg", "png"],
-            key="photo_uploader"
-        )
-        if uploaded_file:
-            if st.button("✅ Save Photo"):
-                try:
-                    filename = save_employee_photo(emp_code_clean, uploaded_file)
-                    add_notification("", "HR", f"Employee {emp_code_clean} uploaded a new photo.")
-                    st.success(f"Photo saved as: {filename}")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Failed to save photo: {e}")
+        if emp_code_clean:
+            # Check if photo exists
+            photo_path = None
+            for ext in ["jpg", "jpeg", "png"]:
+                p = os.path.join("employee_photos", f"{emp_code_clean}.{ext}")
+                if os.path.exists(p):
+                    photo_path = p
+                    break
+            if photo_path:
+                st.image(photo_path, width=150, caption="Your current photo")
+            else:
+                st.info("No photo uploaded yet.")
+            uploaded_file = st.file_uploader(
+                "Upload your personal photo (JPG/PNG)",
+                type=["jpg", "jpeg", "png"],
+                key="photo_uploader"
+            )
+            if uploaded_file:
+                if st.button("✅ Save Photo"):
+                    try:
+                        filename = save_employee_photo(emp_code_clean, uploaded_file)
+                        add_notification("", "HR", f"Employee {emp_code_clean} uploaded a new photo.")
+                        st.success(f"Photo saved as: {filename}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed to save photo: {e}")
 # Rest of pages unchanged: leave_request, manager_leaves, dashboard, hr_manager, reports, hr_inbox, ask_hr
 def calculate_leave_balance(user_code, leaves_df):
     """Calculates Annual Leave Balance, Used Days, and Remaining Days."""
@@ -2180,21 +2188,26 @@ with st.sidebar:
     st.markdown("<hr style='border: 1px solid #0b72b9; margin: 10px 0;'>", unsafe_allow_html=True)
     # Show login form or menu based on session state
     if not st.session_state["logged_in_user"]:
-        st.markdown("### 🔐 Login Required")
-        with st.form("login_form"):
-            uid = st.text_input("Employee Code")
-            pwd = st.text_input("Password", type="password")
-            submitted = st.form_submit_button("Sign in")
-        if submitted:
-            df = st.session_state.get("df", pd.DataFrame())
-            user = login(df, uid, pwd)
-            if user is None:
-                st.error("Invalid credentials or required columns missing.")
-            else:
-                st.session_state["logged_in_user"] = user
-                st.session_state["current_page"] = "My Profile"
-                st.success("Login successful!")
-                st.rerun()
+        # --- Login Form Container ---
+        with st.container():
+            st.markdown("<div style='background-color:#0b1220; padding: 10px; border-radius: 8px; border: 1px solid #0b72b9;'>", unsafe_allow_html=True)
+            st.markdown("### 🔐 Login Required")
+            with st.form("login_form"):
+                uid = st.text_input("Employee Code")
+                pwd = st.text_input("Password", type="password")
+                submitted = st.form_submit_button("Sign in")
+            if submitted:
+                df = st.session_state.get("df", pd.DataFrame())
+                user = login(df, uid, pwd)
+                if user is None:
+                    st.error("Invalid credentials or required columns missing.")
+                else:
+                    st.session_state["logged_in_user"] = user
+                    st.session_state["current_page"] = "My Profile"
+                    st.success("Login successful!")
+                    st.rerun()
+            st.markdown("</div>", unsafe_allow_html=True)
+        # --- End Login Form Container ---
     else:
         user = st.session_state["logged_in_user"]
         title_val = str(user.get("Title") or user.get("title") or "").strip().upper()
@@ -2222,7 +2235,6 @@ with st.sidebar:
             if st.button(p, key=f"nav_{p}", use_container_width=True):
                 st.session_state["current_page"] = p
                 st.rerun()
-        # 👇 التعديل هنا: حذف المسافة البادئة الزائدة
         st.markdown("---")
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state["logged_in_user"] = None
