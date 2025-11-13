@@ -26,21 +26,7 @@ FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FI
 # Styling - Enhanced Dark Mode CSS with Bell, Fonts, and Sidebar Improvements
 # ============================
 st.set_page_config(page_title="HRAS — Averroes Admin", page_icon="👥", layout="wide")
-# ✅ Add this CSS to hide Streamlit's default toolbar
-hide_streamlit_style = """
-<style>
-/* Hide the Streamlit menu bar */
-#MainMenu {visibility: hidden;}
-/* Hide the Streamlit footer */
-footer {visibility: hidden;}
-/* ✅ Removed header hiding line to keep sidebar visible */
-/* Optional: Hide the "Manage app" button in the bottom right */
-div[data-testid="stDeployButton"] {
-    display: none;
-}
-</style>
-"""
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
 # --- Start of Added CSS ---
 custom_bg_css = """
 <style>
@@ -62,6 +48,22 @@ h1, h2, h3, h4, h5, p, div, span, li, label, input, textarea {
 """
 st.markdown(custom_bg_css, unsafe_allow_html=True)
 # --- End of Added CSS ---
+
+# ✅ Add this CSS to hide Streamlit's default toolbar
+hide_streamlit_style = """
+<style>
+/* Hide the Streamlit menu bar */
+#MainMenu {visibility: hidden;}
+/* Hide the Streamlit footer */
+footer {visibility: hidden;}
+/* ✅ Removed header hiding line to keep sidebar visible */
+/* Optional: Hide the "Manage app" button in the bottom right */
+div[data-testid="stDeployButton"] {
+    display: none;
+}
+</style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 enhanced_dark_css = """
 <style>
 /* Fonts */
@@ -777,7 +779,7 @@ def page_request_hr(user):
             response_file_name = ""
             if uploaded_resp_file:
                 # Save the uploaded file
-                resp_filename = save_response_file(uploaded_file, user_code, row["ID"])
+                resp_filename = save_response_file(uploaded_resp_file, user_code, row["ID"])
                 requests_df.loc[requests_df["ID"] == row["ID"], "Response File"] = resp_filename
                 response_file_name = resp_filename
             save_hr_requests(requests_df)
@@ -1843,9 +1845,54 @@ def page_manager_leaves(user):
                 st.warning("Required columns (Employee Code, Manager Code, Title) not found for detailed report.")
         else:
             st.info("Employee data not loaded for detailed report.")
-# ============================
-# NEW: HR Manager Page (Detailed Leave Report for All Employees)
-# ============================
+def page_dashboard(user):
+    st.subheader("Dashboard")
+    df = st.session_state.get("df", pd.DataFrame())
+    if df.empty:
+        st.info("No employee data available.")
+        return
+    col_map = {c.lower(): c for c in df.columns}
+    dept_col = col_map.get("department")
+    hire_col = col_map.get("hire date") or col_map.get("hire_date") or col_map.get("hiring date")
+    total_employees = df.shape[0]
+    total_departments = df[dept_col].nunique() if dept_col else 0
+    new_hires = 0
+    if hire_col:
+        try:
+            df[hire_col] = pd.to_datetime(df[hire_col], errors="coerce")
+            new_hires = df[df[hire_col] >= (pd.Timestamp.now() - pd.Timedelta(days=30))].shape[0]
+        except Exception:
+            new_hires = 0
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Total Employees", total_employees)
+    c2.metric("Departments", total_departments)
+    c3.metric("New Hires (30 days)", new_hires)
+    st.markdown("---")
+    st.markdown("### Employees per Department (table)")
+    if dept_col:
+        dept_counts = df[dept_col].fillna("Unknown").value_counts().reset_index()
+        dept_counts.columns = ["Department", "Employee Count"]
+        st.table(dept_counts.sort_values("Employee Count", ascending=False).reset_index(drop=True))
+    else:
+        st.info("Department column not found.")
+    st.markdown("---")
+    buf = BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="Employees")
+    buf.seek(0)
+    st.download_button("Download Full Employees Excel", data=buf, file_name="employees_export.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    if st.button("Save & Push current dataset to GitHub"):
+        saved, pushed = save_and_maybe_push(df, actor=user.get("Employee Name","HR"))
+        if saved:
+            if pushed:
+                st.success("Saved locally and pushed to GitHub.")
+            else:
+                if GITHUB_TOKEN:
+                    st.warning("Saved locally but GitHub push failed.")
+                else:
+                    st.info("Saved locally. GitHub token not configured.")
+        else:
+            st.error("Failed to save dataset locally.")
 def page_hr_manager(user):
     st.subheader("HR Manager")
     st.info("Upload new employee sheet, manage employees, and perform administrative actions.")
