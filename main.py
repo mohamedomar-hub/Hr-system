@@ -1142,7 +1142,7 @@ def page_directory(user):
         "Mobile",
         "Department",
         "E-Mail",
-        "Address"
+        "Address as 702 bricks"
     ]
 
     # Try to map flexible column names to the desired ones
