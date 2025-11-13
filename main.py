@@ -1217,11 +1217,11 @@ def render_logo_and_title():
     with cols[1]:
         st.markdown("""
         <div style="text-align: center; margin-bottom: 12px;">
-            <h1 style="color: #ffd166; font-weight: 800; font-size: 2.4rem; text-shadow: 0 2px 6px rgba(0,0,0,0.4); letter-spacing: -0.5px;">
-                HRAS
+            <h1 style="color: #ffd166; font-weight: 800; font-size: 2.4rem; text-shadow: 0 2px 6px rgba(0,0,0,0.4); letter-spacing: -0.5px; line-height: 1.3;"> 
+                Human Resources<br>Averroes Pharma
             </h1>
             <p style="color: #aab8c9; font-size: 1rem; margin-top: 6px;">
-                Averroes Admin System — Dark Mode
+                Created by Admin Averroes
             </p>
         </div>
         """, unsafe_allow_html=True)
