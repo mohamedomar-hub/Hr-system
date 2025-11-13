@@ -905,7 +905,6 @@ def send_full_leaves_report_to_hr(leaves_df, df_emp, out_path="HR_Leaves_Report.
         return True, out_path
     except Exception as e:
         return False, str(e)
-
 # ============================
 # NEW: Helper function to send leaves report to BUMs - MODIFIED
 # ============================
@@ -917,31 +916,24 @@ def send_leaves_report_to_bums(leaves_df, df_emp, out_path="BUM_Leaves_Report.xl
         df_emp_local = df_emp.copy()
     except Exception:
         df_emp_local = pd.DataFrame()
-    
     if df_emp_local.empty:
         return False, "Employee data is empty"
-    
     col_map = {c.lower().strip(): c for c in df_emp_local.columns}
     emp_code_col = col_map.get("employee_code") or col_map.get("employee code") or "Employee Code"
     emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name") or "Employee Name"
     mgr_code_col = col_map.get("manager_code") or col_map.get("manager code") or "Manager Code"
     title_col = col_map.get("title") or col_map.get("Title") or "Title"
-    
     # Ensure all codes are strings without '.0'
     df_emp_local[emp_code_col] = df_emp_local[emp_code_col].astype(str).str.strip().str.replace('.0', '', regex=False)
     df_emp_local[mgr_code_col] = df_emp_local[mgr_code_col].astype(str).str.strip().str.replace('.0', '', regex=False)
-    
     # Find all BUMs
     bums_df = df_emp_local[df_emp_local[title_col].str.upper() == "BUM"]
-    
     if bums_df.empty:
         return False, "No BUMs found in the system"
-    
     # For each BUM, find their subordinates and generate a report
     for _, bum_row in bums_df.iterrows():
         bum_code = str(bum_row[emp_code_col])
         bum_name = str(bum_row[emp_name_col])
-        
         # Recursive function to get all subordinates under a BUM
         def get_all_subordinates(start_code):
             subordinates = set()
@@ -958,16 +950,13 @@ def send_leaves_report_to_bums(leaves_df, df_emp, out_path="BUM_Leaves_Report.xl
                     if report_title in ["AM", "DM"]:
                         stack.append(report_code)
             return list(subordinates)
-        
         # Get all subordinates under this BUM
         all_subordinates = get_all_subordinates(bum_code)
-        
         # Filter leaves for employees under this BUM
         if all_subordinates:
             leaves_for_bum = leaves_df[leaves_df["Employee Code"].isin(all_subordinates)].copy()
         else:
             leaves_for_bum = pd.DataFrame()  # Empty dataframe if no subordinates
-        
         if not leaves_for_bum.empty:
             # Merge to get employee names and manager names
             leaves_for_bum = leaves_for_bum.merge(
@@ -980,16 +969,13 @@ def send_leaves_report_to_bums(leaves_df, df_emp, out_path="BUM_Leaves_Report.xl
                 on="Manager Code",
                 how="left"
             )
-            
             # Format dates
             leaves_for_bum["Start Date"] = pd.to_datetime(leaves_for_bum["Start Date"], errors="coerce").dt.strftime("%d-%m-%Y")
             leaves_for_bum["End Date"] = pd.to_datetime(leaves_for_bum["End Date"], errors="coerce").dt.strftime("%d-%m-%Y")
-            
             # Add Annual Balance, Used Days, and Remaining Days
             leaves_for_bum["Annual Balance"] = 21
             leaves_for_bum["Used Days"] = 0
             leaves_for_bum["Remaining Days"] = 21
-            
             # Calculate balances for each employee in the report
             unique_employees = leaves_for_bum["Employee Code"].unique()
             for emp_code in unique_employees:
@@ -997,23 +983,18 @@ def send_leaves_report_to_bums(leaves_df, df_emp, out_path="BUM_Leaves_Report.xl
                 mask = leaves_for_bum["Employee Code"] == emp_code
                 leaves_for_bum.loc[mask, "Used Days"] = used
                 leaves_for_bum.loc[mask, "Remaining Days"] = remaining
-            
             # Define the report file name for this BUM
             report_filename = f"BUM_{bum_code}_Leaves_Report.xlsx"
-            
             # Export the report for this BUM
             export_cols = [c for c in [
                 "Employee Name", "Employee Code", "Start Date", "End Date", 
                 "Leave Type", "Status", "Comment", "Manager Name", "Manager Code", 
                 "Annual Balance", "Used Days", "Remaining Days"
             ] if c in leaves_for_bum.columns]
-            
             report_df = leaves_for_bum[export_cols].copy()
-            
             try:
                 with pd.ExcelWriter(report_filename, engine="openpyxl") as writer:
                     report_df.to_excel(writer, index=False)
-                
                 # Send notification to this BUM
                 try:
                     add_notification(bum_code, "BUM", f"Leaves report generated for your subordinates: {report_filename}")
@@ -1027,9 +1008,7 @@ def send_leaves_report_to_bums(leaves_df, df_emp, out_path="BUM_Leaves_Report.xl
                 add_notification(bum_code, "BUM", f"No leaves found for your subordinates this period.")
             except Exception:
                 pass
-    
     return True, "Leaves reports sent to all BUMs successfully"
-
 def page_my_team(user, role="AM"):
     st.subheader("My Team Structure")
     user_code = None
@@ -1838,9 +1817,11 @@ def page_manager_leaves(user):
                     else:
                         st.info("No leave requests found for subordinates under your management.")
                 else:
-                    st.info("No subordinates found under your management.")
+                    st.warning("No subordinates found under your management. Please check 'Manager Code' assignments in employee data.")
             else:
                 st.warning("Required columns (Employee Code, Manager Code, Title) not found for detailed report.")
+        else:
+            st.info("Employee data not loaded for detailed report.")
 def page_dashboard(user):
     st.subheader("Dashboard")
     df = st.session_state.get("df", pd.DataFrame())
