@@ -41,6 +41,27 @@ div[data-testid="stDeployButton"] {
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+# --- Start of Added CSS ---
+custom_bg_css = """
+<style>
+[data-testid="stAppViewContainer"] {
+    background: linear-gradient(135deg, #0f1724 0%, #1a2740 100%);
+    color: #e6eef8;
+}
+[data-testid="stAppViewContainer"]::before {
+    content: "";
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.25); /* فلتر خفيف يخلي الكلام أوضح */
+    z-index: -1;
+}
+h1, h2, h3, h4, h5, p, div, span, li, label, input, textarea {
+    color: #e6eef8 !important;
+}
+</style>
+"""
+st.markdown(custom_bg_css, unsafe_allow_html=True)
+# --- End of Added CSS ---
 enhanced_dark_css = """
 <style>
 /* Fonts */
@@ -756,7 +777,7 @@ def page_request_hr(user):
             response_file_name = ""
             if uploaded_resp_file:
                 # Save the uploaded file
-                resp_filename = save_response_file(uploaded_resp_file, user_code, row["ID"])
+                resp_filename = save_response_file(uploaded_file, user_code, row["ID"])
                 requests_df.loc[requests_df["ID"] == row["ID"], "Response File"] = resp_filename
                 response_file_name = resp_filename
             save_hr_requests(requests_df)
@@ -905,6 +926,110 @@ def send_full_leaves_report_to_hr(leaves_df, df_emp, out_path="HR_Leaves_Report.
         return True, out_path
     except Exception as e:
         return False, str(e)
+# ============================
+# NEW: Helper function to send leaves report to BUMs - MODIFIED
+# ============================
+def send_leaves_report_to_bums(leaves_df, df_emp, out_path="BUM_Leaves_Report.xlsx"):
+    """
+    Build a leaves report for employees under each BUM and send to the respective BUMs.
+    """
+    try:
+        df_emp_local = df_emp.copy()
+    except Exception:
+        df_emp_local = pd.DataFrame()
+    if df_emp_local.empty:
+        return False, "Employee data is empty"
+    col_map = {c.lower().strip(): c for c in df_emp_local.columns}
+    emp_code_col = col_map.get("employee_code") or col_map.get("employee code") or "Employee Code"
+    emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name") or "Employee Name"
+    mgr_code_col = col_map.get("manager_code") or col_map.get("manager code") or "Manager Code"
+    title_col = col_map.get("title") or col_map.get("Title") or "Title"
+    # Ensure all codes are strings without '.0'
+    df_emp_local[emp_code_col] = df_emp_local[emp_code_col].astype(str).str.strip().str.replace('.0', '', regex=False)
+    df_emp_local[mgr_code_col] = df_emp_local[mgr_code_col].astype(str).str.strip().str.replace('.0', '', regex=False)
+    # Find all BUMs
+    bums_df = df_emp_local[df_emp_local[title_col].str.upper() == "BUM"]
+    if bums_df.empty:
+        return False, "No BUMs found in the system"
+    # For each BUM, find their subordinates and generate a report
+    for _, bum_row in bums_df.iterrows():
+        bum_code = str(bum_row[emp_code_col])
+        bum_name = str(bum_row[emp_name_col])
+        # Recursive function to get all subordinates under a BUM
+        def get_all_subordinates(start_code):
+            subordinates = set()
+            stack = [start_code]
+            while stack:
+                current_code = stack.pop()
+                # Find direct reports of current manager
+                direct_reports = df_emp_local[df_emp_local[mgr_code_col] == current_code]
+                for _, report_row in direct_reports.iterrows():
+                    report_code = str(report_row[emp_code_col])
+                    report_title = str(report_row[title_col]).upper()
+                    subordinates.add(report_code)
+                    # If the report is also a manager (AM or DM), add them to the stack
+                    if report_title in ["AM", "DM"]:
+                        stack.append(report_code)
+            return list(subordinates)
+        # Get all subordinates under this BUM
+        all_subordinates = get_all_subordinates(bum_code)
+        # Filter leaves for employees under this BUM
+        if all_subordinates:
+            leaves_for_bum = leaves_df[leaves_df["Employee Code"].isin(all_subordinates)].copy()
+        else:
+            leaves_for_bum = pd.DataFrame()  # Empty dataframe if no subordinates
+        if not leaves_for_bum.empty:
+            # Merge to get employee names and manager names
+            leaves_for_bum = leaves_for_bum.merge(
+                df_emp_local[[emp_code_col, emp_name_col]].rename(columns={emp_code_col: "Employee Code", emp_name_col: "Employee Name"}),
+                on="Employee Code",
+                how="left"
+            )
+            leaves_for_bum = leaves_for_bum.merge(
+                df_emp_local[[emp_code_col, emp_name_col]].rename(columns={emp_code_col: "Manager Code", emp_name_col: "Manager Name"}),
+                on="Manager Code",
+                how="left"
+            )
+            # Format dates
+            leaves_for_bum["Start Date"] = pd.to_datetime(leaves_for_bum["Start Date"], errors="coerce").dt.strftime("%d-%m-%Y")
+            leaves_for_bum["End Date"] = pd.to_datetime(leaves_for_bum["End Date"], errors="coerce").dt.strftime("%d-%m-%Y")
+            # Add Annual Balance, Used Days, and Remaining Days
+            leaves_for_bum["Annual Balance"] = 21
+            leaves_for_bum["Used Days"] = 0
+            leaves_for_bum["Remaining Days"] = 21
+            # Calculate balances for each employee in the report
+            unique_employees = leaves_for_bum["Employee Code"].unique()
+            for emp_code in unique_employees:
+                _, used, remaining = calculate_leave_balance(emp_code, leaves_df)
+                mask = leaves_for_bum["Employee Code"] == emp_code
+                leaves_for_bum.loc[mask, "Used Days"] = used
+                leaves_for_bum.loc[mask, "Remaining Days"] = remaining
+            # Define the report file name for this BUM
+            report_filename = f"BUM_{bum_code}_Leaves_Report.xlsx"
+            # Export the report for this BUM
+            export_cols = [c for c in [
+                "Employee Name", "Employee Code", "Start Date", "End Date", 
+                "Leave Type", "Status", "Comment", "Manager Name", "Manager Code", 
+                "Annual Balance", "Used Days", "Remaining Days"
+            ] if c in leaves_for_bum.columns]
+            report_df = leaves_for_bum[export_cols].copy()
+            try:
+                with pd.ExcelWriter(report_filename, engine="openpyxl") as writer:
+                    report_df.to_excel(writer, index=False)
+                # Send notification to this BUM
+                try:
+                    add_notification(bum_code, "BUM", f"Leaves report generated for your subordinates: {report_filename}")
+                except Exception:
+                    pass
+            except Exception as e:
+                return False, f"Error generating report for BUM {bum_code}: {str(e)}"
+        else:
+            # Even if no leaves, notify BUM that report is available (empty)
+            try:
+                add_notification(bum_code, "BUM", f"No leaves found for your subordinates this period.")
+            except Exception:
+                pass
+    return True, "Leaves reports sent to all BUMs successfully"
 def page_my_team(user, role="AM"):
     st.subheader("My Team Structure")
     user_code = None
@@ -924,7 +1049,6 @@ def page_my_team(user, role="AM"):
     if not hierarchy:
         st.info(f"Could not build team structure for your code: {user_code}. Check your manager assignment or title.")
         return
-
     # Define icons and colors for different roles
     ROLE_ICONS = {
         "BUM": "🏢",
@@ -932,14 +1056,12 @@ def page_my_team(user, role="AM"):
         "DM": "👩‍💼",
         "MR": "🧑‍⚕️"
     }
-
     ROLE_COLORS = {
         "BUM": "#ffd166",  # Golden
         "AM": "#0b72b9",  # Blue
         "DM": "#4ecdc4",  # Greenish
         "MR": "#9fb0c8"   # Grayish
     }
-
     # Add custom CSS for the team structure
     st.markdown("""
     <style>
@@ -1027,18 +1149,15 @@ def page_my_team(user, role="AM"):
                 <div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
             </div>
             """, unsafe_allow_html=True)
-
     # Function to recursively render the tree structure with summaries and hierarchical lines
     def render_tree(node, level=0, is_last_child=False):
         if not node: # Check if node is empty
             return
-
         # Get summary counts
         am_count = node["Summary"]["AM"]
         dm_count = node["Summary"]["DM"]
         mr_count = node["Summary"]["MR"]
         total_count = node["Summary"]["Total"] # Get total count
-
         # Format summary string
         summary_parts = []
         if am_count > 0:
@@ -1050,22 +1169,18 @@ def page_my_team(user, role="AM"):
         if total_count > 0:
             summary_parts.append(f"🔢 {total_count} Total")
         summary_str = " | ".join(summary_parts) if summary_parts else "No direct reports"
-
         # Extract manager info and role
         manager_info = node.get("Manager", "Unknown")
         manager_code = node.get("Manager Code", "N/A")
-
         # Determine role from manager_info (e.g., "Name (Role)")
         role = "MR"  # Default
         if "(" in manager_info and ")" in manager_info:
             role_part = manager_info.split("(")[-1].split(")")[0].strip()
             if role_part in ROLE_ICONS:
                 role = role_part
-
         # Get icon and color
         icon = ROLE_ICONS.get(role, "👤")
         color = ROLE_COLORS.get(role, "#e6eef8")  # Default text color
-
         # Build the hierarchical line prefix based on level and position
         prefix = ""
         if level > 0:
@@ -1080,7 +1195,6 @@ def page_my_team(user, role="AM"):
         else:
             # For root level, no prefix needed
             prefix = ""
-
         # Render the node header with icon, color, and hierarchical prefix
         st.markdown(f"""
         <div class="team-node">
@@ -1089,7 +1203,6 @@ def page_my_team(user, role="AM"):
                 <span class="team-node-summary">{summary_str}</span>
             </div>
         """, unsafe_allow_html=True)
-
         # Display the team members
         if node.get("Team"):
             st.markdown('<div class="team-node-children">', unsafe_allow_html=True)
@@ -1099,10 +1212,8 @@ def page_my_team(user, role="AM"):
                 render_tree(team_member, level + 1, is_last)
             st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
-
     # Render the main hierarchy starting from the user's node
     render_tree(hierarchy, 0, True)
-
     # If the user themselves is a leaf node (e.g., MR with no subordinates)
     # or if the hierarchy is just the root node itself with no team members
     if not hierarchy.get("Team"): # If the root node has no team members
@@ -1115,7 +1226,6 @@ def page_my_team(user, role="AM"):
             role_part = root_manager_info.split("(")[-1].split(")")[0].strip()
             if role_part in ROLE_ICONS:
                 role = role_part
-
         # Get icon and color
         icon = ROLE_ICONS.get(role, "👤")
         color = ROLE_COLORS.get(role, "#e6eef8")  # Default text color
@@ -1130,9 +1240,7 @@ def page_directory(user):
     if df.empty:
         st.info("Employee data not loaded.")
         return
-
     st.info("Search and filter employees below.")
-
     # Define the specific columns you want to display
     COLUMNS_TO_SHOW = [
         "Employee Code",
@@ -1144,7 +1252,6 @@ def page_directory(user):
         "E-Mail",
         "Address as 702 bricks"
     ]
-
     # Try to map flexible column names to the desired ones
     col_map = {c.lower().strip(): c for c in df.columns}
     final_columns = []
@@ -1166,14 +1273,12 @@ def page_directory(user):
             final_columns.append(found_col)
         else:
             st.warning(f"Column '{col_name}' not found in data.")
-
     # Apply filters (example: by Name and Code)
     col1, col2 = st.columns(2)
     with col1:
         search_name = st.text_input("Search by Employee Name")
     with col2:
         search_code = st.text_input("Search by Employee Code")
-
     # Apply filters
     filtered_df = df.copy()
     if search_name:
@@ -1198,7 +1303,6 @@ def page_directory(user):
             filtered_df = filtered_df[filtered_df[emp_code_col].astype(str).str.contains(search_code, case=False, na=False)]
         else:
             st.warning("Employee Code column not found for search.")
-
     # Display the (potentially filtered) dataframe with only the specified columns
     if final_columns:
         # Ensure we have at least one column to show
@@ -1207,8 +1311,6 @@ def page_directory(user):
         st.info(f"Showing {len(display_df)} of {len(df)} employees.")
     else:
         st.error("No columns could be mapped for display. Please check your Excel sheet headers.")
-
-
 # ============================
 # Pages
 # ============================
@@ -1595,6 +1697,8 @@ def page_manager_leaves(user):
                         # NEW: Send full leaves report to HR after approval
                         df_emp_global = st.session_state.get('df', pd.DataFrame())
                         send_full_leaves_report_to_hr(current_leaves, df_emp_global, out_path='HR_Leaves_Report.xlsx')
+                        # NEW: Send leaves report to BUMs after approval
+                        send_leaves_report_to_bums(current_leaves, df_emp_global, out_path='BUM_Leaves_Report.xlsx')
                         st.success("Approved!")
                         st.rerun()
                     else:
@@ -1737,54 +1841,11 @@ def page_manager_leaves(user):
                     st.info("No subordinates found under your management.")
             else:
                 st.warning("Required columns (Employee Code, Manager Code, Title) not found for detailed report.")
-def page_dashboard(user):
-    st.subheader("Dashboard")
-    df = st.session_state.get("df", pd.DataFrame())
-    if df.empty:
-        st.info("No employee data available.")
-        return
-    col_map = {c.lower(): c for c in df.columns}
-    dept_col = col_map.get("department")
-    hire_col = col_map.get("hire date") or col_map.get("hire_date") or col_map.get("hiring date")
-    total_employees = df.shape[0]
-    total_departments = df[dept_col].nunique() if dept_col else 0
-    new_hires = 0
-    if hire_col:
-        try:
-            df[hire_col] = pd.to_datetime(df[hire_col], errors="coerce")
-            new_hires = df[df[hire_col] >= (pd.Timestamp.now() - pd.Timedelta(days=30))].shape[0]
-        except Exception:
-            new_hires = 0
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Total Employees", total_employees)
-    c2.metric("Departments", total_departments)
-    c3.metric("New Hires (30 days)", new_hires)
-    st.markdown("---")
-    st.markdown("### Employees per Department (table)")
-    if dept_col:
-        dept_counts = df[dept_col].fillna("Unknown").value_counts().reset_index()
-        dept_counts.columns = ["Department", "Employee Count"]
-        st.table(dept_counts.sort_values("Employee Count", ascending=False).reset_index(drop=True))
-    else:
-        st.info("Department column not found.")
-    st.markdown("---")
-    buf = BytesIO()
-    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Employees")
-    buf.seek(0)
-    st.download_button("Download Full Employees Excel", data=buf, file_name="employees_export.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    if st.button("Save & Push current dataset to GitHub"):
-        saved, pushed = save_and_maybe_push(df, actor=user.get("Employee Name","HR"))
-        if saved:
-            if pushed:
-                st.success("Saved locally and pushed to GitHub.")
-            else:
-                if GITHUB_TOKEN:
-                    st.warning("Saved locally but GitHub push failed.")
-                else:
-                    st.info("Saved locally. GitHub token not configured.")
         else:
-            st.error("Failed to save dataset locally.")
+            st.info("Employee data not loaded for detailed report.")
+# ============================
+# NEW: HR Manager Page (Detailed Leave Report for All Employees)
+# ============================
 def page_hr_manager(user):
     st.subheader("HR Manager")
     st.info("Upload new employee sheet, manage employees, and perform administrative actions.")
