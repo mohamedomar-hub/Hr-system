@@ -1,4 +1,4 @@
-# hr_system_dark_mode_v3_final_with_responded_requests_and_hierarchical_structure_and_directory.py
+# hr_system_dark_mode_v3_final_with_responded_requests_and_hierarchical_structure.py
 import streamlit as st
 import pandas as pd
 import requests
@@ -924,7 +924,6 @@ def page_my_team(user, role="AM"):
     if not hierarchy:
         st.info(f"Could not build team structure for your code: {user_code}. Check your manager assignment or title.")
         return
-
     # Define icons and colors for different roles
     ROLE_ICONS = {
         "BUM": "🏢",
@@ -932,14 +931,12 @@ def page_my_team(user, role="AM"):
         "DM": "👩‍💼",
         "MR": "🧑‍⚕️"
     }
-
     ROLE_COLORS = {
         "BUM": "#ffd166",  # Golden
         "AM": "#0b72b9",  # Blue
         "DM": "#4ecdc4",  # Greenish
         "MR": "#9fb0c8"   # Grayish
     }
-
     # Add custom CSS for the team structure
     st.markdown("""
     <style>
@@ -955,6 +952,7 @@ def page_my_team(user, role="AM"):
         justify-content: space-between;
         align-items: center;
         font-weight: 600;
+        color: #ffd166;
         margin-bottom: 8px;
     }
     .team-node-summary {
@@ -1026,18 +1024,15 @@ def page_my_team(user, role="AM"):
                 <div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
             </div>
             """, unsafe_allow_html=True)
-
     # Function to recursively render the tree structure with summaries and hierarchical lines
     def render_tree(node, level=0, is_last_child=False):
         if not node: # Check if node is empty
             return
-
         # Get summary counts
         am_count = node["Summary"]["AM"]
         dm_count = node["Summary"]["DM"]
         mr_count = node["Summary"]["MR"]
         total_count = node["Summary"]["Total"] # Get total count
-
         # Format summary string
         summary_parts = []
         if am_count > 0:
@@ -1049,22 +1044,18 @@ def page_my_team(user, role="AM"):
         if total_count > 0:
             summary_parts.append(f"🔢 {total_count} Total")
         summary_str = " | ".join(summary_parts) if summary_parts else "No direct reports"
-
         # Extract manager info and role
         manager_info = node.get("Manager", "Unknown")
         manager_code = node.get("Manager Code", "N/A")
-
         # Determine role from manager_info (e.g., "Name (Role)")
         role = "MR"  # Default
         if "(" in manager_info and ")" in manager_info:
             role_part = manager_info.split("(")[-1].split(")")[0].strip()
             if role_part in ROLE_ICONS:
                 role = role_part
-
         # Get icon and color
         icon = ROLE_ICONS.get(role, "👤")
         color = ROLE_COLORS.get(role, "#e6eef8")  # Default text color
-
         # Build the hierarchical line prefix based on level and position
         prefix = ""
         if level > 0:
@@ -1079,7 +1070,6 @@ def page_my_team(user, role="AM"):
         else:
             # For root level, no prefix needed
             prefix = ""
-
         # Render the node header with icon, color, and hierarchical prefix
         st.markdown(f"""
         <div class="team-node">
@@ -1088,7 +1078,6 @@ def page_my_team(user, role="AM"):
                 <span class="team-node-summary">{summary_str}</span>
             </div>
         """, unsafe_allow_html=True)
-
         # Display the team members
         if node.get("Team"):
             st.markdown('<div class="team-node-children">', unsafe_allow_html=True)
@@ -1098,10 +1087,8 @@ def page_my_team(user, role="AM"):
                 render_tree(team_member, level + 1, is_last)
             st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
-
     # Render the main hierarchy starting from the user's node
     render_tree(hierarchy, 0, True)
-
     # If the user themselves is a leaf node (e.g., MR with no subordinates)
     # or if the hierarchy is just the root node itself with no team members
     if not hierarchy.get("Team"): # If the root node has no team members
@@ -1114,61 +1101,11 @@ def page_my_team(user, role="AM"):
             role_part = root_manager_info.split("(")[-1].split(")")[0].strip()
             if role_part in ROLE_ICONS:
                 role = role_part
-
         # Get icon and color
         icon = ROLE_ICONS.get(role, "👤")
         color = ROLE_COLORS.get(role, "#e6eef8")  # Default text color
         st.markdown(f'<span style="color: {color};">{icon} <strong>{root_manager_info}</strong> (Code: {root_manager_code})</span>', unsafe_allow_html=True)
         st.info("No direct subordinates found under your supervision.")
-# ============================
-# NEW: Directory Page Function
-# ============================
-def page_directory(user):
-    st.subheader("Company Directory")
-    df = st.session_state.get("df", pd.DataFrame())
-    if df.empty:
-        st.info("Employee data not loaded.")
-        return
-
-    st.info("Search and filter employees below.")
-
-    # Create filters (example: by Name and Code)
-    col1, col2 = st.columns(2)
-    with col1:
-        search_name = st.text_input("Search by Employee Name")
-    with col2:
-        search_code = st.text_input("Search by Employee Code")
-
-    # Apply filters
-    filtered_df = df.copy()
-    if search_name:
-        # Assuming 'Employee Name' column exists, adjust if different
-        emp_name_col = None
-        for col in df.columns:
-            if col.lower().replace(" ", "_").replace("-", "_") in ["employee_name", "name", "employee name", "full name", "first name"]:
-                emp_name_col = col
-                break
-        if emp_name_col:
-            filtered_df = filtered_df[filtered_df[emp_name_col].astype(str).str.contains(search_name, case=False, na=False)]
-        else:
-            st.warning("Employee Name column not found for search.")
-
-    if search_code:
-        # Assuming 'Employee Code' column exists, adjust if different
-        emp_code_col = None
-        for col in df.columns:
-            if col.lower().replace(" ", "_").replace("-", "_") in ["employee_code", "code", "employee code", "emp_code", "emp_id"]:
-                emp_code_col = col
-                break
-        if emp_code_col:
-            filtered_df = filtered_df[filtered_df[emp_code_col].astype(str).str.contains(search_code, case=False, na=False)]
-        else:
-            st.warning("Employee Code column not found for search.")
-
-    # Display the (potentially filtered) dataframe
-    st.dataframe(filtered_df, use_container_width=True)
-    st.info(f"Showing {len(filtered_df)} of {len(df)} employees.")
-
 # ============================
 # Pages
 # ============================
@@ -1662,15 +1599,7 @@ def page_manager_leaves(user):
                     # Filter leaves for all subordinates
                     detailed_report_df = leaves_df[leaves_df["Employee Code"].isin(all_subordinate_codes)].copy()
                     if not detailed_report_df.empty:
-                        # ✅ التحويل الآمن للأنواع قبل الدمج
-                        # تحويل عمود Employee Code في جدول الإجازات إلى نص
-                        detailed_report_df["Employee Code"] = detailed_report_df["Employee Code"].astype(str).str.strip()
-                        # تحويل عمود Manager Code في جدول الإجازات إلى نص
-                        detailed_report_df["Manager Code"] = detailed_report_df["Manager Code"].astype(str).str.strip()
-                        # تحويل أعمدة الموظفين إلى نص أيضًا لضمان التطابق
-                        df_full[emp_code_col] = df_full[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-                        df_full[mgr_code_col] = df_full[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-                        # الآن الدمج آمن
+                        # Merge to get employee names and manager names
                         detailed_report_df = detailed_report_df.merge(
                             df_full[[emp_code_col, emp_name_col]].rename(columns={emp_name_col: "Employee Name"}),
                             left_on="Employee Code",
@@ -1771,23 +1700,19 @@ def page_hr_manager(user):
         emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
         mgr_code_col = col_map.get("manager_code") or col_map.get("manager code")
         if emp_code_col and emp_name_col and mgr_code_col:
-            # ✅ التحويل الآمن للأنواع قبل الدمج
-            # تحويل عمود Employee Code في جدول الإجازات إلى نص
-            leaves_df_all["Employee Code"] = leaves_df_all["Employee Code"].astype(str).str.strip()
-            # تحويل عمود Manager Code في جدول الإجازات إلى نص
-            leaves_df_all["Manager Code"] = leaves_df_all["Manager Code"].astype(str).str.strip()
-            # تحويل أعمدة الموظفين إلى نص أيضًا لضمان التطابق
             df_emp_global[emp_code_col] = df_emp_global[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
             df_emp_global[mgr_code_col] = df_emp_global[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-            # الآن الدمج آمن
+            # Merge to get employee names and manager names
             leaves_with_names = leaves_df_all.merge(
                 df_emp_global[[emp_code_col, emp_name_col]].rename(columns={emp_code_col: "Employee Code", emp_name_col: "Employee Name"}),
-                on="Employee Code",
+                left_on="Employee Code",
+                right_on="Employee Code",
                 how="left"
             )
             leaves_with_names = leaves_with_names.merge(
                 df_emp_global[[emp_code_col, emp_name_col]].rename(columns={emp_code_col: "Manager Code", emp_name_col: "Manager Name"}),
-                on="Manager Code",
+                left_on="Manager Code",
+                right_on="Manager Code",
                 how="left"
             )
             # Format dates
@@ -2175,17 +2100,17 @@ with st.sidebar:
         st.markdown("---")
         # Determine pages based on user role
         if is_hr:
-            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Notifications", "Directory"]
+            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Notifications"]
         elif is_bum:
-            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
+            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         elif is_am:
-            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
+            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         elif is_dm:
-            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
+            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         elif is_mr:
-            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
+            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         else:
-            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
+            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications"]
         for p in pages:
             if st.button(p, key=f"nav_{p}", use_container_width=True):
                 st.session_state["current_page"] = p
@@ -2257,7 +2182,5 @@ if st.session_state["logged_in_user"]:
             st.error("Access denied. HR only.")
     elif current_page == "Request HR":
         page_request_hr(user)
-    elif current_page == "Directory":
-        page_directory(user)
 else:
     st.info("Please log in to access the system.")
