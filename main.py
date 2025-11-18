@@ -8,7 +8,6 @@ import os
 import datetime
 import shutil
 import zipfile
-import streamlit.components.v1 as components
 
 # ============================
 # Configuration / Defaults
@@ -18,6 +17,7 @@ LEAVES_FILE_PATH = "Leaves.xlsx"
 NOTIFICATIONS_FILE_PATH = "Notifications.xlsx"
 HR_QUERIES_FILE_PATH = "HR_Queries.xlsx"
 HR_REQUESTS_FILE_PATH = "HR_Requests.xlsx"
+SALARIES_FILE_PATH = "Salaries.xlsx" # Added for salary page
 LOGO_PATH = "logo.jpg"
 GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", None)
 REPO_OWNER = st.secrets.get("REPO_OWNER", "mohamedomar-hub")
@@ -26,330 +26,32 @@ BRANCH = st.secrets.get("BRANCH", "main")
 FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FILE_PATH") else DEFAULT_FILE_PATH
 
 # ============================
-# UI Enhancements Module - START (Integrated from ui_enhancements_for_hr_system.py)
+# Styling - Enhanced Dark Mode CSS with Bell, Fonts, and Sidebar Improvements
 # ============================
+st.set_page_config(page_title="HRAS — Averroes Admin", page_icon="👥", layout="wide")
 
-# Configuration / Defaults
-ENABLED = True
-DEFAULT_THEME = st.session_state.get('theme', 'dark')
-
-# CSS for animations, cards, sidebar, icons, loading, and theme switching
-COMMON_CSS = r"""
+# ✅ Add this CSS to hide Streamlit's default toolbar
+hide_streamlit_style = """
 <style>
-/* ================= Button animation ================= */
-.stButton>button{
-  transition: transform .14s ease, box-shadow .14s ease, background-color .14s ease;
-}
-.stButton>button:active{ transform: translateY(1px) scale(.997); }
-.stButton>button:hover{ transform: translateY(-3px); box-shadow: 0 8px 18px rgba(2,6,23,0.45); }
-
-/* ================= Confirm modal overrides (styling for st.modal) ================= */
-.stModal { border-radius: 12px; }
-
-/* ================= Collapsible sidebar groups (using expanders inside sidebar) ================= */
-.sidebar-section-title{
-  font-weight:700; font-size:14px; color:#ffd166; margin-bottom:4px;
-}
-
-/* ================= Cards improvements ================= */
-.custom-card{
-  border-radius: 14px; padding:14px; margin:8px 0; transition: transform .18s ease, box-shadow .18s ease;
-}
-.custom-card:hover{ transform: translateY(-6px); box-shadow: 0 18px 48px rgba(2,6,23,0.55); }
-
-.custom-card .card-title{ font-size:1.05rem; font-weight:700; margin-bottom:6px }
-.custom-card .card-body{ font-size:0.95rem }
-
-/* Light-mode-safe card */
-.custom-card.light{
-  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(250,250,250,0.96));
-  border:1px solid rgba(0,0,0,0.06); color:#0b1220; box-shadow: 0 6px 18px rgba(2,6,23,0.06);
-}
-
-/* Dark-mode card */
-.custom-card.dark{
-  background: linear-gradient(180deg, rgba(11,18,32,0.7), rgba(6,12,20,0.7));
-  border: 1px solid rgba(11,114,185,0.12);
-  box-shadow: 0 6px 18px rgba(2,6,23,0.45);
-  color: #e6eef8;
-}
-
-/* ================= Icons and small helpers ================= */
-.icon-inline{ margin-right:8px; font-size:1.05rem }
-
-/* ================= Loading overlay for uploads (simple) ================= */
-.upload-overlay{
-  display:flex; align-items:center; gap:10px; padding:8px; border-radius:8px;
-  background: rgba(11,18,32,0.7); color: #e6eef8; border:1px solid rgba(11,114,185,0.12);
-}
-
-/* Ensure Sidebar remains visible / fixed look (won't hide) */
-[data-testid="stSidebar"]{ position: relative; }
-
-</style>
-"""
-
-# CSS for Light Theme
-LIGHT_MODE_CSS = """
-<style>
-/* App background */
-[data-testid="stAppViewContainer"] {
-    background-color: #ffffff;
-    color: #0f1724;
-}
-/* Header & Toolbar */
-[data-testid="stHeader"], [data-testid="stToolbar"] {
-    background-color: #f8fafc;
-    color: #0f1724;
-}
-/* Sidebar */
-[data-testid="stSidebar"] {
-    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
-    border-right: 2px solid #0b72b9;
-    color: #0f1724;
-}
-/* Inputs */
-.stTextInput>div>div>input,
-.stNumberInput>div>input,
-.stSelectbox>div>div>div {
-    background-color: #ffffff;
-    color: #0f1724;
-    border: 1px solid #cbd5e1;
-}
-.stTextInput>div>div>input:focus,
-.stNumberInput>div>input:focus {
-    border-color: #0b72b9;
-    box-shadow: 0 0 0 2px rgba(11, 114, 185, 0.2);
-}
-/* Buttons */
-.stButton>button {
-    background-color: #0b72b9;
-    color: white;
-    border-radius: 8px;
-    padding: 8px 16px;
-    border: none;
-    transition: all 0.2s ease;
-}
-.stButton>button:hover {
-    background-color: #0a5aa0;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-}
-/* Dataframes */
-.stDataFrame > div > div {
-    background-color: #ffffff !important;
-    border-radius: 8px;
-    border: 1px solid #cbd5e1;
-}
-.stDataFrame table {
-    color: #0f1724 !important;
-}
-.stDataFrame tr:nth-child(even) {
-    background-color: #f1f5f9 !important;
-}
-.stDataFrame tr:hover {
-    background-color: #e2e8f0 !important;
-}
-/* Notification Bell */
-.notification-bell {
-    position: fixed;
-    top: 16px;
-    right: 20px;
-    background: #0b72b9;
-    color: white;
-    border-radius: 50%;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-    z-index: 1000;
-}
-.notification-bell:hover {
-    background: #0a5aa0;
-    transform: scale(1.1);
-    animation: bellRing 0.6s ease; /* إضافة انيميشن */
-}
-.notification-badge {
-    position: absolute;
-    top: -2px;
-    right: -2px;
-    background: #ff6b6b;
-    color: white;
-    border-radius: 50%;
-    width: 20px;
-    height: 20px;
-    font-size: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-}
-/* HR message card */
-.hr-message-card {
-    background-color: #f8fafc;
-    border: 1px solid #cbd5e1;
-    padding: 14px;
-    border-radius: 10px;
-    margin-bottom: 12px;
-    white-space: pre-wrap;
-}
-.hr-message-title {
-    font-weight: 700;
-    font-size: 16px;
-    margin-bottom: 6px;
-    color: #0b72b9;
-}
-.hr-message-meta {
-    font-size: 13px;
-    color: #64748b;
-    margin-bottom: 8px;
-}
-.hr-message-body {
-    color: #0f1724;
-    font-size: 14px;
-    line-height: 1.4;
-    margin-bottom: 8px;
-}
-/* Team Hierarchy Styling */
-.team-node {
-    background-color: #f8fafc;
-    border-left: 4px solid #0b72b9;
-    padding: 12px;
-    margin: 8px 0;
-    border-radius: 6px;
-}
-.team-node-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-weight: 600;
-    color: #0b72b9;
-    margin-bottom: 8px;
-}
-.team-node-summary {
-    font-size: 0.9rem;
-    color: #64748b;
-    margin-top: 4px;
-}
-.team-node-children {
-    margin-left: 20px;
-    margin-top: 8px;
-}
-.team-member {
-    display: flex;
-    align-items: center;
-    padding: 6px 12px;
-    background-color: #ffffff;
-    border-radius: 4px;
-    margin: 4px 0;
-    font-size: 0.95rem;
-}
-.team-member-icon {
-    margin-right: 8px;
-    font-size: 1.1rem;
-}
-/* Leave Balance Cards */
-.leave-balance-card {
-    border: 1px solid #0b72b9;
-    border-radius: 12px;
-    padding: 16px;
-    margin: 8px;
-    text-align: center;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s ease;
-}
-.leave-balance-card:hover {
-    transform: translateY(-5px) scale(1.02);
-    background-color: #f1f5f9;
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
-}
-.leave-balance-title {
-    font-size: 14px;
-    color: #64748b;
-    margin-bottom: 8px;
-}
-.leave-balance-value {
-    font-size: 24px;
-    font-weight: bold;
-    color: #0b72b9;
-}
-.leave-balance-value.used {
-    color: #e53e3e; /* Red for used days */
-}
-.leave-balance-value.remaining {
-    color: #38a169; /* Greenish for remaining days */
-}
-/* Team Structure Cards */
-.team-structure-card {
-    border: 1px solid #0b72b9;
-    border-radius: 12px;
-    padding: 16px;
-    margin: 8px;
-    text-align: center;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s ease;
-}
-.team-structure-card:hover {
-    transform: translateY(-5px) scale(1.02);
-    background-color: #f1f5f9;
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
-}
-.team-structure-title {
-    font-size: 14px;
-    color: #64748b;
-    margin-bottom: 8px;
-}
-.team-structure-value {
-    font-size: 24px;
-    font-weight: bold;
-    color: #0b72b9;
-}
-.team-structure-value.am {
-    color: #d69e2e; /* Golden for AM */
-}
-.team-structure-value.dm {
-    color: #3182ce; /* Blue for DM */
-}
-.team-structure-value.mr {
-    color: #38a169; /* Green for MR */
-}
-.team-structure-value.total {
-    color: #dd6b20; /* Orange for Total */
-}
-/* Sidebar Buttons */
-[data-testid="stSidebar"] .stButton>button {
-    background-color: #0b72b9;
-    color: white;
-    border-radius: 8px;
-    padding: 8px 16px;
-    border: none;
-    transition: all 0.2s ease;
-    width: 100%; /* لجعل الأزرار تأخذ العرض الكامل */
-    margin: 4px 0; /* مسافة بين الأزرار */
-}
-[data-testid="stSidebar"] .stButton>button:hover {
-    background-color: #0a5aa0;
-    transform: scale(1.02); /* تكبير طفيف */
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-}
-/* Animation for notification bell */
-@keyframes bellRing {
-    0% { transform: scale(1) rotate(0deg); }
-    25% { transform: scale(1.1) rotate(10deg); }
-    50% { transform: scale(1.1) rotate(-10deg); }
-    75% { transform: scale(1.1) rotate(10deg); }
-    100% { transform: scale(1.1) rotate(0deg); }
+/* Hide the Streamlit menu bar */
+#MainMenu {visibility: hidden;}
+/* Hide the Streamlit footer */
+footer {visibility: hidden;}
+/* ✅ Removed header hiding line to keep sidebar visible */
+/* Optional: Hide the "Manage app" button in the bottom right */
+div[data-testid="stDeployButton"] {
+    display: none;
 }
 </style>
 """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# CSS for Dark Theme (Default)
-DARK_MODE_CSS = """
+enhanced_dark_css = """
 <style>
+/* Fonts */
+body, h1, h2, h3, h4, h5, p, div, span, li {
+    font-family: 'Segoe UI', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
 /* App background */
 [data-testid="stAppViewContainer"] {
     background-color: #0f1724;
@@ -363,6 +65,14 @@ DARK_MODE_CSS = """
 [data-testid="stSidebar"] {
     background: linear-gradient(135deg, #071226 0%, #0a1a2f 100%);
     border-right: 2px solid #0b72b9;
+}
+.sidebar-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #ffd166;
+    margin: 1.2rem 0 1rem;
+    text-align: center;
+    letter-spacing: 0.5px;
 }
 /* Inputs */
 .stTextInput>div>div>input,
@@ -600,162 +310,6 @@ DARK_MODE_CSS = """
     50% { transform: scale(1.1) rotate(-10deg); }
     75% { transform: scale(1.1) rotate(10deg); }
     100% { transform: scale(1.1) rotate(0deg); }
-}
-</style>
-"""
-
-
-# Helper functions
-def apply_ui_enhancements():
-    """Inject CSS and add the theme-switch + helper wrappers to session_state.
-    Call this once from your main app file near the top.
-    """
-    # Ensure theme in session state
-    if 'theme' not in st.session_state:
-        st.session_state['theme'] = DEFAULT_THEME
-
-    # Apply CSS based on current theme
-    if st.session_state['theme'] == 'light':
-        st.markdown(LIGHT_MODE_CSS, unsafe_allow_html=True)
-    else: # Default to dark
-        st.markdown(DARK_MODE_CSS, unsafe_allow_html=True)
-
-    # Inject common enhancements CSS
-    st.markdown(COMMON_CSS, unsafe_allow_html=True)
-
-    # Add a small theme switch in the sidebar (keeps components colors stable)
-    try:
-        with st.sidebar:
-            st.markdown('<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px">', unsafe_allow_html=True)
-            st.write('')
-            theme_col1, theme_col2 = st.columns([3,1])
-            with theme_col1:
-                st.markdown('<div class="sidebar-section-title">Display Theme</div>', unsafe_allow_html=True)
-            with theme_col2:
-                if st.button('🌙' if st.session_state['theme']=='light' else '☀️', key='theme_toggle_btn'):
-                    # Toggle
-                    st.session_state['theme'] = 'dark' if st.session_state['theme']=='light' else 'light'
-                    # No heavy re-render actions; just rerun to apply CSS variations
-                    st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-    except Exception:
-        pass
-
-    # Add convenience wrappers to session for use by main app
-    if 'ui' not in st.session_state:
-        st.session_state['ui'] = {}
-    st.session_state['ui'].update({
-        'confirm':confirm_action,
-        'upload_with_spinner':upload_with_spinner,
-        'card_html':card_html
-    })
-
-
-# Confirm modal wrapper (uses st.modal)
-def confirm_action(title='Confirm', message='Are you sure?', confirm_text='Yes', cancel_text='Cancel', key_suffix=''):
-    """Shows a modal confirm dialog. Returns True if user confirmed, False otherwise.
-    Use it like:
-        if confirm_action('Delete','Are you sure you want to delete X?'):
-            do_delete()
-    """
-    # Use a temporary session key to hold result
-    res_key = f'_confirm_res_{key_suffix}'
-    st.session_state[res_key] = False
-    # Create modal
-    with st.modal(title):
-        st.markdown(f"<div style='padding:6px 0'>{message}</div>", unsafe_allow_html=True)
-        col1, col2 = st.columns([2,1])
-        with col1:
-            if st.button(confirm_text, key=f"_confirm_ok_{key_suffix}"):
-                st.session_state[res_key] = True
-                # close modal by rerun
-                st.experimental_rerun()
-        with col2:
-            if st.button(cancel_text, key=f"_confirm_cancel_{key_suffix}"):
-                st.session_state[res_key] = False
-                st.experimental_rerun()
-    # If modal closed without action, return stored value (default False)
-    return st.session_state.get(res_key, False)
-
-
-# Upload wrapper that shows loading animation
-def upload_with_spinner(upload_func, *args, message='Uploading file...', **kwargs):
-    """Helper to call a blocking `upload_func(*args, **kwargs)` while showing a spinner
-    upload_func should be a callable that performs the actual save and return value.
-    Example:
-        def save_file(upl, code, id):
-            # write binary
-            return filename
-        res = upload_with_spinner(save_file, uploaded_file, emp_code, req_id)
-    """
-    with st.spinner(message):
-        # small visual delay so spinner is visible for very fast operations
-        import time
-        time.sleep(0.2)
-        res = upload_func(*args, **kwargs)
-    return res
-
-
-# Card HTML helper
-def card_html(title, body, light=False):
-    cls = 'custom-card'
-    if light:
-        return f"<div class='{cls} light'><div class='card-title'>{title}</div><div class='card-body'>{body}</div></div>"
-    return f"<div class='{cls} dark'><div class='card-title'>{title}</div><div class='card-body'>{body}</div></div>"
-
-
-# Small utilities to be used in the main app
-def sidebar_group(header, items):
-    """Render a sidebar collapsible group with given header and list of (label, key) items.
-    Example:
-        sidebar_group('HR Tools', [('Dashboard','Dashboard'), ('Reports','Reports')])
-    """
-    with st.sidebar.expander(header, expanded=True):
-        for label, key in items:
-            if st.button(label, key=f"nav_{key}", use_container_width=True):
-                st.session_state['current_page'] = key
-                st.experimental_rerun()
-
-# ============================
-# UI Enhancements Module - END
-# ============================
-
-
-# ============================
-# Styling - Enhanced Dark Mode CSS with Bell, Fonts, and Sidebar Improvements
-# ============================
-st.set_page_config(page_title="HRAS — Averroes Admin", page_icon="👥", layout="wide")
-
-# ✅ Add this CSS to hide Streamlit's default toolbar
-hide_streamlit_style = """
-<style>
-/* Hide the Streamlit menu bar */
-#MainMenu {visibility: hidden;}
-/* Hide the Streamlit footer */
-footer {visibility: hidden;}
-/* ✅ Removed header hiding line to keep sidebar visible */
-/* Optional: Hide the "Manage app" button in the bottom right */
-div[data-testid="stDeployButton"] {
-    display: none;
-}
-</style>
-"""
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-
-enhanced_dark_css = """
-<style>
-/* Fonts */
-body, h1, h2, h3, h4, h5, p, div, span, li {
-    font-family: 'Segoe UI', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
-}
-/* Sidebar Title */
-.sidebar-title {
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: #ffd166;
-    margin: 1.2rem 0 1rem;
-    text-align: center;
-    letter-spacing: 0.5px;
 }
 </style>
 """
@@ -1755,6 +1309,67 @@ def page_directory(user):
         st.error("No columns could be mapped for display. Please check your Excel sheet headers.")
 
 # ============================
+# NEW: Salary Monthly Page
+# ============================
+def page_salary_monthly(user):
+    st.subheader("Monthly Salaries")
+    user_code = str(user.get("Employee Code", "N/A")).strip().replace(".0", "")
+
+    try:
+        # تحميل بيانات المرتبات
+        if os.path.exists(SALARIES_FILE_PATH):
+            salary_df = pd.read_excel(SALARIES_FILE_PATH)
+        else:
+            st.info("Salary data not available yet.")
+            return
+
+        # تحديد أعمدة البيانات (تأكد من أن الأسماء تطابق ما في ملفك)
+        code_col = "Employee Code"
+        month_col = "Month"
+        basic_col = "Basic Salary"
+        kpi_col = "KPI Bonus"
+        ded_col = "Deductions"
+        net_col = "Net Salary" # يمكن أن يكون هذا العمود موجودًا أو لا
+
+        # تصفية حسب كود الموظف
+        user_salaries = salary_df[salary_df[code_col].astype(str) == user_code]
+
+        if user_salaries.empty:
+            st.info("No salary records found for you.")
+            return
+
+        # عرض الشهور كExpanders
+        for index, row in user_salaries.iterrows():
+            month = row[month_col]
+            with st.expander(f"Salary Details for {month}", expanded=False):
+                st.write(f"**Month:** {month}")
+                st.write(f"**Basic Salary:** {row.get(basic_col, 'N/A')}")
+                st.write(f"**KPI Bonus:** {row.get(kpi_col, 'N/A')}")
+                st.write(f"**Deductions:** {row.get(ded_col, 'N/A')}")
+                # عرض Net Salary إذا كان العمود موجود
+                if net_col in row.index:
+                    st.write(f"**Net Salary:** {row.get(net_col, 'N/A')}")
+
+                # تحويل صف واحد إلى BytesIO لتنزيله
+                import io
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    row_df = pd.DataFrame([row]) # حول الصف إلى داتا فريم واحد
+                    row_df.to_excel(writer, index=False, sheet_name=f"Salary_{month}")
+                output.seek(0)
+
+                # زر التنزيل
+                st.download_button(
+                    label=f"Download Salary Slip for {month}",
+                    data=output,
+                    file_name=f"Salary_Slip_{user_code}_{month}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+
+    except Exception as e:
+        st.error(f"Error loading salary  {e}")
+
+# ============================
 # Pages
 # ============================
 def render_logo_and_title():
@@ -2421,13 +2036,11 @@ def page_hr_manager(user):
             # الآن الدمج آمن
             leaves_with_names = leaves_df_all.merge(
                 df_emp_global[[emp_code_col, emp_name_col]].rename(columns={emp_code_col: "Employee Code", emp_name_col: "Employee Name"}),
-                on="Employee Code",
-                how="left"
+                on="Employee Code", how="left"
             )
             leaves_with_names = leaves_with_names.merge(
                 df_emp_global[[emp_code_col, emp_name_col]].rename(columns={emp_code_col: "Manager Code", emp_name_col: "Manager Name"}),
-                on="Manager Code",
-                how="left"
+                on="Manager Code", how="left"
             )
             # Format dates
             leaves_with_names["Start Date"] = pd.to_datetime(leaves_with_names["Start Date"]).dt.strftime("%d-%m-%Y")
@@ -2584,7 +2197,7 @@ def page_hr_manager(user):
     st.warning("🛠️ **Clear All Test Data** (Use BEFORE going live!)")
     if st.button("🗑️ Clear Leaves, HR Messages, Notifications & Photos"):
         try:
-            test_files = [LEAVES_FILE_PATH, HR_QUERIES_FILE_PATH, NOTIFICATIONS_FILE_PATH, HR_REQUESTS_FILE_PATH]
+            test_files = [LEAVES_FILE_PATH, HR_QUERIES_FILE_PATH, NOTIFICATIONS_FILE_PATH, HR_REQUESTS_FILE_PATH, SALARIES_FILE_PATH] # Added SALARIES_FILE_PATH
             cleared = []
             for f in test_files:
                 if os.path.exists(f):
@@ -2807,9 +2420,6 @@ if "logged_in_user" not in st.session_state:
 if "current_page" not in st.session_state:
     st.session_state["current_page"] = "My Profile"
 
-# Apply UI enhancements
-apply_ui_enhancements() # Call the UI enhancements function here
-
 # ============================
 # Sidebar Navigation - Always Visible
 # ============================
@@ -2857,17 +2467,17 @@ with st.sidebar:
 
         # Determine pages based on user role
         if is_hr:
-            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Notifications", "Directory"]
+            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Notifications", "Directory", "Salary Monthly"] # Added "Salary Monthly"
         elif is_bum:
-            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
+            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"] # Added "Salary Monthly"
         elif is_am:
-            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
+            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"] # Added "Salary Monthly"
         elif is_dm:
-            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
+            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"] # Added "Salary Monthly"
         elif is_mr:
-            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
+            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"] # Added "Salary Monthly"
         else:
-            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
+            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"] # Added "Salary Monthly"
 
         for p in pages:
             if st.button(p, key=f"nav_{p}", use_container_width=True):
@@ -2944,5 +2554,7 @@ if st.session_state["logged_in_user"]:
         page_request_hr(user)
     elif current_page == "Directory":
         page_directory(user)
+    elif current_page == "Salary Monthly": # Added Salary Monthly page
+        page_salary_monthly(user)
 else:
     st.info("Please log in to access the system.")
