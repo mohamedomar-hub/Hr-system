@@ -417,7 +417,7 @@ def upload_salaries_to_github(df, commit_message="Update salaries via Streamlit"
         output.seek(0)
         file_content_b64 = base64.b64decode(output.read()).decode("utf-8")
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{SALARIES_FILE_PATH}"
-        sha = get_file_sha_for_salaries() # Need separate function for salaries file
+        sha = get_file_sha_for_salaries()
         payload = {"message": commit_message, "content": file_content_b64, "branch": BRANCH}
         if sha:
             payload["sha"] = sha
@@ -1363,12 +1363,12 @@ def page_directory(user):
         st.error("No columns could be mapped for display. Please check your Excel sheet headers.")
 
 # ============================
-# NEW: Salary Monthly Page for HR
+# NEW: Salary Report Page (HR Only)
 # ============================
-def page_salary_monthly_hr(user):
-    st.subheader("Salary Monthly (HR)")
+def page_salary_report_hr(user):
+    st.subheader("Salary Report (HR Only)")
     user_code = str(user.get("Employee Code", "N/A")).strip().replace(".0", "")
-    title_val = str(user.get("Title", "")).strip().upper()
+    title_val = str(user.get("Title") or user.get("title") or "").strip().upper()
     is_hr = "HR" in title_val
 
     # Only HR can access this page
@@ -1376,41 +1376,40 @@ def page_salary_monthly_hr(user):
         st.error("Access denied. HR only.")
         return
 
-    # Load salaries data
-    salaries_df = load_salaries_data()
-    if salaries_df.empty:
-        st.info("No salary data found. Please upload a file first.")
-        return
+    st.info("Upload the updated Salaries.xlsx file here to replace the current one.")
 
-    # Display the full salary table
-    st.markdown("### All Salary Records")
-    st.dataframe(salaries_df, use_container_width=True)
+    # Load current salaries data for reference (optional)
+    current_salaries_df = load_salaries_data()
+    if not current_salaries_df.empty:
+        st.markdown("### Current Salary Data Preview")
+        st.dataframe(current_salaries_df.head(10), use_container_width=True)
 
-    # Upload new salary file
-    st.markdown("---")
-    st.markdown("### Upload New Salary File")
     uploaded_file = st.file_uploader("Upload Salaries.xlsx", type=["xlsx"])
     if uploaded_file:
         try:
             new_salaries_df = pd.read_excel(uploaded_file)
-            st.success("File loaded successfully!")
-            # Optionally, display the new data
-            # st.dataframe(new_salaries_df)
+            st.success("File loaded successfully! Preview below.")
+            st.dataframe(new_salaries_df.head(20), use_container_width=True)
 
-            # Save and push to GitHub
-            if st.button("Save & Push New Salary Data to GitHub"):
+            # Save and Push to GitHub button
+            if st.button("✅ Save & Push New Salary Report to GitHub"):
                 saved_locally = save_salaries_data(new_salaries_df)
                 if saved_locally:
                     pushed_to_github = upload_salaries_to_github(new_salaries_df, commit_message=f"Update {SALARIES_FILE_PATH} via HR panel by {user_code}")
                     if pushed_to_github:
-                        st.success("Salary data saved and pushed to GitHub successfully!")
-                        st.rerun() # Refresh the page to show new data
+                        st.success("✅ Salary report saved locally and pushed to GitHub successfully!")
+                        # Optionally notify users (requires notification system setup for all employees)
+                        # add_notification("", "MR", "New salary report has been published.")
                     else:
-                        st.warning("Salary data saved locally, but GitHub push failed. Check your token.")
+                        if GITHUB_TOKEN:
+                            st.warning("✅ Saved locally, but GitHub push failed. Check token or network.")
+                        else:
+                            st.info("✅ Saved locally. GitHub token not configured for automatic push.")
                 else:
-                    st.error("Failed to save salary data locally.")
+                    st.error("❌ Failed to save the file locally.")
+
         except Exception as e:
-            st.error(f"Error reading uploaded file: {e}")
+            st.error(f"❌ Error reading uploaded file: {e}")
 
 # ============================
 # Pages
@@ -2510,17 +2509,17 @@ with st.sidebar:
 
         # Determine pages based on user role
         if is_hr:
-            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Notifications", "Directory", "Salary Monthly (HR)"] # Added "Salary Monthly (HR)"
+            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Notifications", "Directory", "Salary Report (HR)"] # Removed "Salary Monthly", Added "Salary Report (HR)"
         elif is_bum:
-            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
+            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"] # Removed "Salary Monthly"
         elif is_am:
-            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
+            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"] # Removed "Salary Monthly"
         elif is_dm:
-            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
+            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"] # Removed "Salary Monthly"
         elif is_mr:
-            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
+            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"] # Removed "Salary Monthly"
         else:
-            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
+            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"] # Removed "Salary Monthly"
 
         for p in pages:
             if st.button(p, key=f"nav_{p}", use_container_width=True):
@@ -2597,7 +2596,8 @@ if st.session_state["logged_in_user"]:
         page_request_hr(user)
     elif current_page == "Directory":
         page_directory(user)
-    elif current_page == "Salary Monthly (HR)": # Added Salary Monthly (HR) page
-        page_salary_monthly_hr(user)
+    elif current_page == "Salary Report (HR)": # Added Salary Report (HR) page
+        page_salary_report_hr(user)
+    # Note: "Salary Monthly" page is removed from navigation and logic
 else:
     st.info("Please log in to access the system.")
