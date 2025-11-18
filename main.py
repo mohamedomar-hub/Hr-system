@@ -385,6 +385,60 @@ def upload_to_github(df, commit_message="Update employees via Streamlit"):
         return False
 
 # ============================
+# NEW: Salary helpers
+# ============================
+def load_salaries_data():
+    if os.path.exists(SALARIES_FILE_PATH):
+        try:
+            df = pd.read_excel(SALARIES_FILE_PATH)
+            return df
+        except Exception:
+            return pd.DataFrame()
+    else:
+        return pd.DataFrame(columns=[
+            "Employee Code", "Month", "Basic Salary", "KPI Bonus", "Deductions", "Net Salary"
+        ])
+
+def save_salaries_data(df):
+    try:
+        with pd.ExcelWriter(SALARIES_FILE_PATH, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False)
+        return True
+    except Exception:
+        return False
+
+def upload_salaries_to_github(df, commit_message="Update salaries via Streamlit"):
+    if not GITHUB_TOKEN:
+        return False
+    try:
+        output = BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False)
+        output.seek(0)
+        file_content_b64 = base64.b64decode(output.read()).decode("utf-8")
+        url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{SALARIES_FILE_PATH}"
+        sha = get_file_sha_for_salaries() # Need separate function for salaries file
+        payload = {"message": commit_message, "content": file_content_b64, "branch": BRANCH}
+        if sha:
+            payload["sha"] = sha
+        put_resp = requests.put(url, headers=github_headers(), json=payload, timeout=60)
+        return put_resp.status_code in (200, 201)
+    except Exception:
+        return False
+
+def get_file_sha_for_salaries():
+    try:
+        url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{SALARIES_FILE_PATH}"
+        params = {"ref": BRANCH}
+        resp = requests.get(url, headers=github_headers(), params=params, timeout=30)
+        if resp.status_code == 200:
+            return resp.json().get("sha")
+        else:
+            return None
+    except Exception:
+        return None
+
+# ============================
 # Helpers (unchanged)
 # ============================
 def ensure_session_df():
@@ -1309,120 +1363,54 @@ def page_directory(user):
         st.error("No columns could be mapped for display. Please check your Excel sheet headers.")
 
 # ============================
-# NEW: Salary Monthly Page
+# NEW: Salary Monthly Page for HR
 # ============================
-def page_salary_monthly(user):
-    st.subheader("Monthly Salaries")
+def page_salary_monthly_hr(user):
+    st.subheader("Salary Monthly (HR)")
     user_code = str(user.get("Employee Code", "N/A")).strip().replace(".0", "")
+    title_val = str(user.get("Title", "")).strip().upper()
+    is_hr = "HR" in title_val
 
-    try:
-        # تحميل بيانات المرتبات
-        if not os.path.exists(SALARIES_FILE_PATH):
-            st.error(f"❌ File '{SALARIES_FILE_PATH}' not found. Please upload it to the app directory.")
-            return
+    # Only HR can access this page
+    if not is_hr:
+        st.error("Access denied. HR only.")
+        return
 
-        salary_df = pd.read_excel(SALARIES_FILE_PATH)
+    # Load salaries data
+    salaries_df = load_salaries_data()
+    if salaries_df.empty:
+        st.info("No salary data found. Please upload a file first.")
+        return
 
-        # التحقق من وجود الأعمدة الأساسية
-        required_columns = ["Employee Code", "Month", "Basic Salary", "KPI Bonus", "Deductions"]
-        missing_cols = [col for col in required_columns if col not in salary_df.columns]
-        if missing_cols:
-            st.error(f"❌ Required columns missing in {SALARIES_FILE_PATH}: {missing_cols}")
-            st.info("Please ensure your Excel sheet has these exact column names: Employee Code, Month, Basic Salary, KPI Bonus, Deductions.")
-            return
+    # Display the full salary table
+    st.markdown("### All Salary Records")
+    st.dataframe(salaries_df, use_container_width=True)
 
-        # تصفية حسب كود الموظف
-        user_salaries = salary_df[salary_df["Employee Code"].astype(str) == user_code]
+    # Upload new salary file
+    st.markdown("---")
+    st.markdown("### Upload New Salary File")
+    uploaded_file = st.file_uploader("Upload Salaries.xlsx", type=["xlsx"])
+    if uploaded_file:
+        try:
+            new_salaries_df = pd.read_excel(uploaded_file)
+            st.success("File loaded successfully!")
+            # Optionally, display the new data
+            # st.dataframe(new_salaries_df)
 
-        if user_salaries.empty:
-            st.info(f"🚫 No salary records found for you (Code: {user_code}).")
-            return
-
-        # زر لعرض/إخفاء جميع التفاصيل
-        if st.button("📊 Show All Details"):
-            show_all_key = "show_all_details"
-            st.session_state[show_all_key] = not st.session_state.get(show_all_key, False)
-
-        # عرض الجدول الكامل إذا تم الضغط على الزر
-        if st.session_state.get("show_all_details", False):
-            st.markdown("### All Salary Records")
-            # تحديد الأعمدة المطلوب عرضها في الجدول
-            display_cols = ["Month", "Basic Salary", "KPI Bonus", "Deductions"]
-            if "Net Salary" in user_salaries.columns:
-                display_cols.append("Net Salary")
-            # عرض الجدول
-            st.dataframe(user_salaries[display_cols].reset_index(drop=True), use_container_width=True)
-
-        # عرض الأزرار لكل شهر (مثلما كان)
-        for index, row in user_salaries.iterrows():
-            month = row["Month"]
-            # مفتاح فريد لكل زر لتجنب التضارب
-            button_key = f"show_details_{month}_{index}"
-            if st.button(f"Show Details for {month}", key=button_key):
-                # عند الضغط على الزر، نخزن التفاصيل في session_state
-                st.session_state[f"salary_details_{month}"] = {
-                    "month": month,
-                    "basic": row.get('Basic Salary', 'N/A'),
-                    "kpi": row.get('KPI Bonus', 'N/A'),
-                    "ded": row.get('Deductions', 'N/A'),
-                    "net": row.get('Net Salary', 'N/A') # نفترض أن العمود موجود
-                }
-
-        # عرض التفاصيل المخزنة في session_state (مثلما كان)
-        for index, row in user_salaries.iterrows():
-            month = row["Month"]
-            details_key = f"salary_details_{month}"
-            if st.session_state.get(details_key):
-                details = st.session_state[details_key]
-                with st.container():
-                    # العنوان بأسلوب كارد
-                    st.markdown(f"<div style='background-color:#0b1220; padding: 8px; border-left: 4px solid #ffd166; margin-bottom: 8px;'><span style='color:#ffd166; font-weight:bold;'>Salary Details for {details['month']}</span></div>", unsafe_allow_html=True)
-
-                    # عرض التفاصيل في كارد
-                    card_content = f"""
-                    <div style="background-color:#0c1525; padding: 12px; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <span style="color:#9fb0c8;">💰 Basic Salary:</span>
-                            <span style="color:#ffd166; font-weight:bold;">{details['basic']:.2f}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <span style="color:#9fb0c8;">🎯 KPI Bonus:</span>
-                            <span style="color:#ffd166; font-weight:bold;">{details['kpi']:.2f}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <span style="color:#9fb0c8;">📉 Deductions:</span>
-                            <span style="color:#ff6b6b; font-weight:bold;">{details['ded']:.2f}</span>
-                        </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; border-top: 1px solid #1e293b; padding-top: 8px;">
-                            <span style="color:#9fb0c8; font-weight:bold;">🧮 Net Salary:</span>
-                            <span style="color:#4ecdc4; font-weight:bold;">{details['net']:.2f}</span>
-                        </div>
-                    </div>
-                    """
-                    st.markdown(card_content, unsafe_allow_html=True)
-
-                    # تحويل صف واحد إلى BytesIO لتنزيله
-                    import io
-                    output = io.BytesIO()
-                    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                        row_df = pd.DataFrame([row]) # حول الصف إلى داتا فريم واحد
-                        row_df.to_excel(writer, index=False, sheet_name=f"Salary_{month}")
-                    output.seek(0)
-
-                    # زر التنزيل
-                    st.download_button(
-                        label=f"📥 Download Salary Slip for {month}",
-                        data=output,
-                        file_name=f"Salary_Slip_{user_code}_{month}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
-                    # زر لحذف التفاصيل من session_state
-                    if st.button(f"Hide Details for {month}", key=f"hide_{month}"):
-                         del st.session_state[details_key]
-                         st.rerun()
-
-    except Exception as e:
-        st.error(f"❌ Error loading salary  {e}")
+            # Save and push to GitHub
+            if st.button("Save & Push New Salary Data to GitHub"):
+                saved_locally = save_salaries_data(new_salaries_df)
+                if saved_locally:
+                    pushed_to_github = upload_salaries_to_github(new_salaries_df, commit_message=f"Update {SALARIES_FILE_PATH} via HR panel by {user_code}")
+                    if pushed_to_github:
+                        st.success("Salary data saved and pushed to GitHub successfully!")
+                        st.rerun() # Refresh the page to show new data
+                    else:
+                        st.warning("Salary data saved locally, but GitHub push failed. Check your token.")
+                else:
+                    st.error("Failed to save salary data locally.")
+        except Exception as e:
+            st.error(f"Error reading uploaded file: {e}")
 
 # ============================
 # Pages
@@ -2522,17 +2510,17 @@ with st.sidebar:
 
         # Determine pages based on user role
         if is_hr:
-            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Notifications", "Directory", "Salary Monthly"] # Added "Salary Monthly"
+            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Notifications", "Directory", "Salary Monthly (HR)"] # Added "Salary Monthly (HR)"
         elif is_bum:
-            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"] # Added "Salary Monthly"
+            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
         elif is_am:
-            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"] # Added "Salary Monthly"
+            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
         elif is_dm:
-            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"] # Added "Salary Monthly"
+            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
         elif is_mr:
-            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"] # Added "Salary Monthly"
+            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
         else:
-            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"] # Added "Salary Monthly"
+            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
 
         for p in pages:
             if st.button(p, key=f"nav_{p}", use_container_width=True):
@@ -2609,7 +2597,7 @@ if st.session_state["logged_in_user"]:
         page_request_hr(user)
     elif current_page == "Directory":
         page_directory(user)
-    elif current_page == "Salary Monthly": # Added Salary Monthly page
-        page_salary_monthly(user)
+    elif current_page == "Salary Monthly (HR)": # Added Salary Monthly (HR) page
+        page_salary_monthly_hr(user)
 else:
     st.info("Please log in to access the system.")
