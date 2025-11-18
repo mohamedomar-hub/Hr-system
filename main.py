@@ -8,7 +8,7 @@ import os
 import datetime
 import shutil
 import zipfile
-import streamlit.components.v1 as components # Added for UI enhancements
+import streamlit.components.v1 as components
 
 # ============================
 # Configuration / Defaults
@@ -33,7 +33,7 @@ FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FI
 ENABLED = True
 DEFAULT_THEME = st.session_state.get('theme', 'dark')
 
-# CSS for animations, cards, sidebar, icons, loading
+# CSS for animations, cards, sidebar, icons, loading, and theme switching
 COMMON_CSS = r"""
 <style>
 /* ================= Button animation ================= */
@@ -51,27 +51,27 @@ COMMON_CSS = r"""
   font-weight:700; font-size:14px; color:#ffd166; margin-bottom:4px;
 }
 
-/* ================= Theme variables: define both dark and light-safe variables ================= */
-:root{
-  --primary:#0b72b9; --accent:#ffd166; --bg-dark:#0f1724; --bg-light:#ffffff; --card-bg-dark:#0b1220; --card-bg-light:#ffffff;
-}
-
 /* ================= Cards improvements ================= */
 .custom-card{
-  background: linear-gradient(180deg, rgba(11,18,32,0.7), rgba(6,12,20,0.7));
-  border: 1px solid rgba(11,114,185,0.12);
-  border-radius: 14px; padding:14px; margin:8px 0; box-shadow: 0 6px 18px rgba(2,6,23,0.45);
-  transition: transform .18s ease, box-shadow .18s ease;
+  border-radius: 14px; padding:14px; margin:8px 0; transition: transform .18s ease, box-shadow .18s ease;
 }
 .custom-card:hover{ transform: translateY(-6px); box-shadow: 0 18px 48px rgba(2,6,23,0.55); }
 
-.custom-card .card-title{ font-size:1.05rem; color:var(--accent); font-weight:700; margin-bottom:6px }
-.custom-card .card-body{ color: #e6eef8; font-size:0.95rem }
+.custom-card .card-title{ font-size:1.05rem; font-weight:700; margin-bottom:6px }
+.custom-card .card-body{ font-size:0.95rem }
 
-/* Light-mode-safe card (will be applied when theme=light) */
+/* Light-mode-safe card */
 .custom-card.light{
   background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(250,250,250,0.96));
   border:1px solid rgba(0,0,0,0.06); color:#0b1220; box-shadow: 0 6px 18px rgba(2,6,23,0.06);
+}
+
+/* Dark-mode card */
+.custom-card.dark{
+  background: linear-gradient(180deg, rgba(11,18,32,0.7), rgba(6,12,20,0.7));
+  border: 1px solid rgba(11,114,185,0.12);
+  box-shadow: 0 6px 18px rgba(2,6,23,0.45);
+  color: #e6eef8;
 }
 
 /* ================= Icons and small helpers ================= */
@@ -89,138 +89,267 @@ COMMON_CSS = r"""
 </style>
 """
 
-# Helper functions
-def apply_ui_enhancements():
-    """Inject CSS and add the theme-switch + helper wrappers to session_state.
-    Call this once from your main app file near the top.
-    """
-    # Inject CSS
-    st.markdown(COMMON_CSS, unsafe_allow_html=True)
-
-    # Ensure theme in session state
-    if 'theme' not in st.session_state:
-        st.session_state['theme'] = DEFAULT_THEME
-
-    # Add a small theme switch in the sidebar (keeps components colors stable)
-    try:
-        with st.sidebar:
-            st.markdown('<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px">', unsafe_allow_html=True)
-            st.write('')
-            theme_col1, theme_col2 = st.columns([3,1])
-            with theme_col1:
-                st.markdown('<div class="sidebar-section-title">Display Theme</div>', unsafe_allow_html=True)
-            with theme_col2:
-                if st.button('🌙' if st.session_state['theme']=='light' else '☀️', key='theme_toggle_btn'):
-                    # Toggle
-                    st.session_state['theme'] = 'dark' if st.session_state['theme']=='light' else 'light'
-                    # No heavy re-render actions; just rerun to apply CSS variations
-                    st.experimental_rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-    except Exception:
-        pass
-
-    # Add convenience wrappers to session for use by main app
-    if 'ui' not in st.session_state:
-        st.session_state['ui'] = {}
-    st.session_state['ui'].update({
-        'confirm':confirm_action,
-        'upload_with_spinner':upload_with_spinner,
-        'card_html':card_html
-    })
-
-# Confirm modal wrapper (uses st.modal)
-def confirm_action(title='Confirm', message='Are you sure?', confirm_text='Yes', cancel_text='Cancel', key_suffix=''):
-    """Shows a modal confirm dialog. Returns True if user confirmed, False otherwise.
-    Use it like:
-        if confirm_action('Delete','Are you sure you want to delete X?'):
-            do_delete()
-    """
-    # Use a temporary session key to hold result
-    res_key = f'_confirm_res_{key_suffix}'
-    st.session_state[res_key] = False
-    # Create modal
-    with st.modal(title):
-        st.markdown(f"<div style='padding:6px 0'>{message}</div>", unsafe_allow_html=True)
-        col1, col2 = st.columns([2,1])
-        with col1:
-            if st.button(confirm_text, key=f"_confirm_ok_{key_suffix}"):
-                st.session_state[res_key] = True
-                # close modal by rerun
-                st.experimental_rerun()
-        with col2:
-            if st.button(cancel_text, key=f"_confirm_cancel_{key_suffix}"):
-                st.session_state[res_key] = False
-                st.experimental_rerun()
-    # If modal closed without action, return stored value (default False)
-    return st.session_state.get(res_key, False)
-
-# Upload wrapper that shows loading animation
-def upload_with_spinner(upload_func, *args, message='Uploading file...', **kwargs):
-    """Helper to call a blocking `upload_func(*args, **kwargs)` while showing a spinner
-    upload_func should be a callable that performs the actual save and return value.
-    Example:
-        def save_file(upl, code, id):
-            # write binary
-            return filename
-        res = upload_with_spinner(save_file, uploaded_file, emp_code, req_id)
-    """
-    with st.spinner(message):
-        # small visual delay so spinner is visible for very fast operations
-        time.sleep(0.2)
-        res = upload_func(*args, **kwargs)
-    return res
-
-# Card HTML helper
-def card_html(title, body, light=False):
-    cls = 'custom-card'
-    if light:
-        return f"<div class='{cls} light'><div class='card-title'>{title}</div><div class='card-body'>{body}</div></div>"
-    return f"<div class='{cls}'><div class='card-title'>{title}</div><div class='card-body'>{body}</div></div>"
-
-# Small utilities to be used in the main app
-def sidebar_group(header, items):
-    """Render a sidebar collapsible group with given header and list of (label, key) items.
-    Example:
-        sidebar_group('HR Tools', [('Dashboard','Dashboard'), ('Reports','Reports')])
-    """
-    with st.sidebar.expander(header, expanded=True):
-        for label, key in items:
-            if st.button(label, key=f"nav_{key}", use_container_width=True):
-                st.session_state['current_page'] = key
-                st.experimental_rerun()
-
-# ============================
-# UI Enhancements Module - END
-# ============================
-
-
-# ============================
-# Styling - Enhanced Dark Mode CSS with Bell, Fonts, and Sidebar Improvements
-# ============================
-st.set_page_config(page_title="HRAS — Averroes Admin", page_icon="👥", layout="wide")
-
-# ✅ Add this CSS to hide Streamlit's default toolbar
-hide_streamlit_style = """
+# CSS for Light Theme
+LIGHT_MODE_CSS = """
 <style>
-/* Hide the Streamlit menu bar */
-#MainMenu {visibility: hidden;}
-/* Hide the Streamlit footer */
-footer {visibility: hidden;}
-/* ✅ Removed header hiding line to keep sidebar visible */
-/* Optional: Hide the "Manage app" button in the bottom right */
-div[data-testid="stDeployButton"] {
-    display: none;
+/* App background */
+[data-testid="stAppViewContainer"] {
+    background-color: #ffffff;
+    color: #0f1724;
+}
+/* Header & Toolbar */
+[data-testid="stHeader"], [data-testid="stToolbar"] {
+    background-color: #f8fafc;
+    color: #0f1724;
+}
+/* Sidebar */
+[data-testid="stSidebar"] {
+    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+    border-right: 2px solid #0b72b9;
+    color: #0f1724;
+}
+/* Inputs */
+.stTextInput>div>div>input,
+.stNumberInput>div>input,
+.stSelectbox>div>div>div {
+    background-color: #ffffff;
+    color: #0f1724;
+    border: 1px solid #cbd5e1;
+}
+.stTextInput>div>div>input:focus,
+.stNumberInput>div>input:focus {
+    border-color: #0b72b9;
+    box-shadow: 0 0 0 2px rgba(11, 114, 185, 0.2);
+}
+/* Buttons */
+.stButton>button {
+    background-color: #0b72b9;
+    color: white;
+    border-radius: 8px;
+    padding: 8px 16px;
+    border: none;
+    transition: all 0.2s ease;
+}
+.stButton>button:hover {
+    background-color: #0a5aa0;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+/* Dataframes */
+.stDataFrame > div > div {
+    background-color: #ffffff !important;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+}
+.stDataFrame table {
+    color: #0f1724 !important;
+}
+.stDataFrame tr:nth-child(even) {
+    background-color: #f1f5f9 !important;
+}
+.stDataFrame tr:hover {
+    background-color: #e2e8f0 !important;
+}
+/* Notification Bell */
+.notification-bell {
+    position: fixed;
+    top: 16px;
+    right: 20px;
+    background: #0b72b9;
+    color: white;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    z-index: 1000;
+}
+.notification-bell:hover {
+    background: #0a5aa0;
+    transform: scale(1.1);
+    animation: bellRing 0.6s ease; /* إضافة انيميشن */
+}
+.notification-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    background: #ff6b6b;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+/* HR message card */
+.hr-message-card {
+    background-color: #f8fafc;
+    border: 1px solid #cbd5e1;
+    padding: 14px;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    white-space: pre-wrap;
+}
+.hr-message-title {
+    font-weight: 700;
+    font-size: 16px;
+    margin-bottom: 6px;
+    color: #0b72b9;
+}
+.hr-message-meta {
+    font-size: 13px;
+    color: #64748b;
+    margin-bottom: 8px;
+}
+.hr-message-body {
+    color: #0f1724;
+    font-size: 14px;
+    line-height: 1.4;
+    margin-bottom: 8px;
+}
+/* Team Hierarchy Styling */
+.team-node {
+    background-color: #f8fafc;
+    border-left: 4px solid #0b72b9;
+    padding: 12px;
+    margin: 8px 0;
+    border-radius: 6px;
+}
+.team-node-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    color: #0b72b9;
+    margin-bottom: 8px;
+}
+.team-node-summary {
+    font-size: 0.9rem;
+    color: #64748b;
+    margin-top: 4px;
+}
+.team-node-children {
+    margin-left: 20px;
+    margin-top: 8px;
+}
+.team-member {
+    display: flex;
+    align-items: center;
+    padding: 6px 12px;
+    background-color: #ffffff;
+    border-radius: 4px;
+    margin: 4px 0;
+    font-size: 0.95rem;
+}
+.team-member-icon {
+    margin-right: 8px;
+    font-size: 1.1rem;
+}
+/* Leave Balance Cards */
+.leave-balance-card {
+    border: 1px solid #0b72b9;
+    border-radius: 12px;
+    padding: 16px;
+    margin: 8px;
+    text-align: center;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease;
+}
+.leave-balance-card:hover {
+    transform: translateY(-5px) scale(1.02);
+    background-color: #f1f5f9;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+.leave-balance-title {
+    font-size: 14px;
+    color: #64748b;
+    margin-bottom: 8px;
+}
+.leave-balance-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #0b72b9;
+}
+.leave-balance-value.used {
+    color: #e53e3e; /* Red for used days */
+}
+.leave-balance-value.remaining {
+    color: #38a169; /* Greenish for remaining days */
+}
+/* Team Structure Cards */
+.team-structure-card {
+    border: 1px solid #0b72b9;
+    border-radius: 12px;
+    padding: 16px;
+    margin: 8px;
+    text-align: center;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease;
+}
+.team-structure-card:hover {
+    transform: translateY(-5px) scale(1.02);
+    background-color: #f1f5f9;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+.team-structure-title {
+    font-size: 14px;
+    color: #64748b;
+    margin-bottom: 8px;
+}
+.team-structure-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #0b72b9;
+}
+.team-structure-value.am {
+    color: #d69e2e; /* Golden for AM */
+}
+.team-structure-value.dm {
+    color: #3182ce; /* Blue for DM */
+}
+.team-structure-value.mr {
+    color: #38a169; /* Green for MR */
+}
+.team-structure-value.total {
+    color: #dd6b20; /* Orange for Total */
+}
+/* Sidebar Buttons */
+[data-testid="stSidebar"] .stButton>button {
+    background-color: #0b72b9;
+    color: white;
+    border-radius: 8px;
+    padding: 8px 16px;
+    border: none;
+    transition: all 0.2s ease;
+    width: 100%; /* لجعل الأزرار تأخذ العرض الكامل */
+    margin: 4px 0; /* مسافة بين الأزرار */
+}
+[data-testid="stSidebar"] .stButton>button:hover {
+    background-color: #0a5aa0;
+    transform: scale(1.02); /* تكبير طفيف */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+/* Animation for notification bell */
+@keyframes bellRing {
+    0% { transform: scale(1) rotate(0deg); }
+    25% { transform: scale(1.1) rotate(10deg); }
+    50% { transform: scale(1.1) rotate(-10deg); }
+    75% { transform: scale(1.1) rotate(10deg); }
+    100% { transform: scale(1.1) rotate(0deg); }
 }
 </style>
 """
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-enhanced_dark_css = """
+# CSS for Dark Theme (Default)
+DARK_MODE_CSS = """
 <style>
-/* Fonts */
-body, h1, h2, h3, h4, h5, p, div, span, li {
-    font-family: 'Segoe UI', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
-}
 /* App background */
 [data-testid="stAppViewContainer"] {
     background-color: #0f1724;
@@ -234,14 +363,6 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
 [data-testid="stSidebar"] {
     background: linear-gradient(135deg, #071226 0%, #0a1a2f 100%);
     border-right: 2px solid #0b72b9;
-}
-.sidebar-title {
-    font-size: 1.3rem;
-    font-weight: 700;
-    color: #ffd166;
-    margin: 1.2rem 0 1rem;
-    text-align: center;
-    letter-spacing: 0.5px;
 }
 /* Inputs */
 .stTextInput>div>div>input,
@@ -479,6 +600,162 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     50% { transform: scale(1.1) rotate(-10deg); }
     75% { transform: scale(1.1) rotate(10deg); }
     100% { transform: scale(1.1) rotate(0deg); }
+}
+</style>
+"""
+
+
+# Helper functions
+def apply_ui_enhancements():
+    """Inject CSS and add the theme-switch + helper wrappers to session_state.
+    Call this once from your main app file near the top.
+    """
+    # Ensure theme in session state
+    if 'theme' not in st.session_state:
+        st.session_state['theme'] = DEFAULT_THEME
+
+    # Apply CSS based on current theme
+    if st.session_state['theme'] == 'light':
+        st.markdown(LIGHT_MODE_CSS, unsafe_allow_html=True)
+    else: # Default to dark
+        st.markdown(DARK_MODE_CSS, unsafe_allow_html=True)
+
+    # Inject common enhancements CSS
+    st.markdown(COMMON_CSS, unsafe_allow_html=True)
+
+    # Add a small theme switch in the sidebar (keeps components colors stable)
+    try:
+        with st.sidebar:
+            st.markdown('<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px">', unsafe_allow_html=True)
+            st.write('')
+            theme_col1, theme_col2 = st.columns([3,1])
+            with theme_col1:
+                st.markdown('<div class="sidebar-section-title">Display Theme</div>', unsafe_allow_html=True)
+            with theme_col2:
+                if st.button('🌙' if st.session_state['theme']=='light' else '☀️', key='theme_toggle_btn'):
+                    # Toggle
+                    st.session_state['theme'] = 'dark' if st.session_state['theme']=='light' else 'light'
+                    # No heavy re-render actions; just rerun to apply CSS variations
+                    st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+    except Exception:
+        pass
+
+    # Add convenience wrappers to session for use by main app
+    if 'ui' not in st.session_state:
+        st.session_state['ui'] = {}
+    st.session_state['ui'].update({
+        'confirm':confirm_action,
+        'upload_with_spinner':upload_with_spinner,
+        'card_html':card_html
+    })
+
+
+# Confirm modal wrapper (uses st.modal)
+def confirm_action(title='Confirm', message='Are you sure?', confirm_text='Yes', cancel_text='Cancel', key_suffix=''):
+    """Shows a modal confirm dialog. Returns True if user confirmed, False otherwise.
+    Use it like:
+        if confirm_action('Delete','Are you sure you want to delete X?'):
+            do_delete()
+    """
+    # Use a temporary session key to hold result
+    res_key = f'_confirm_res_{key_suffix}'
+    st.session_state[res_key] = False
+    # Create modal
+    with st.modal(title):
+        st.markdown(f"<div style='padding:6px 0'>{message}</div>", unsafe_allow_html=True)
+        col1, col2 = st.columns([2,1])
+        with col1:
+            if st.button(confirm_text, key=f"_confirm_ok_{key_suffix}"):
+                st.session_state[res_key] = True
+                # close modal by rerun
+                st.experimental_rerun()
+        with col2:
+            if st.button(cancel_text, key=f"_confirm_cancel_{key_suffix}"):
+                st.session_state[res_key] = False
+                st.experimental_rerun()
+    # If modal closed without action, return stored value (default False)
+    return st.session_state.get(res_key, False)
+
+
+# Upload wrapper that shows loading animation
+def upload_with_spinner(upload_func, *args, message='Uploading file...', **kwargs):
+    """Helper to call a blocking `upload_func(*args, **kwargs)` while showing a spinner
+    upload_func should be a callable that performs the actual save and return value.
+    Example:
+        def save_file(upl, code, id):
+            # write binary
+            return filename
+        res = upload_with_spinner(save_file, uploaded_file, emp_code, req_id)
+    """
+    with st.spinner(message):
+        # small visual delay so spinner is visible for very fast operations
+        import time
+        time.sleep(0.2)
+        res = upload_func(*args, **kwargs)
+    return res
+
+
+# Card HTML helper
+def card_html(title, body, light=False):
+    cls = 'custom-card'
+    if light:
+        return f"<div class='{cls} light'><div class='card-title'>{title}</div><div class='card-body'>{body}</div></div>"
+    return f"<div class='{cls} dark'><div class='card-title'>{title}</div><div class='card-body'>{body}</div></div>"
+
+
+# Small utilities to be used in the main app
+def sidebar_group(header, items):
+    """Render a sidebar collapsible group with given header and list of (label, key) items.
+    Example:
+        sidebar_group('HR Tools', [('Dashboard','Dashboard'), ('Reports','Reports')])
+    """
+    with st.sidebar.expander(header, expanded=True):
+        for label, key in items:
+            if st.button(label, key=f"nav_{key}", use_container_width=True):
+                st.session_state['current_page'] = key
+                st.experimental_rerun()
+
+# ============================
+# UI Enhancements Module - END
+# ============================
+
+
+# ============================
+# Styling - Enhanced Dark Mode CSS with Bell, Fonts, and Sidebar Improvements
+# ============================
+st.set_page_config(page_title="HRAS — Averroes Admin", page_icon="👥", layout="wide")
+
+# ✅ Add this CSS to hide Streamlit's default toolbar
+hide_streamlit_style = """
+<style>
+/* Hide the Streamlit menu bar */
+#MainMenu {visibility: hidden;}
+/* Hide the Streamlit footer */
+footer {visibility: hidden;}
+/* ✅ Removed header hiding line to keep sidebar visible */
+/* Optional: Hide the "Manage app" button in the bottom right */
+div[data-testid="stDeployButton"] {
+    display: none;
+}
+</style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
+enhanced_dark_css = """
+<style>
+/* Fonts */
+body, h1, h2, h3, h4, h5, p, div, span, li {
+    font-family: 'Segoe UI', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+/* Sidebar Title */
+.sidebar-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #ffd166;
+    margin: 1.2rem 0 1rem;
+    text-align: center;
+    letter-spacing: 0.5px;
 }
 </style>
 """
