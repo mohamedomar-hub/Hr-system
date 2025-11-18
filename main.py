@@ -1317,57 +1317,79 @@ def page_salary_monthly(user):
 
     try:
         # تحميل بيانات المرتبات
-        if os.path.exists(SALARIES_FILE_PATH):
-            salary_df = pd.read_excel(SALARIES_FILE_PATH)
-        else:
-            st.info("Salary data not available yet.")
+        if not os.path.exists(SALARIES_FILE_PATH):
+            st.error(f"❌ File '{SALARIES_FILE_PATH}' not found. Please upload it to the app directory.")
             return
 
-        # تحديد أعمدة البيانات (تأكد من أن الأسماء تطابق ما في ملفك)
-        code_col = "Employee Code"
-        month_col = "Month"
-        basic_col = "Basic Salary"
-        kpi_col = "KPI Bonus"
-        ded_col = "Deductions"
-        net_col = "Net Salary" # يمكن أن يكون هذا العمود موجودًا أو لا
+        salary_df = pd.read_excel(SALARIES_FILE_PATH)
+
+        # التحقق من وجود الأعمدة الأساسية
+        required_columns = ["Employee Code", "Month", "Basic Salary", "KPI Bonus", "Deductions"]
+        missing_cols = [col for col in required_columns if col not in salary_df.columns]
+        if missing_cols:
+            st.error(f"❌ Required columns missing in {SALARIES_FILE_PATH}: {missing_cols}")
+            st.info("Please ensure your Excel sheet has these exact column names: Employee Code, Month, Basic Salary, KPI Bonus, Deductions.")
+            return
 
         # تصفية حسب كود الموظف
-        user_salaries = salary_df[salary_df[code_col].astype(str) == user_code]
+        user_salaries = salary_df[salary_df["Employee Code"].astype(str) == user_code]
 
         if user_salaries.empty:
-            st.info("No salary records found for you.")
+            st.info(f"🚫 No salary records found for you (Code: {user_code}).")
             return
 
-        # عرض الشهور كExpanders
+        # عرض الأزرار لكل شهر
         for index, row in user_salaries.iterrows():
-            month = row[month_col]
-            with st.expander(f"Salary Details for {month}", expanded=False):
-                st.write(f"**Month:** {month}")
-                st.write(f"**Basic Salary:** {row.get(basic_col, 'N/A')}")
-                st.write(f"**KPI Bonus:** {row.get(kpi_col, 'N/A')}")
-                st.write(f"**Deductions:** {row.get(ded_col, 'N/A')}")
-                # عرض Net Salary إذا كان العمود موجود
-                if net_col in row.index:
-                    st.write(f"**Net Salary:** {row.get(net_col, 'N/A')}")
+            month = row["Month"]
+            # مفتاح فريد لكل زر لتجنب التضارب
+            button_key = f"show_details_{month}_{index}"
+            if st.button(f"Show Details for {month}", key=button_key):
+                # عند الضغط على الزر، نخزن التفاصيل في session_state
+                st.session_state[f"salary_details_{month}"] = {
+                    "month": month,
+                    "basic": row.get('Basic Salary', 'N/A'),
+                    "kpi": row.get('KPI Bonus', 'N/A'),
+                    "ded": row.get('Deductions', 'N/A'),
+                    "net": row.get('Net Salary', 'N/A') # نفترض أن العمود موجود
+                }
 
-                # تحويل صف واحد إلى BytesIO لتنزيله
-                import io
-                output = io.BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    row_df = pd.DataFrame([row]) # حول الصف إلى داتا فريم واحد
-                    row_df.to_excel(writer, index=False, sheet_name=f"Salary_{month}")
-                output.seek(0)
+        # عرض التفاصيل المخزنة في session_state
+        for index, row in user_salaries.iterrows():
+            month = row["Month"]
+            details_key = f"salary_details_{month}"
+            if st.session_state.get(details_key):
+                details = st.session_state[details_key]
+                with st.container():
+                    st.markdown(f"**<span style='color:#ffd166;'>Salary Details for {details['month']}</span>**", unsafe_allow_html=True)
+                    st.write(f"**Month:** {details['month']}")
+                    st.write(f"**Basic Salary:** {details['basic']}")
+                    st.write(f"**KPI Bonus:** {details['kpi']}")
+                    st.write(f"**Deductions:** {details['ded']}")
+                    if pd.notna(details['net']) and details['net'] != 'N/A':
+                         st.write(f"**Net Salary:** {details['net']}")
 
-                # زر التنزيل
-                st.download_button(
-                    label=f"Download Salary Slip for {month}",
-                    data=output,
-                    file_name=f"Salary_Slip_{user_code}_{month}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+                    # تحويل صف واحد إلى BytesIO لتنزيله
+                    import io
+                    output = io.BytesIO()
+                    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                        row_df = pd.DataFrame([row]) # حول الصف إلى داتا فريم واحد
+                        row_df.to_excel(writer, index=False, sheet_name=f"Salary_{month}")
+                    output.seek(0)
+
+                    # زر التنزيل
+                    st.download_button(
+                        label=f"Download Salary Slip for {month}",
+                        data=output,
+                        file_name=f"Salary_Slip_{user_code}_{month}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+                    # زر لحذف التفاصيل من session_state
+                    if st.button(f"Hide Details for {month}", key=f"hide_{month}"):
+                         del st.session_state[details_key]
+                         st.rerun()
 
     except Exception as e:
-        st.error(f"Error loading salary  {e}")
+        st.error(f"❌ Error loading salary  {e}")
 
 # ============================
 # Pages
