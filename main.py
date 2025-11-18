@@ -8,6 +8,8 @@ import os
 import datetime
 import shutil
 import zipfile
+import streamlit.components.v1 as components # Added for UI enhancements
+
 # ============================
 # Configuration / Defaults
 # ============================
@@ -22,10 +24,181 @@ REPO_OWNER = st.secrets.get("REPO_OWNER", "mohamedomar-hub")
 REPO_NAME = st.secrets.get("REPO_NAME", "hr-system")
 BRANCH = st.secrets.get("BRANCH", "main")
 FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FILE_PATH") else DEFAULT_FILE_PATH
+
+# ============================
+# UI Enhancements Module - START (Integrated from ui_enhancements_for_hr_system.py)
+# ============================
+
+# Configuration / Defaults
+ENABLED = True
+DEFAULT_THEME = st.session_state.get('theme', 'dark')
+
+# CSS for animations, cards, sidebar, icons, loading
+COMMON_CSS = r"""
+<style>
+/* ================= Button animation ================= */
+.stButton>button{
+  transition: transform .14s ease, box-shadow .14s ease, background-color .14s ease;
+}
+.stButton>button:active{ transform: translateY(1px) scale(.997); }
+.stButton>button:hover{ transform: translateY(-3px); box-shadow: 0 8px 18px rgba(2,6,23,0.45); }
+
+/* ================= Confirm modal overrides (styling for st.modal) ================= */
+.stModal { border-radius: 12px; }
+
+/* ================= Collapsible sidebar groups (using expanders inside sidebar) ================= */
+.sidebar-section-title{
+  font-weight:700; font-size:14px; color:#ffd166; margin-bottom:4px;
+}
+
+/* ================= Theme variables: define both dark and light-safe variables ================= */
+:root{
+  --primary:#0b72b9; --accent:#ffd166; --bg-dark:#0f1724; --bg-light:#ffffff; --card-bg-dark:#0b1220; --card-bg-light:#ffffff;
+}
+
+/* ================= Cards improvements ================= */
+.custom-card{
+  background: linear-gradient(180deg, rgba(11,18,32,0.7), rgba(6,12,20,0.7));
+  border: 1px solid rgba(11,114,185,0.12);
+  border-radius: 14px; padding:14px; margin:8px 0; box-shadow: 0 6px 18px rgba(2,6,23,0.45);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.custom-card:hover{ transform: translateY(-6px); box-shadow: 0 18px 48px rgba(2,6,23,0.55); }
+
+.custom-card .card-title{ font-size:1.05rem; color:var(--accent); font-weight:700; margin-bottom:6px }
+.custom-card .card-body{ color: #e6eef8; font-size:0.95rem }
+
+/* Light-mode-safe card (will be applied when theme=light) */
+.custom-card.light{
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(250,250,250,0.96));
+  border:1px solid rgba(0,0,0,0.06); color:#0b1220; box-shadow: 0 6px 18px rgba(2,6,23,0.06);
+}
+
+/* ================= Icons and small helpers ================= */
+.icon-inline{ margin-right:8px; font-size:1.05rem }
+
+/* ================= Loading overlay for uploads (simple) ================= */
+.upload-overlay{
+  display:flex; align-items:center; gap:10px; padding:8px; border-radius:8px;
+  background: rgba(11,18,32,0.7); color: #e6eef8; border:1px solid rgba(11,114,185,0.12);
+}
+
+/* Ensure Sidebar remains visible / fixed look (won't hide) */
+[data-testid="stSidebar"]{ position: relative; }
+
+</style>
+"""
+
+# Helper functions
+def apply_ui_enhancements():
+    """Inject CSS and add the theme-switch + helper wrappers to session_state.
+    Call this once from your main app file near the top.
+    """
+    # Inject CSS
+    st.markdown(COMMON_CSS, unsafe_allow_html=True)
+
+    # Ensure theme in session state
+    if 'theme' not in st.session_state:
+        st.session_state['theme'] = DEFAULT_THEME
+
+    # Add a small theme switch in the sidebar (keeps components colors stable)
+    try:
+        with st.sidebar:
+            st.markdown('<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px">', unsafe_allow_html=True)
+            st.write('')
+            theme_col1, theme_col2 = st.columns([3,1])
+            with theme_col1:
+                st.markdown('<div class="sidebar-section-title">Display Theme</div>', unsafe_allow_html=True)
+            with theme_col2:
+                if st.button('🌙' if st.session_state['theme']=='light' else '☀️', key='theme_toggle_btn'):
+                    # Toggle
+                    st.session_state['theme'] = 'dark' if st.session_state['theme']=='light' else 'light'
+                    # No heavy re-render actions; just rerun to apply CSS variations
+                    st.experimental_rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+    except Exception:
+        pass
+
+    # Add convenience wrappers to session for use by main app
+    if 'ui' not in st.session_state:
+        st.session_state['ui'] = {}
+    st.session_state['ui'].update({
+        'confirm':confirm_action,
+        'upload_with_spinner':upload_with_spinner,
+        'card_html':card_html
+    })
+
+# Confirm modal wrapper (uses st.modal)
+def confirm_action(title='Confirm', message='Are you sure?', confirm_text='Yes', cancel_text='Cancel', key_suffix=''):
+    """Shows a modal confirm dialog. Returns True if user confirmed, False otherwise.
+    Use it like:
+        if confirm_action('Delete','Are you sure you want to delete X?'):
+            do_delete()
+    """
+    # Use a temporary session key to hold result
+    res_key = f'_confirm_res_{key_suffix}'
+    st.session_state[res_key] = False
+    # Create modal
+    with st.modal(title):
+        st.markdown(f"<div style='padding:6px 0'>{message}</div>", unsafe_allow_html=True)
+        col1, col2 = st.columns([2,1])
+        with col1:
+            if st.button(confirm_text, key=f"_confirm_ok_{key_suffix}"):
+                st.session_state[res_key] = True
+                # close modal by rerun
+                st.experimental_rerun()
+        with col2:
+            if st.button(cancel_text, key=f"_confirm_cancel_{key_suffix}"):
+                st.session_state[res_key] = False
+                st.experimental_rerun()
+    # If modal closed without action, return stored value (default False)
+    return st.session_state.get(res_key, False)
+
+# Upload wrapper that shows loading animation
+def upload_with_spinner(upload_func, *args, message='Uploading file...', **kwargs):
+    """Helper to call a blocking `upload_func(*args, **kwargs)` while showing a spinner
+    upload_func should be a callable that performs the actual save and return value.
+    Example:
+        def save_file(upl, code, id):
+            # write binary
+            return filename
+        res = upload_with_spinner(save_file, uploaded_file, emp_code, req_id)
+    """
+    with st.spinner(message):
+        # small visual delay so spinner is visible for very fast operations
+        time.sleep(0.2)
+        res = upload_func(*args, **kwargs)
+    return res
+
+# Card HTML helper
+def card_html(title, body, light=False):
+    cls = 'custom-card'
+    if light:
+        return f"<div class='{cls} light'><div class='card-title'>{title}</div><div class='card-body'>{body}</div></div>"
+    return f"<div class='{cls}'><div class='card-title'>{title}</div><div class='card-body'>{body}</div></div>"
+
+# Small utilities to be used in the main app
+def sidebar_group(header, items):
+    """Render a sidebar collapsible group with given header and list of (label, key) items.
+    Example:
+        sidebar_group('HR Tools', [('Dashboard','Dashboard'), ('Reports','Reports')])
+    """
+    with st.sidebar.expander(header, expanded=True):
+        for label, key in items:
+            if st.button(label, key=f"nav_{key}", use_container_width=True):
+                st.session_state['current_page'] = key
+                st.experimental_rerun()
+
+# ============================
+# UI Enhancements Module - END
+# ============================
+
+
 # ============================
 # Styling - Enhanced Dark Mode CSS with Bell, Fonts, and Sidebar Improvements
 # ============================
 st.set_page_config(page_title="HRAS — Averroes Admin", page_icon="👥", layout="wide")
+
 # ✅ Add this CSS to hide Streamlit's default toolbar
 hide_streamlit_style = """
 <style>
@@ -41,6 +214,7 @@ div[data-testid="stDeployButton"] {
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
 enhanced_dark_css = """
 <style>
 /* Fonts */
@@ -309,6 +483,7 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
 </style>
 """
 st.markdown(enhanced_dark_css, unsafe_allow_html=True)
+
 # ============================
 # Photo Helper
 # ============================
@@ -323,6 +498,7 @@ def save_employee_photo(employee_code, uploaded_file):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
 # ============================
 # GitHub helpers (unchanged)
 # ============================
@@ -331,6 +507,7 @@ def github_headers():
     if GITHUB_TOKEN:
         headers["Authorization"] = f"token {GITHUB_TOKEN}"
     return headers
+
 def load_employee_data_from_github():
     try:
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}?ref={BRANCH}"
@@ -344,6 +521,7 @@ def load_employee_data_from_github():
             return pd.DataFrame()
     except Exception:
         return pd.DataFrame()
+
 def get_file_sha():
     try:
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}"
@@ -355,6 +533,7 @@ def get_file_sha():
             return None
     except Exception:
         return None
+
 def upload_to_github(df, commit_message="Update employees via Streamlit"):
     if not GITHUB_TOKEN:
         return False
@@ -373,6 +552,7 @@ def upload_to_github(df, commit_message="Update employees via Streamlit"):
         return put_resp.status_code in (200, 201)
     except Exception:
         return False
+
 # ============================
 # Helpers (unchanged)
 # ============================
@@ -389,6 +569,7 @@ def ensure_session_df():
                     st.session_state["df"] = pd.DataFrame()
             else:
                 st.session_state["df"] = pd.DataFrame()
+
 def login(df, code, password):
     if df is None or df.empty:
         return None
@@ -405,6 +586,7 @@ def login(df, code, password):
     if not matched.empty:
         return matched.iloc[0].to_dict()
     return None
+
 def save_df_to_local(df):
     try:
         with pd.ExcelWriter(FILE_PATH, engine="openpyxl") as writer:
@@ -412,12 +594,14 @@ def save_df_to_local(df):
         return True
     except Exception:
         return False
+
 def save_and_maybe_push(df, actor="HR"):
     saved = save_df_to_local(df)
     pushed = False
     if saved and GITHUB_TOKEN:
         pushed = upload_to_github(df, commit_message=f"Update {FILE_PATH} via Streamlit by {actor}")
     return saved, pushed
+
 def load_leaves_data():
     if os.path.exists(LEAVES_FILE_PATH):
         try:
@@ -432,6 +616,7 @@ def load_leaves_data():
             "Employee Code", "Manager Code", "Start Date", "End Date",
             "Leave Type", "Reason", "Status", "Decision Date", "Comment"
         ])
+
 def save_leaves_data(df):
     try:
         with pd.ExcelWriter(LEAVES_FILE_PATH, engine="openpyxl") as writer:
@@ -439,6 +624,7 @@ def save_leaves_data(df):
         return True
     except Exception:
         return False
+
 # ============================
 # Notifications System (unchanged)
 # ============================
@@ -455,6 +641,7 @@ def load_notifications():
         return pd.DataFrame(columns=[
             "Recipient Code", "Recipient Title", "Message", "Timestamp", "Is Read"
         ])
+
 def save_notifications(df):
     try:
         with pd.ExcelWriter(NOTIFICATIONS_FILE_PATH, engine="openpyxl") as writer:
@@ -462,6 +649,7 @@ def save_notifications(df):
         return True
     except Exception:
         return False
+
 def add_notification(recipient_code, recipient_title, message):
     notifications = load_notifications()
     new_row = pd.DataFrame([{
@@ -473,6 +661,7 @@ def add_notification(recipient_code, recipient_title, message):
     }])
     notifications = pd.concat([notifications, new_row], ignore_index=True)
     save_notifications(notifications)
+
 def get_unread_count(user):
     notifications = load_notifications()
     if notifications.empty:
@@ -492,6 +681,7 @@ def get_unread_count(user):
     )
     unread = notifications[mask & (~notifications["Is Read"])]
     return len(unread)
+
 def mark_all_as_read(user):
     notifications = load_notifications()
     if notifications.empty:
@@ -509,6 +699,7 @@ def mark_all_as_read(user):
     )
     notifications.loc[mask, "Is Read"] = True
     save_notifications(notifications)
+
 def page_notifications(user):
     st.subheader("Notifications")
     notifications = load_notifications()
@@ -545,6 +736,7 @@ def page_notifications(user):
         st.markdown(f"{icon} **{status} {row['Message']}**")
         st.caption(f"• {time_str}")
         st.markdown("---")
+
 # ============================
 # HR Queries (Ask HR) — unchanged
 # ============================
@@ -566,6 +758,7 @@ def load_hr_queries():
         except Exception:
             pass
         return df
+
 def save_hr_queries(df):
     try:
         if "ID" in df.columns:
@@ -582,6 +775,7 @@ def save_hr_queries(df):
         return True
     except Exception:
         return False
+
 # ============================
 # HR Requests (Ask Employees) — NEW
 # ============================
@@ -604,6 +798,7 @@ def load_hr_requests():
         except Exception:
             pass
         return df
+
 def save_hr_requests(df):
     try:
         if "ID" in df.columns:
@@ -620,6 +815,7 @@ def save_hr_requests(df):
         return True
     except Exception:
         return False
+
 def save_request_file(uploaded_file, employee_code, request_id):
     os.makedirs("hr_request_files", exist_ok=True)
     ext = uploaded_file.name.split(".")[-1].lower()
@@ -628,6 +824,7 @@ def save_request_file(uploaded_file, employee_code, request_id):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
 def save_response_file(uploaded_file, employee_code, request_id):
     os.makedirs("hr_response_files", exist_ok=True)
     ext = uploaded_file.name.split(".")[-1].lower()
@@ -636,6 +833,7 @@ def save_response_file(uploaded_file, employee_code, request_id):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
 def page_ask_employees(user):
     st.subheader("📤 Ask Employees")
     st.info("🔍 Type employee name or code to search. HR can send requests with file attachments.")
@@ -643,6 +841,7 @@ def page_ask_employees(user):
     if df.empty:
         st.error("Employee data not loaded.")
         return
+
     # ============================
     # ✅ Flexible Column Mapping for Employee Code and Name
     # ============================
@@ -670,9 +869,11 @@ def page_ask_employees(user):
     # Ensure columns are strings and clean them
     df[code_col] = df[code_col].astype(str).str.strip()
     df[name_col] = df[name_col].astype(str).str.strip()
+
     # Create display options for the selectbox
     emp_options = df[[code_col, name_col]].copy()
     emp_options["Display"] = emp_options[name_col] + " (Code: " + emp_options[code_col] + ")"
+
     # ============================
     # ✅ Search Box with Note
     # ============================
@@ -689,6 +890,7 @@ def page_ask_employees(user):
             return
     else:
         filtered_options = emp_options.copy()
+
     if len(filtered_options) == 1:
         selected_row = filtered_options.iloc[0]
     elif len(filtered_options) > 1:
@@ -696,21 +898,26 @@ def page_ask_employees(user):
         selected_row = filtered_options[filtered_options["Display"] == selected_display].iloc[0]
     else:
         return
+
     selected_code = selected_row[code_col]
     selected_name = selected_row[name_col]
     st.success(f"✅ Selected: {selected_name} (Code: {selected_code})")
+
     request_text = st.text_area("Request Details", height=100)
     uploaded_file = st.file_uploader("Attach File (Optional)", type=["pdf", "docx", "xlsx", "jpg", "png"])
+
     if st.button("Send Request"):
         if not request_text.strip():
             st.warning("Please enter a request message.")
             return
+
         hr_code = str(user.get("Employee Code", "N/A")).strip().replace(".0", "")
         requests_df = load_hr_requests()
         new_id = int(requests_df["ID"].max()) + 1 if "ID" in requests_df.columns and not requests_df.empty else 1
         file_attached = ""
         if uploaded_file:
             file_attached = save_request_file(uploaded_file, selected_code, new_id)
+
         new_row = pd.DataFrame([{
             "ID": new_id,
             "HR Code": hr_code,
@@ -729,6 +936,7 @@ def page_ask_employees(user):
         add_notification(selected_code, "", f"HR has sent you a new request (ID: {new_id}). Check 'Request HR' page.")
         st.success(f"Request sent to {selected_name} (Code: {selected_code}) successfully.")
         st.rerun()
+
 def page_request_hr(user):
     st.subheader("📥 Request HR")
     st.info("Here you can respond to requests sent by HR. You can upload files as response.")
@@ -737,16 +945,20 @@ def page_request_hr(user):
     if requests_df.empty:
         st.info("No requests from HR.")
         return
+
     user_requests = requests_df[requests_df["Employee Code"].astype(str) == user_code].copy()
     if user_requests.empty:
         st.info("No requests from HR for you.")
         return
+
     user_requests = user_requests.sort_values("Date Sent", ascending=False).reset_index(drop=True)
+
     for idx, row in user_requests.iterrows():
         st.markdown(f"### 📄 Request ID: {row['ID']}")
         st.write(f"**From HR:** {row['Request']}")
         if pd.notna(row["Date Sent"]) and row["Date Sent"] != pd.NaT:
             st.write(f"**Date Sent:** {row['Date Sent'].strftime('%d-%m-%Y %H:%M')}")
+
         # ✅ Safe handling of File Attached
         file_attached = row.get("File Attached", "")  # Get the value or default to empty string
         if pd.notna(file_attached) and isinstance(file_attached, str) and file_attached.strip() != "":
@@ -758,6 +970,7 @@ def page_request_hr(user):
                 st.warning("The attached file does not exist on the server.")
         else:
             st.info("No file was attached to this request.")
+
         if row["Status"] == "Completed":
             st.success("✅ This request has been responded to.")
             # ✅ Safe handling of Response File
@@ -770,26 +983,32 @@ def page_request_hr(user):
                 else:
                     st.warning("Your response file does not exist on the server.")
             continue
+
         st.markdown("---")
         response_text = st.text_area("Your Response", key=f"resp_text_{idx}")
         uploaded_resp_file = st.file_uploader("Attach Response File (Optional)", type=["pdf", "docx", "xlsx", "jpg", "png"], key=f"resp_file_{idx}")
+
         if st.button("Submit Response", key=f"submit_resp_{idx}"):
             if not response_text.strip() and not uploaded_resp_file:
                 st.warning("Please provide a response or attach a file.")
                 continue
+
             requests_df.loc[requests_df["ID"] == row["ID"], "Response"] = response_text.strip()
             requests_df.loc[requests_df["ID"] == row["ID"], "Status"] = "Completed"
             requests_df.loc[requests_df["ID"] == row["ID"], "Date Responded"] = pd.Timestamp.now()
+
             response_file_name = ""
             if uploaded_resp_file:
                 # Save the uploaded file
                 resp_filename = save_response_file(uploaded_resp_file, user_code, row["ID"])
                 requests_df.loc[requests_df["ID"] == row["ID"], "Response File"] = resp_filename
                 response_file_name = resp_filename
+
             save_hr_requests(requests_df)
             add_notification("", "HR", f"Employee {user_code} responded to request ID {row['ID']}.")
             st.success("Response submitted successfully.")
             st.rerun()
+
 # ============================
 # Team Hierarchy — NEW: Recursive Function (Updated for Summary) - FROM edit.txt
 # ============================
@@ -809,16 +1028,20 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
         missing = [col for col in required_cols if col not in df.columns]
         st.warning(f"Missing required columns: {missing}")
         return {}
+
     df = df.copy()
     df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace('.0', '', regex=False)
     df[mgr_code_col] = df[mgr_code_col].astype(str).str.strip().str.replace('.0', '', regex=False)
     df[title_col] = df[title_col].astype(str).str.strip().str.upper()
+
     mgr_row = df[df[emp_code_col] == str(manager_code)]
     if mgr_row.empty:
         st.warning(f"Manager with code {manager_code} not found in data.")
         return {}
+
     mgr_name = mgr_row.iloc[0][emp_name_col]
     current_title = mgr_row.iloc[0][title_col]
+
     if current_title == "BUM":
         subordinate_types = ["AM", "DM"]
     elif current_title == "AM":
@@ -827,15 +1050,18 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
         subordinate_types = ["MR"]
     else:
         subordinate_types = []
+
     direct_subs = df[df[mgr_code_col] == str(manager_code)]
     if subordinate_types:
         direct_subs = direct_subs[direct_subs[title_col].isin(subordinate_types)]
+
     node = {
         "Manager": f"{mgr_name} ({current_title})",
         "Manager Code": str(manager_code),
         "Team": [],
         "Summary": {"AM": 0, "DM": 0, "MR": 0, "Total": 0}
     }
+
     for _, sub_row in direct_subs.iterrows():
         sub_code = sub_row[emp_code_col]
         sub_title = sub_row[title_col]
@@ -857,6 +1083,7 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
             node["Team"].append(leaf_node)
         else:
             node["Team"].append(child_node)
+
     # compute accurate summary by collecting ALL descendants and counting their titles
     def collect_descendants_codes(start_code):
         descendants = set()
@@ -872,6 +1099,7 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
                     if title in ["AM", "DM", "BUM"]:
                         stack.append(code)
         return list(descendants)
+
     all_desc = collect_descendants_codes(manager_code)
     if all_desc:
         desc_df = df[df[emp_code_col].isin(all_desc)]
@@ -881,7 +1109,9 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
         node["Summary"]["Total"] = node["Summary"]["AM"] + node["Summary"]["DM"] + node["Summary"]["MR"]
     else:
         node["Summary"] = {"AM":0, "DM":0, "MR":0, "Total":0}
+
     return node
+
 # ============================
 # NEW: Helper function to send full leaves report to HR - FROM edit.txt
 # ============================
@@ -896,11 +1126,13 @@ def send_full_leaves_report_to_hr(leaves_df, df_emp, out_path="HR_Leaves_Report.
     col_map = {c.lower().strip(): c for c in df_emp_local.columns} if not df_emp_local.empty else {}
     emp_code_col = col_map.get("employee_code") or col_map.get("employee code") or "Employee Code"
     emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name") or "Employee Name"
+
     leaves = leaves_df.copy()
     if "Employee Code" in leaves.columns:
         leaves["Employee Code"] = leaves["Employee Code"].astype(str).str.strip()
     if "Manager Code" in leaves.columns:
         leaves["Manager Code"] = leaves["Manager Code"].astype(str).str.strip()
+
     if emp_code_col in df_emp_local.columns and emp_name_col in df_emp_local.columns:
         df_emp_local[emp_code_col] = df_emp_local[emp_code_col].astype(str).str.strip().str.replace('.0', '', regex=False)
         leaves = leaves.merge(
@@ -915,12 +1147,15 @@ def send_full_leaves_report_to_hr(leaves_df, df_emp, out_path="HR_Leaves_Report.
         leaves["Employee Name"] = leaves.get("Employee Code", "")
         if "Manager Code" in leaves.columns:
             leaves["Manager Name"] = leaves.get("Manager Code", "")
+
     if "Start Date" in leaves.columns:
         leaves["Start Date"] = pd.to_datetime(leaves["Start Date"], errors="coerce").dt.strftime("%d-%m-%Y")
     if "End Date" in leaves.columns:
         leaves["End Date"] = pd.to_datetime(leaves["End Date"], errors="coerce").dt.strftime("%d-%m-%Y")
+
     export_cols = [c for c in ["Employee Name", "Employee Code", "Start Date", "End Date", "Leave Type", "Status", "Comment", "Manager Name", "Manager Code"] if c in leaves.columns]
     report_df = leaves[export_cols].copy()
+
     try:
         with pd.ExcelWriter(out_path, engine="openpyxl") as writer:
             report_df.to_excel(writer, index=False)
@@ -932,6 +1167,7 @@ def send_full_leaves_report_to_hr(leaves_df, df_emp, out_path="HR_Leaves_Report.
         return True, out_path
     except Exception as e:
         return False, str(e)
+
 def page_my_team(user, role="AM"):
     st.subheader("My Team Structure")
     user_code = None
@@ -942,15 +1178,19 @@ def page_my_team(user, role="AM"):
     if not user_code:
         st.error("Your Employee Code not found.")
         return
+
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.error("Employee data not loaded.")
         return
+
     # Use the recursive function to build the hierarchy starting from the current user
     hierarchy = build_team_hierarchy_recursive(df, user_code, role.upper())
+
     if not hierarchy:
         st.info(f"Could not build team structure for your code: {user_code}. Check your manager assignment or title.")
         return
+
     # Define icons and colors for different roles
     ROLE_ICONS = {
         "BUM": "🏢",
@@ -964,6 +1204,7 @@ def page_my_team(user, role="AM"):
         "DM": "#4ecdc4",  # Greenish
         "MR": "#9fb0c8"   # Grayish
     }
+
     # Add custom CSS for the team structure
     st.markdown("""
     <style>
@@ -1006,8 +1247,10 @@ def page_my_team(user, role="AM"):
     }
     </style>
     """, unsafe_allow_html=True)
+
     # Determine user's title for card display
     user_title = role.upper()
+
     # Display Cards for BUM
     if user_title == "BUM":
         st.markdown("### Team Structure Summary")
@@ -1033,6 +1276,7 @@ def page_my_team(user, role="AM"):
                 <div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
             </div>
             """, unsafe_allow_html=True)
+
     # Display Cards for AM
     elif user_title == "AM":
         st.markdown("### Team Structure Summary")
@@ -1051,6 +1295,7 @@ def page_my_team(user, role="AM"):
                 <div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
             </div>
             """, unsafe_allow_html=True)
+
     # Function to recursively render the tree structure with summaries and hierarchical lines
     def render_tree(node, level=0, is_last_child=False):
         if not node: # Check if node is empty
@@ -1071,18 +1316,22 @@ def page_my_team(user, role="AM"):
         if total_count > 0:
             summary_parts.append(f"🔢 {total_count} Total")
         summary_str = " | ".join(summary_parts) if summary_parts else "No direct reports"
+
         # Extract manager info and role
         manager_info = node.get("Manager", "Unknown")
         manager_code = node.get("Manager Code", "N/A")
+
         # Determine role from manager_info (e.g., "Name (Role)")
         role = "MR"  # Default
         if "(" in manager_info and ")" in manager_info:
             role_part = manager_info.split("(")[-1].split(")")[0].strip()
             if role_part in ROLE_ICONS:
                 role = role_part
+
         # Get icon and color
         icon = ROLE_ICONS.get(role, "👤")
         color = ROLE_COLORS.get(role, "#e6eef8")  # Default text color
+
         # Build the hierarchical line prefix based on level and position
         prefix = ""
         if level > 0:
@@ -1097,6 +1346,7 @@ def page_my_team(user, role="AM"):
         else:
             # For root level, no prefix needed
             prefix = ""
+
         # Render the node header with icon, color, and hierarchical prefix
         st.markdown(f"""
         <div class="team-node">
@@ -1105,6 +1355,7 @@ def page_my_team(user, role="AM"):
                 <span class="team-node-summary">{summary_str}</span>
             </div>
         """, unsafe_allow_html=True)
+
         # Display the team members
         if node.get("Team"):
             st.markdown('<div class="team-node-children">', unsafe_allow_html=True)
@@ -1114,25 +1365,31 @@ def page_my_team(user, role="AM"):
                 render_tree(team_member, level + 1, is_last)
             st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
+
     # Render the main hierarchy starting from the user's node
     render_tree(hierarchy, 0, True)
+
     # If the user themselves is a leaf node (e.g., MR with no subordinates)
     # or if the hierarchy is just the root node itself with no team members
     if not hierarchy.get("Team"): # If the root node has no team members
         # Render the root node itself (the user)
         root_manager_info = hierarchy.get("Manager", "Unknown")
         root_manager_code = hierarchy.get("Manager Code", "N/A")
+
         # Determine role from manager_info (e.g., "Name (Role)")
         role = "MR"  # Default
         if "(" in root_manager_info and ")" in root_manager_info:
             role_part = root_manager_info.split("(")[-1].split(")")[0].strip()
             if role_part in ROLE_ICONS:
                 role = role_part
+
         # Get icon and color
         icon = ROLE_ICONS.get(role, "👤")
         color = ROLE_COLORS.get(role, "#e6eef8")  # Default text color
+
         st.markdown(f'<span style="color: {color};">{icon} <strong>{root_manager_info}</strong> (Code: {root_manager_code})</span>', unsafe_allow_html=True)
         st.info("No direct subordinates found under your supervision.")
+
 # ============================
 # NEW: Directory Page Function (Updated to Show Specific Columns Only)
 # ============================
@@ -1142,7 +1399,9 @@ def page_directory(user):
     if df.empty:
         st.info("Employee data not loaded.")
         return
+
     st.info("Search and filter employees below.")
+
     # Define the specific columns you want to display
     COLUMNS_TO_SHOW = [
         "Employee Code",
@@ -1154,6 +1413,7 @@ def page_directory(user):
         "E-Mail",
         "Address as 702 bricks"
     ]
+
     # Try to map flexible column names to the desired ones
     col_map = {c.lower().strip(): c for c in df.columns}
     final_columns = []
@@ -1175,12 +1435,14 @@ def page_directory(user):
             final_columns.append(found_col)
         else:
             st.warning(f"Column '{col_name}' not found in data.")
+
     # Apply filters (example: by Name and Code)
     col1, col2 = st.columns(2)
     with col1:
         search_name = st.text_input("Search by Employee Name")
     with col2:
         search_code = st.text_input("Search by Employee Code")
+
     # Apply filters
     filtered_df = df.copy()
     if search_name:
@@ -1205,6 +1467,7 @@ def page_directory(user):
             filtered_df = filtered_df[filtered_df[emp_code_col].astype(str).str.contains(search_code, case=False, na=False)]
         else:
             st.warning("Employee Code column not found for search.")
+
     # Display the (potentially filtered) dataframe with only the specified columns
     if final_columns:
         # Ensure we have at least one column to show
@@ -1213,6 +1476,7 @@ def page_directory(user):
         st.info(f"Showing {len(display_df)} of {len(df)} employees.")
     else:
         st.error("No columns could be mapped for display. Please check your Excel sheet headers.")
+
 # ============================
 # Pages
 # ============================
@@ -1229,11 +1493,13 @@ def render_logo_and_title():
             </p>
         </div>
         """, unsafe_allow_html=True)
+
     user = st.session_state.get("logged_in_user")
     if user:
         unread = get_unread_count(user)
         if unread > 0:
             st.markdown(f'<div class="notification-bell">{unread}<div class="notification-badge">{unread}</div></div>', unsafe_allow_html=True)
+
 # ============================
 # ✅ NEW: Employee Photos Page for HR
 # ============================
@@ -1244,21 +1510,25 @@ def page_employee_photos(user):
     if not photo_files:
         st.info("No employee photos uploaded yet.")
         return
+
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.warning("Employee data not loaded.")
         return
+
     # Map Employee Code to Name
     code_to_name = {}
     col_map = {c.lower().strip(): c for c in df.columns}
     emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
     emp_name_col = col_map.get("employee_name") or col_map.get("name") or col_map.get("employee name")
+
     if emp_code_col and emp_name_col:
         df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
         for _, row in df.iterrows():
             code = row[emp_code_col]
             name = row.get(emp_name_col, "N/A")
             code_to_name[code] = name
+
     # Display photos in grid
     cols_per_row = 4
     cols = st.columns(cols_per_row)
@@ -1272,6 +1542,7 @@ def page_employee_photos(user):
             st.caption(f"{emp_code}<br>{emp_name}")
             with open(filepath, "rb") as f:
                 st.download_button("📥 Download", f, file_name=filename, key=f"dl_{filename}")
+
     # ============================
     # ✅ Download All Button
     # ============================
@@ -1285,6 +1556,7 @@ def page_employee_photos(user):
                     file_path = os.path.join(photo_dir, filename)
                     if os.path.isfile(file_path):
                         zipf.write(file_path, filename)
+
         with open(zip_path, "rb") as f:
             st.download_button(
                 label="Download All Photos",
@@ -1293,21 +1565,25 @@ def page_employee_photos(user):
                 mime="application/zip"
             )
         st.success("✅ ZIP file created. Click the button to download.")
+
 # ============================
 # Modified: My Profile with Photo Upload and Tabs
 # ============================
 def page_my_profile(user):
     st.subheader("My Profile")
     st.markdown(f"### 👋 Welcome, {user.get('Employee Name', 'User')}")
+
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.info("No employee data available.")
         return
+
     col_map = {c.lower().strip(): c for c in df.columns}
     code_col = col_map.get("employee_code") or col_map.get("employee code")
     if not code_col:
         st.error("Employee code column not found in dataset.")
         return
+
     user_code = None
     for key in user.keys():
         if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
@@ -1316,9 +1592,11 @@ def page_my_profile(user):
                 val = val[:-2]
             user_code = val
             break
+
     if user_code is None:
         st.error("Your Employee Code not found in session.")
         return
+
     df[code_col] = df[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     row = df[df[code_col] == user_code]
     if row.empty:
@@ -1341,6 +1619,7 @@ def page_my_profile(user):
             if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
                 emp_code_clean = str(val).strip().replace(".0", "")
                 break
+
         if emp_code_clean:
             # Check if photo exists
             photo_path = None
@@ -1353,6 +1632,7 @@ def page_my_profile(user):
                 st.image(photo_path, width=150, caption="Your current photo")
             else:
                 st.info("No photo uploaded yet.")
+
             uploaded_file = st.file_uploader(
                 "Upload your personal photo (JPG/PNG)",
                 type=["jpg", "jpeg", "png"],
@@ -1367,7 +1647,9 @@ def page_my_profile(user):
                         st.rerun()
                     except Exception as e:
                         st.error(f"Failed to save photo: {e}")
+
 # Rest of pages unchanged: leave_request, manager_leaves, dashboard, hr_manager, reports, hr_inbox, ask_hr
+
 def calculate_leave_balance(user_code, leaves_df):
     """Calculates Annual Leave Balance, Used Days, and Remaining Days."""
     annual_balance = 21 # Default annual leave balance
@@ -1376,6 +1658,7 @@ def calculate_leave_balance(user_code, leaves_df):
         (leaves_df["Employee Code"].astype(str) == str(user_code)) &
         (leaves_df["Status"] == "Approved")
     ].copy()
+
     if user_approved_leaves.empty:
         used_days = 0
     else:
@@ -1388,14 +1671,17 @@ def calculate_leave_balance(user_code, leaves_df):
         # Ensure no negative days are counted if dates are accidentally reversed
         user_approved_leaves["Leave Days"] = user_approved_leaves["Leave Days"].clip(lower=0)
         used_days = user_approved_leaves["Leave Days"].sum()
+
     remaining_days = annual_balance - used_days
     return annual_balance, used_days, remaining_days
+
 def page_leave_request(user):
     st.subheader("Request Leave")
     df_emp = st.session_state.get("df", pd.DataFrame())
     if df_emp.empty:
         st.error("Employee data not loaded.")
         return
+
     user_code = None
     for key, val in user.items():
         if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
@@ -1406,10 +1692,13 @@ def page_leave_request(user):
     if not user_code:
         st.error("Your Employee Code not found.")
         return
+
     # Load leaves data
     leaves_df = load_leaves_data()
+
     # Calculate leave balance for the current user
     annual_balance, used_days, remaining_days = calculate_leave_balance(user_code, leaves_df)
+
     # Display Leave Balance Cards
     st.markdown("### Leave Balance Summary")
     col1, col2, col3 = st.columns(3)
@@ -1434,6 +1723,7 @@ def page_leave_request(user):
             <div class="leave-balance-value remaining">{remaining_days} Days</div>
         </div>
         """, unsafe_allow_html=True)
+
     # Original leave request form
     col_map = {c.lower().strip(): c for c in df_emp.columns}
     emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
@@ -1441,10 +1731,12 @@ def page_leave_request(user):
     if not mgr_code_col:
         st.error("Column 'Manager Code' is missing in employee sheet.")
         return
+
     emp_row = df_emp[df_emp[emp_code_col].astype(str).str.replace('.0', '', regex=False) == user_code]
     if emp_row.empty:
         st.error("Your record not found in employee sheet.")
         return
+
     manager_code = emp_row.iloc[0][mgr_code_col]
     if pd.isna(manager_code) or str(manager_code).strip() == "":
         st.warning("You have no manager assigned. Contact HR.")
@@ -1452,12 +1744,14 @@ def page_leave_request(user):
     manager_code = str(manager_code).strip()
     if manager_code.endswith('.0'):
         manager_code = manager_code[:-2]
+
     with st.form("leave_form"):
         start_date = st.date_input("Start Date")
         end_date = st.date_input("End Date")
         leave_type = st.selectbox("Leave Type", ["Annual", "Sick", "Emergency", "Unpaid"])
         reason = st.text_area("Reason")
         submitted = st.form_submit_button("Submit Leave Request")
+
     if submitted:
         if end_date < start_date:
             st.error("End date cannot be before start date.")
@@ -1480,6 +1774,7 @@ def page_leave_request(user):
                 st.balloons()
             else:
                 st.error("❌ Failed to save leave request.")
+
     st.markdown("### Your Leave Requests")
     if not leaves_df.empty:
         user_leaves = leaves_df[leaves_df["Employee Code"].astype(str) == user_code].copy()
@@ -1493,6 +1788,7 @@ def page_leave_request(user):
             st.info("You haven't submitted any leave requests yet.")
     else:
         st.info("No leave requests found.")
+
 def page_manager_leaves(user):
     st.subheader("Leave Requests from Your Team")
     manager_code = None
@@ -1505,12 +1801,14 @@ def page_manager_leaves(user):
     if not manager_code:
         st.error("Your Employee Code not found.")
         return
+
     # Load data
     leaves_df = load_leaves_data()
     df_emp = st.session_state.get("df", pd.DataFrame())
     if leaves_df.empty:
         st.info("No leave requests found.")
         return
+
     # Map Manager Code to Manager Name for display
     manager_code_to_name = {}
     if not df_emp.empty:
@@ -1523,14 +1821,17 @@ def page_manager_leaves(user):
                 code = row[emp_code_col]
                 name = row.get(emp_name_col, "N/A")
                 manager_code_to_name[code] = name
+
     # Filter leaves for the current manager's team
     team_leaves = leaves_df[leaves_df["Manager Code"].astype(str) == manager_code].copy()
     if team_leaves.empty:
         st.info("No leave requests from your team.")
         return
+
     # Determine user's title
     user_title = str(user.get("Title", "")).strip().upper()
     is_bum = user_title == "BUM"
+
     # Merge with employee data to get employee names
     name_col_to_use = "Employee Code"
     if not df_emp.empty:
@@ -1547,8 +1848,10 @@ def page_manager_leaves(user):
                 how="left"
             )
             name_col_to_use = emp_name_col
+
     pending_leaves = team_leaves[team_leaves["Status"] == "Pending"].reset_index(drop=True)
     all_leaves = team_leaves.copy()
+
     # Display pending requests (as before)
     st.markdown("### 🟡 Pending Requests")
     if not pending_leaves.empty:
@@ -1557,6 +1860,7 @@ def page_manager_leaves(user):
             emp_display = f"{emp_name} ({row['Employee Code']})" if emp_name else row['Employee Code']
             st.markdown(f"**Employee**: {emp_display} | **Dates**: {row['Start Date'].strftime('%d-%m-%Y')} → {row['End Date'].strftime('%d-%m-%Y')} | **Type**: {row['Leave Type']}")
             st.write(f"**Reason**: {row['Reason']}")
+
             # Calculate and display balance for the specific employee in the pending list
             emp_code = str(row['Employee Code'])
             annual_balance, used_days, remaining_days = calculate_leave_balance(emp_code, leaves_df)
@@ -1582,6 +1886,7 @@ def page_manager_leaves(user):
                     <div class="leave-balance-value remaining">{remaining_days}</div>
                 </div>
                 """, unsafe_allow_html=True)
+
             col1, col2, col3 = st.columns([2, 2, 1])
             with col1:
                 if st.button("✅ Approve", key=f"app_{idx}_{row['Employee Code']}"):
@@ -1645,6 +1950,7 @@ def page_manager_leaves(user):
             st.markdown("---")
     else:
         st.info("No pending requests.")
+
     # Display All Team Leave History (as before)
     st.markdown("### 📋 All Team Leave History")
     if not all_leaves.empty:
@@ -1659,20 +1965,25 @@ def page_manager_leaves(user):
             mask = all_leaves_with_balance["Employee Code"] == emp_code
             all_leaves_with_balance.loc[mask, "Used Days"] = used
             all_leaves_with_balance.loc[mask, "Remaining Days"] = remaining
+
         if name_col_to_use in all_leaves_with_balance.columns:
             all_leaves_with_balance["Employee Name"] = all_leaves_with_balance[name_col_to_use]
         else:
             all_leaves_with_balance["Employee Name"] = all_leaves_with_balance["Employee Code"]
+
         all_leaves_with_balance["Start Date"] = pd.to_datetime(all_leaves_with_balance["Start Date"]).dt.strftime("%d-%m-%Y")
         all_leaves_with_balance["End Date"] = pd.to_datetime(all_leaves_with_balance["End Date"]).dt.strftime("%d-%m-%Y")
+
         # Add Manager Name column
         all_leaves_with_balance["Manager Name"] = all_leaves_with_balance["Manager Code"].map(manager_code_to_name).fillna(all_leaves_with_balance["Manager Code"])
+
         # Display the dataframe with the new balance and manager name columns
         st.dataframe(all_leaves_with_balance[[
             "Employee Name", "Employee Code", "Start Date", "End Date", "Leave Type", "Status", "Comment", "Manager Name", "Manager Code", "Annual Balance", "Used Days", "Remaining Days"
         ]], use_container_width=True)
     else:
         st.info("No leave history for your team.")
+
     # NEW SECTION: BUM - Detailed Leave Report for All Subordinates
     if is_bum:
         st.markdown("---")
@@ -1689,6 +2000,7 @@ def page_manager_leaves(user):
                 df_full[emp_code_col] = df_full[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
                 df_full[mgr_code_col] = df_full[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
                 df_full[title_col] = df_full[title_col].astype(str).str.strip().str.upper()
+
                 # Recursive function to find all subordinates
                 def get_all_subordinates_codes(start_manager_code):
                     subordinates = set()
@@ -1705,6 +2017,7 @@ def page_manager_leaves(user):
                             if rep_title in ["AM", "DM", "BUM"]: # Avoid infinite loops by stopping at MR or non-managers if needed
                                 stack.append(rep_code)
                     return list(subordinates)
+
                 all_subordinate_codes = get_all_subordinates_codes(manager_code)
                 if all_subordinate_codes:
                     # Filter leaves for all subordinates
@@ -1735,6 +2048,7 @@ def page_manager_leaves(user):
                             mask = detailed_report_df["Employee Code"] == emp_code
                             detailed_report_df.loc[mask, "Used Days"] = used
                             detailed_report_df.loc[mask, "Remaining Days"] = remaining
+
                         # Display the detailed report
                         st.dataframe(detailed_report_df[[
                             "Employee Name", "Employee Code", "Start Date", "End Date", "Leave Type", "Status", "Comment", "Manager Name", "Manager Code", "Annual Balance", "Used Days", "Remaining Days"
@@ -1745,12 +2059,14 @@ def page_manager_leaves(user):
                     st.info("No subordinates found under your management.")
             else:
                 st.warning("Required columns (Employee Code, Manager Code, Title) not found for detailed report.")
+
 def page_dashboard(user):
     st.subheader("Dashboard")
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.info("No employee data available.")
         return
+
     col_map = {c.lower(): c for c in df.columns}
     dept_col = col_map.get("department")
     hire_col = col_map.get("hire date") or col_map.get("hire_date") or col_map.get("hiring date")
@@ -1763,10 +2079,12 @@ def page_dashboard(user):
             new_hires = df[df[hire_col] >= (pd.Timestamp.now() - pd.Timedelta(days=30))].shape[0]
         except Exception:
             new_hires = 0
+
     c1, c2, c3 = st.columns(3)
     c1.metric("Total Employees", total_employees)
     c2.metric("Departments", total_departments)
     c3.metric("New Hires (30 days)", new_hires)
+
     st.markdown("---")
     st.markdown("### Employees per Department (table)")
     if dept_col:
@@ -1775,12 +2093,14 @@ def page_dashboard(user):
         st.table(dept_counts.sort_values("Employee Count", ascending=False).reset_index(drop=True))
     else:
         st.info("Department column not found.")
+
     st.markdown("---")
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Employees")
     buf.seek(0)
     st.download_button("Download Full Employees Excel", data=buf, file_name="employees_export.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
     if st.button("Save & Push current dataset to GitHub"):
         saved, pushed = save_and_maybe_push(df, actor=user.get("Employee Name","HR"))
         if saved:
@@ -1793,6 +2113,7 @@ def page_dashboard(user):
                     st.info("Saved locally. GitHub token not configured.")
         else:
             st.error("Failed to save dataset locally.")
+
 def page_hr_manager(user):
     st.subheader("HR Manager")
     st.info("Upload new employee sheet, manage employees, and perform administrative actions.")
@@ -1800,6 +2121,7 @@ def page_hr_manager(user):
     if df.empty:
         st.error("Employee data not loaded.")
         return
+
     # NEW SECTION: HR - Detailed Leave Report for All Employees
     st.markdown("---")
     st.markdown("### 📊 HR: Detailed Leave Report for All Employees")
@@ -1843,6 +2165,7 @@ def page_hr_manager(user):
                 mask = leaves_with_names["Employee Code"] == emp_code
                 leaves_with_names.loc[mask, "Used Days"] = used
                 leaves_with_names.loc[mask, "Remaining Days"] = remaining
+
             # Display the detailed report
             st.dataframe(leaves_with_names[[
                 "Employee Name", "Employee Code", "Start Date", "End Date", "Leave Type", "Status", "Comment", "Manager Name", "Manager Code", "Annual Balance", "Used Days", "Remaining Days"
@@ -1851,6 +2174,7 @@ def page_hr_manager(user):
             st.warning("Required columns (Employee Code, Employee Name, Manager Code) not found in employee data for detailed report.")
     else:
         st.info("No employee or leave data available for the detailed report.")
+
     st.markdown("---")
     st.markdown("### Upload Employees Excel (will replace current dataset)")
     uploaded_file = st.file_uploader("Upload Excel file (.xlsx) to replace the current employees dataset", type=["xlsx"])
@@ -1871,12 +2195,15 @@ def page_hr_manager(user):
                     st.info("Preview shown above.")
         except Exception as e:
             st.error(f"Failed to read uploaded file: {e}")
+
     st.markdown("---")
     st.markdown("### Manage Employees (Edit / Delete)")
     if df.empty:
         st.info("Dataset empty. Upload or load data first.")
         return
+
     st.dataframe(df.head(100), use_container_width=True)
+
     col_map = {c.lower(): c for c in df.columns}
     code_col = col_map.get("employee_code") or list(df.columns)[0]
     selected_code = st.text_input("Enter employee code to edit/delete (exact match)", value="")
@@ -1909,6 +2236,7 @@ def page_hr_manager(user):
                             updated[col] = st.text_input(label=str(col), value=str(val), key=f"edit_{col}")
                     else:
                         updated[col] = st.text_input(label=str(col), value=str(val), key=f"edit_{col}")
+
                 submitted_edit = st.form_submit_button("Save Changes")
                 if submitted_edit:
                     for k, v in updated.items():
@@ -1928,6 +2256,7 @@ def page_hr_manager(user):
                                 st.info("Saved locally. GitHub not configured.")
                     else:
                         st.error("Failed to save changes locally.")
+
             st.markdown("#### Delete Employee")
             if st.button("Initiate Delete"):
                 st.session_state["delete_target"] = str(selected_code).strip()
@@ -1954,6 +2283,7 @@ def page_hr_manager(user):
                     if st.button("Cancel Delete"):
                         st.session_state["delete_target"] = None
                         st.info("Deletion cancelled.")
+
     st.markdown("---")
     st.markdown("### Save / Push Dataset")
     if st.button("Save current in-memory dataset locally and optionally push to GitHub"):
@@ -1969,6 +2299,7 @@ def page_hr_manager(user):
                     st.info("Saved locally. GitHub token not configured.")
         else:
             st.error("Failed to save dataset locally.")
+
     # ============================
     # ✅ CLEAR ALL TEST DATA BUTTON
     # ============================
@@ -1998,6 +2329,7 @@ def page_hr_manager(user):
             st.rerun()
         except Exception as e:
             st.error(f"❌ Failed to clear: {e}")
+
 def page_reports(user):
     st.subheader("Reports (Placeholder)")
     st.info("Reports section - ready to be expanded.")
@@ -2005,6 +2337,7 @@ def page_reports(user):
     if df.empty:
         st.info("No data to report.")
         return
+
     st.markdown("Basic preview of dataset:")
     st.dataframe(df.head(200), use_container_width=True)
     buf = BytesIO()
@@ -2012,6 +2345,7 @@ def page_reports(user):
         df.to_excel(writer, index=False, sheet_name="Employees")
     buf.seek(0)
     st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
 def page_hr_inbox(user):
     st.subheader("📬 HR Inbox")
     st.markdown("View employee queries and reply to them here.")
@@ -2019,11 +2353,13 @@ def page_hr_inbox(user):
     if hr_df is None or hr_df.empty:
         st.info("No Ask HR messages.")
         return
+
     try:
         hr_df["Date Sent_dt"] = pd.to_datetime(hr_df["Date Sent"], errors="coerce")
         hr_df = hr_df.sort_values("Date Sent_dt", ascending=False).reset_index(drop=True)
     except Exception:
         hr_df = hr_df.reset_index(drop=True)
+
     for idx, row in hr_df.iterrows():
         emp_code = str(row.get('Employee Code', ''))
         emp_name = row.get('Employee Name', '') if pd.notna(row.get('Employee Name', '')) else ''
@@ -2032,10 +2368,12 @@ def page_hr_inbox(user):
         status = row.get('Status', '') if pd.notna(row.get('Status', '')) else ''
         date_sent = row.get("Date Sent", '')
         reply_existing = row.get("Reply", '') if pd.notna(row.get("Reply", '')) else ''
+
         try:
             sent_time = pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M')
         except Exception:
             sent_time = str(date_sent)
+
         card_html = f"""
         <div class="hr-message-card">
             <div class="hr-message-title">📌 {subj if subj else 'No Subject'}</div>
@@ -2043,6 +2381,7 @@ def page_hr_inbox(user):
             <div class="hr-message-body">{msg if msg else ''}</div>
         """
         st.markdown(card_html, unsafe_allow_html=True)
+
         if reply_existing:
             st.markdown("**🟢 Existing reply:**")
             st.markdown(reply_existing)
@@ -2088,13 +2427,16 @@ def page_hr_inbox(user):
                     save_hr_queries(hr_df)
                     st.success("Message deleted!")
                     st.rerun()
+
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("---")
+
 def page_ask_hr(user):
     st.subheader("💬 Ask HR")
     if user is None:
         st.error("User session not found. Please login.")
         return
+
     user_code = None
     user_name = None
     for key, val in user.items():
@@ -2102,16 +2444,20 @@ def page_ask_hr(user):
             user_code = str(val).strip().replace(".0", "")
         if key.lower().replace(" ", "").replace("_", "") in ["employeename", "employee_name", "name"]:
             user_name = str(val).strip()
+
     if not user_code:
         st.error("Your Employee Code not found in session.")
         return
     if not user_name:
         user_name = user_code
+
     hr_df = load_hr_queries()
+
     with st.form("ask_hr_form"):
         subj = st.text_input("Subject")
         msg = st.text_area("Message", height=160)
         submitted = st.form_submit_button("Send to HR")
+
     if submitted:
         if not subj.strip() or not msg.strip():
             st.warning("Please fill both Subject and Message.")
@@ -2136,18 +2482,22 @@ def page_ask_hr(user):
                 st.rerun()
             else:
                 st.error("❌ Failed to save message. Check server permissions.")
+
     st.markdown("### 📜 Your previous messages")
     if hr_df is None or hr_df.empty:
         st.info("No messages found.")
         return
+
     try:
         hr_df["Date Sent_dt"] = pd.to_datetime(hr_df["Date Sent"], errors="coerce")
         my_msgs = hr_df[hr_df["Employee Code"].astype(str).str.strip() == str(user_code)].sort_values("Date Sent_dt", ascending=False)
     except Exception:
         my_msgs = hr_df[hr_df["Employee Code"].astype(str).str.strip() == str(user_code)]
+
     if my_msgs.empty:
         st.info("You have not sent any messages yet.")
         return
+
     for idx, row in my_msgs.iterrows():
         subj = row.get("Subject", "")
         msg = row.get("Message", "")
@@ -2158,6 +2508,7 @@ def page_ask_hr(user):
             sent_time = pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M')
         except Exception:
             sent_time = str(date_sent)
+
         st.markdown(f"<div class='hr-message-card'><div class='hr-message-title'>{subj}</div><div class='hr-message-meta'>Sent: {sent_time} — Status: {status}</div><div class='hr-message-body'>{msg}</div>", unsafe_allow_html=True)
         if pd.notna(reply) and str(reply).strip() != "":
             st.markdown("**🟢 HR Reply:**")
@@ -2166,16 +2517,22 @@ def page_ask_hr(user):
             st.markdown("**🕒 HR Reply:** Pending")
         st.markdown("</div>")
         st.markdown("---")
+
 # ============================
 # Main App Flow
 # ============================
 ensure_session_df()
 render_logo_and_title()
+
 # Initialize session state
 if "logged_in_user" not in st.session_state:
     st.session_state["logged_in_user"] = None
 if "current_page" not in st.session_state:
     st.session_state["current_page"] = "My Profile"
+
+# Apply UI enhancements
+apply_ui_enhancements() # Call the UI enhancements function here
+
 # ============================
 # Sidebar Navigation - Always Visible
 # ============================
@@ -2186,6 +2543,7 @@ with st.sidebar:
     else:
         st.markdown('<div class="sidebar-title">HRAS — Averroes Admin</div>', unsafe_allow_html=True)
     st.markdown("<hr style='border: 1px solid #0b72b9; margin: 10px 0;'>", unsafe_allow_html=True)
+
     # Show login form or menu based on session state
     if not st.session_state["logged_in_user"]:
         # --- Login Form Container ---
@@ -2216,8 +2574,10 @@ with st.sidebar:
         is_am = title_val == "AM"
         is_dm = title_val == "DM"
         is_mr = title_val == "MR"
+
         st.write(f"👋 **Welcome, {user.get('Employee Name') or 'User'}**")
         st.markdown("---")
+
         # Determine pages based on user role
         if is_hr:
             pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Notifications", "Directory"]
@@ -2231,16 +2591,19 @@ with st.sidebar:
             pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
         else:
             pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory"]
+
         for p in pages:
             if st.button(p, key=f"nav_{p}", use_container_width=True):
                 st.session_state["current_page"] = p
                 st.rerun()
+
         st.markdown("---")
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state["logged_in_user"] = None
             st.session_state["current_page"] = "My Profile"
             st.success("You have been logged out.")
             st.rerun()
+
 # Main Content
 if st.session_state["logged_in_user"]:
     current_page = st.session_state["current_page"]
@@ -2251,6 +2614,7 @@ if st.session_state["logged_in_user"]:
     is_am = title_val == "AM"
     is_dm = title_val == "DM"
     is_mr = title_val == "MR" # Added for clarity
+
     if current_page == "My Profile":
         page_my_profile(user)
     elif current_page == "Notifications":
