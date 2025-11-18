@@ -1338,7 +1338,22 @@ def page_salary_monthly(user):
             st.info(f"🚫 No salary records found for you (Code: {user_code}).")
             return
 
-        # عرض الأزرار لكل شهر
+        # زر لعرض/إخفاء جميع التفاصيل
+        if st.button("📊 Show All Details"):
+            show_all_key = "show_all_details"
+            st.session_state[show_all_key] = not st.session_state.get(show_all_key, False)
+
+        # عرض الجدول الكامل إذا تم الضغط على الزر
+        if st.session_state.get("show_all_details", False):
+            st.markdown("### All Salary Records")
+            # تحديد الأعمدة المطلوب عرضها في الجدول
+            display_cols = ["Month", "Basic Salary", "KPI Bonus", "Deductions"]
+            if "Net Salary" in user_salaries.columns:
+                display_cols.append("Net Salary")
+            # عرض الجدول
+            st.dataframe(user_salaries[display_cols].reset_index(drop=True), use_container_width=True)
+
+        # عرض الأزرار لكل شهر (مثلما كان)
         for index, row in user_salaries.iterrows():
             month = row["Month"]
             # مفتاح فريد لكل زر لتجنب التضارب
@@ -1353,20 +1368,38 @@ def page_salary_monthly(user):
                     "net": row.get('Net Salary', 'N/A') # نفترض أن العمود موجود
                 }
 
-        # عرض التفاصيل المخزنة في session_state
+        # عرض التفاصيل المخزنة في session_state (مثلما كان)
         for index, row in user_salaries.iterrows():
             month = row["Month"]
             details_key = f"salary_details_{month}"
             if st.session_state.get(details_key):
                 details = st.session_state[details_key]
                 with st.container():
-                    st.markdown(f"**<span style='color:#ffd166;'>Salary Details for {details['month']}</span>**", unsafe_allow_html=True)
-                    st.write(f"**Month:** {details['month']}")
-                    st.write(f"**Basic Salary:** {details['basic']}")
-                    st.write(f"**KPI Bonus:** {details['kpi']}")
-                    st.write(f"**Deductions:** {details['ded']}")
-                    if pd.notna(details['net']) and details['net'] != 'N/A':
-                         st.write(f"**Net Salary:** {details['net']}")
+                    # العنوان بأسلوب كارد
+                    st.markdown(f"<div style='background-color:#0b1220; padding: 8px; border-left: 4px solid #ffd166; margin-bottom: 8px;'><span style='color:#ffd166; font-weight:bold;'>Salary Details for {details['month']}</span></div>", unsafe_allow_html=True)
+
+                    # عرض التفاصيل في كارد
+                    card_content = f"""
+                    <div style="background-color:#0c1525; padding: 12px; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="color:#9fb0c8;">💰 Basic Salary:</span>
+                            <span style="color:#ffd166; font-weight:bold;">{details['basic']:.2f}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="color:#9fb0c8;">🎯 KPI Bonus:</span>
+                            <span style="color:#ffd166; font-weight:bold;">{details['kpi']:.2f}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="color:#9fb0c8;">📉 Deductions:</span>
+                            <span style="color:#ff6b6b; font-weight:bold;">{details['ded']:.2f}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; border-top: 1px solid #1e293b; padding-top: 8px;">
+                            <span style="color:#9fb0c8; font-weight:bold;">🧮 Net Salary:</span>
+                            <span style="color:#4ecdc4; font-weight:bold;">{details['net']:.2f}</span>
+                        </div>
+                    </div>
+                    """
+                    st.markdown(card_content, unsafe_allow_html=True)
 
                     # تحويل صف واحد إلى BytesIO لتنزيله
                     import io
@@ -1378,7 +1411,7 @@ def page_salary_monthly(user):
 
                     # زر التنزيل
                     st.download_button(
-                        label=f"Download Salary Slip for {month}",
+                        label=f"📥 Download Salary Slip for {month}",
                         data=output,
                         file_name=f"Salary_Slip_{user_code}_{month}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
