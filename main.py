@@ -501,7 +501,7 @@ def ai_execute_command(cmd, value):
             return "مفيش بيانات للإجازات حالياً."
         summary = leaves.groupby("Employee Name").size().reset_index(name="Total Leaves")
         summary = summary.sort_values("Total Leaves", ascending=False)
-        result = "تقـرير الإجازات"
+        result = "تقـرير الإجازات:
 "
         for _, row in summary.iterrows():
             result += f"- {row['Employee Name']}: {row['Total Leaves']} إجازة
@@ -2473,7 +2473,7 @@ def page_hr_manager(user):
                 if GITHUB_TOKEN:
                     st.warning("Saved locally but GitHub push failed.")
                 else:
-                    st.info("Saved locally. GitHub not configured.")
+                    st.info("Saved locally. GitHub token not configured.")
         else:
             st.error("Failed to save dataset locally.")
     # ============================
