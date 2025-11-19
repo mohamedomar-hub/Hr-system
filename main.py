@@ -1441,6 +1441,92 @@ def page_salary_report(user):
     else:
         st.info("No salary data available in the current dataset.")
 # ============================
+# NEW: Settings Page
+# ============================
+def page_settings(user):
+    st.subheader("⚙️ System Settings")
+    # Restrict to HR only
+    if user.get("Title", "").upper() != "HR":
+        st.error("You do not have permission to access System Settings.")
+        return
+    st.markdown("Manage system configuration, templates, design and backup options.")
+    # Tabs
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "🔧 General Settings", 
+        "🎨 Theme Settings",
+        "🧾 Templates",
+        "💾 Backup"
+    ])
+    # =======================
+    # 🔧 General Settings
+    # =======================
+    with tab1:
+        st.markdown("### General Configuration")
+        # Annual leave balance
+        st.markdown("**Annual Leave Balance**")
+        annual_default = st.session_state.get("annual_leave_balance", 21)
+        new_annual = st.number_input("Set annual leave balance", value=annual_default, min_value=0, max_value=60)
+        if st.button("Save General Settings"):
+            st.session_state["annual_leave_balance"] = new_annual
+            add_notification("", "HR", f"Annual leave balance updated to {new_annual}")
+            st.success("General settings saved successfully.")
+    # =======================
+    # 🎨 Theme Settings
+    # =======================
+    with tab2:
+        st.markdown("### Theme Customization")
+        theme = st.radio("Choose Theme Mode", ["Dark", "Light"], index=0 if st.session_state.get("theme", "Dark") == "Dark" else 1)
+        if st.button("Apply Theme"):
+            st.session_state["theme"] = theme
+            st.success(f"{theme} theme applied. Refreshing...")
+            st.rerun()
+    # =======================
+    # 🧾 Templates
+    # =======================
+    with tab3:
+        st.markdown("### Upload Templates")
+        # Salary template upload
+        st.markdown("**Upload Salary Template (.xlsx)**")
+        uploaded_template = st.file_uploader("Upload Salary Template", type=["xlsx"])
+        if uploaded_template:
+            with open("salary_template.xlsx", "wb") as f:
+                f.write(uploaded_template.getbuffer())
+            st.success("Salary template uploaded successfully.")
+        # Logo upload
+        st.markdown("### Upload System Logo")
+        uploaded_logo = st.file_uploader("Upload Logo (PNG / JPG)", type=["png", "jpg", "jpeg"])
+        if uploaded_logo:
+            with open(LOGO_PATH, "wb") as f:
+                f.write(uploaded_logo.getbuffer())
+            st.success("Logo updated successfully.")
+    # =======================
+    # 💾 Backup System
+    # =======================
+    with tab4:
+        st.markdown("### Full System Backup")
+        if st.button("Create Backup Zip"):
+            backup_name = f"backup_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+            with zipfile.ZipFile(backup_name, "w") as zipf:
+                # Add Excel files
+                for file in [
+                    DEFAULT_FILE_PATH, LEAVES_FILE_PATH, NOTIFICATIONS_FILE_PATH,
+                    HR_QUERIES_FILE_PATH, HR_REQUESTS_FILE_PATH, SALARIES_FILE_PATH
+                ]:
+                    if os.path.exists(file):
+                        zipf.write(file)
+                # Add photos
+                if os.path.exists("employee_photos"):
+                    for photo in os.listdir("employee_photos"):
+                        zipf.write(os.path.join("employee_photos", photo))
+            with open(backup_name, "rb") as f:
+                st.download_button(
+                    label="📥 Download Backup ZIP",
+                    data=f,
+                    file_name=backup_name,
+                    mime="application/zip"
+                )
+            st.success("Backup created successfully.")
+# ============================
 # Pages
 # ============================
 def render_logo_and_title():
@@ -2443,7 +2529,7 @@ with st.sidebar:
         st.markdown("---")
         # Determine pages based on user role
         if is_hr:
-            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Notifications", "Directory", "Salary Monthly", "Salary Report"] # Added "Salary Report"
+            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Notifications", "Directory", "Salary Monthly", "Salary Report", "Settings"] # Added "Salary Report" and "Settings"
         elif is_bum:
             pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
         elif is_am:
@@ -2531,6 +2617,11 @@ if st.session_state["logged_in_user"]:
     elif current_page == "Salary Report": # Added Salary Report page
         if is_hr:
             page_salary_report(user)
+        else:
+            st.error("Access denied. HR only.")
+    elif current_page == "Settings": # Added Settings page
+        if is_hr:
+            page_settings(user)
         else:
             st.error("Access denied. HR only.")
 else:
