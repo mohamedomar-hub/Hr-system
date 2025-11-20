@@ -450,19 +450,16 @@ def load_employee_data():
         return pd.read_excel(DEFAULT_FILE_PATH)
     except:
         return pd.DataFrame()
-
 def load_leaves_data_ext():
     try:
         return pd.read_excel(LEAVES_FILE_PATH)
     except:
         return pd.DataFrame()
-
 def load_salary_data():
     try:
         return pd.read_excel(SALARIES_FILE_PATH)
     except:
         return pd.DataFrame()
-
 # ===========================
 # 📌 HELPER: AI Natural Command Parser
 # ===========================
@@ -486,7 +483,6 @@ def ai_understand_command(user_text):
     if "عدد الموظفين" in t:
         return ("count_employees", None)
     return ("unknown", None)
-
 # ===========================
 # 📌 AI LOGIC EXECUTION
 # ===========================
@@ -494,20 +490,16 @@ def ai_execute_command(cmd, value):
     employees = load_employee_data()
     leaves = load_leaves_data_ext()
     salary = load_salary_data()
-
     # ================= Leaves Reports ================
     if cmd == "leaves_report":
         if leaves.empty:
             return "مفيش بيانات للإجازات حالياً."
         summary = leaves.groupby("Employee Name").size().reset_index(name="Total Leaves")
         summary = summary.sort_values("Total Leaves", ascending=False)
-        result = "تقـرير الإجازات:\\n"
-"
+        result = "تقـرير الإجازات:\n"
         for _, row in summary.iterrows():
-            result += f"- {row['Employee Name']}: {row['Total Leaves']} إجازة
-"
+            result += f"- {row['Employee Name']}: {row['Total Leaves']} إجازة\n"
         return result
-
     # ================= Late Employees ================
     if cmd == "late_employees":
         if leaves.empty:
@@ -519,13 +511,10 @@ def ai_execute_command(cmd, value):
         late_data = leaves[leaves["Leave Type"].str.contains("Late", case=False, na=False)]
         if late_data.empty:
             return "مفيش موظفين متأخرين."
-        result = "الموظفين اللي عندهم تأخير:
-"
+        result = "الموظفين اللي عندهم تأخير:\n"
         for name, count in late_data["Employee Name"].value_counts().items():
-            result += f"- {name}: {count} مرة
-"
+            result += f"- {name}: {count} مرة\n"
         return result
-
     # ================= Highest performer ================
     if cmd == "top_employee":
         if salary.empty:
@@ -542,7 +531,6 @@ def ai_execute_command(cmd, value):
         name = top_row[name_col]
         net_sal = top_row["Net Salary"]
         return f"أعلى مرتب: {name} — {net_sal} جنيه"
-
     # ================= Salary Report =====================
     if cmd == "salary_report":
         if salary.empty:
@@ -552,15 +540,12 @@ def ai_execute_command(cmd, value):
         name_col = "Employee Name"
         if name_col not in salary.columns:
             name_col = salary.columns[1] # افتراض أن العمود الثاني هو الاسم
-        result = "تقـرير الرواتب:
-"
+        result = "تقـرير الرواتب:\n"
         for _, row in salary.iterrows():
             name = row[name_col]
             net_sal = row["Net Salary"]
-            result += f"- {name}: {net_sal} جنيه
-"
+            result += f"- {name}: {net_sal} جنيه\n"
         return result
-
     # ================= Search employee ====================
     if cmd == "search_employee":
         name = value.lower()
@@ -575,27 +560,19 @@ def ai_execute_command(cmd, value):
         branch_val = row.get("Branch", "N/A")
         title_val = row.get("Title", "N/A")
         return (
-            f"تم العثور على الموظف:
-"
-            f"- الاسم: {name_val}
-"
-            f"- القسم: {dept_val}
-"
-            f"- الفرع: {branch_val}
-"
-            f"- الوظيفة: {title_val}
-"
+            f"تم العثور على الموظف:\n"
+            f"- الاسم: {name_val}\n"
+            f"- القسم: {dept_val}\n"
+            f"- الفرع: {branch_val}\n"
+            f"- الوظيفة: {title_val}\n"
         )
-
     # ================= Count employees =====================
     if cmd == "count_employees":
         if employees.empty:
             return "مفيش بيانات موظفين."
         return f"عدد الموظفين الحالي: {len(employees)} موظف."
-
     # ================= Unknown =====================
     return "مش فاهم سؤالك، حاول توضّح أكتر ❤️"
-
 # ===========================
 # 📌 PAGE — AI ASSISTANT
 # ===========================
@@ -603,11 +580,9 @@ def page_ai_assistant():
     st.subheader("AI Assistant")
     st.markdown("<p style='color:gray;'>اسأل أي سؤال عن الموظفين، الرواتب، الإجازات، أو خليني أجهز لك تقارير.</p>",
                 unsafe_allow_html=True)
-
     # ---- initialize history ----
     if "ai_chat" not in st.session_state:
         st.session_state["ai_chat"] = []
-
     # ---- chat box ----
     for sender, msg in st.session_state["ai_chat"]:
         align = "right" if sender == "user" else "left"
@@ -625,7 +600,6 @@ def page_ai_assistant():
             """,
             unsafe_allow_html=True
         )
-
     # ---- user input ----
     user_input = st.text_input("اكتب رسالتك:", key="ai_input",
                                placeholder="مثال: هات الموظفين اللي عندهم غياب")
@@ -642,11 +616,9 @@ def page_ai_assistant():
             # store bot reply
             st.session_state["ai_chat"].append(("bot", bot_reply))
             st.rerun()
-
     if st.button("🔄 مسح المحادثة"):
         st.session_state["ai_chat"] = []
         st.rerun()
-
 # ============================
 # Notifications System (unchanged)
 # ============================
@@ -2473,7 +2445,7 @@ def page_hr_manager(user):
                 if GITHUB_TOKEN:
                     st.warning("Saved locally but GitHub push failed.")
                 else:
-                    st.info("Saved locally. GitHub token not configured.")
+                    st.info("Saved locally. GitHub not configured.")
         else:
             st.error("Failed to save dataset locally.")
     # ============================
