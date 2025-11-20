@@ -8,8 +8,6 @@ import os
 import datetime
 import shutil
 import zipfile
-import re
-import time
 # ============================
 # Configuration / Defaults
 # ============================
@@ -442,183 +440,6 @@ def save_leaves_data(df):
         return True
     except Exception:
         return False
-# ===========================
-# 📌 HELPER: Load Data
-# ===========================
-def load_employee_data():
-    try:
-        return pd.read_excel(DEFAULT_FILE_PATH)
-    except:
-        return pd.DataFrame()
-def load_leaves_data_ext():
-    try:
-        return pd.read_excel(LEAVES_FILE_PATH)
-    except:
-        return pd.DataFrame()
-def load_salary_data():
-    try:
-        return pd.read_excel(SALARIES_FILE_PATH)
-    except:
-        return pd.DataFrame()
-# ===========================
-# 📌 HELPER: AI Natural Command Parser
-# ===========================
-def ai_understand_command(user_text):
-    t = user_text.lower()
-    # ========== Leaves ==========
-    if "اجاز" in t or "غياب" in t:
-        return ("leaves_report", None)
-    if "متأخر" in t or "تأخير" in t:
-        return ("late_employees", None)
-    if "مين اكتر واحد" in t or "اعلي" in t:
-        return ("top_employee", None)
-    # ========== Salary ==========
-    if "مرتب" in t or "salary" in t:
-        return ("salary_report", None)
-    # ========== Search ==========
-    name_match = re.search(r"اسم\s+(.+)", t)
-    if name_match:
-        return ("search_employee", name_match.group(1).strip())
-    # ========== System Info ==========
-    if "عدد الموظفين" in t:
-        return ("count_employees", None)
-    return ("unknown", None)
-# ===========================
-# 📌 AI LOGIC EXECUTION
-# ===========================
-def ai_execute_command(cmd, value):
-    employees = load_employee_data()
-    leaves = load_leaves_data_ext()
-    salary = load_salary_data()
-    # ================= Leaves Reports ================
-    if cmd == "leaves_report":
-        if leaves.empty:
-            return "مفيش بيانات للإجازات حالياً."
-        summary = leaves.groupby("Employee Name").size().reset_index(name="Total Leaves")
-        summary = summary.sort_values("Total Leaves", ascending=False)
-        result = "تقـرير الإجازات:\n"
-        for _, row in summary.iterrows():
-            result += f"- {row['Employee Name']}: {row['Total Leaves']} إجازة\n"
-        return result
-    # ================= Late Employees ================
-    if cmd == "late_employees":
-        if leaves.empty:
-            return "مفيش بيانات تأخير."
-        # نفترض أن نوع الإجازة "Late" يشير إلى التأخير
-        # يجب تعديل هذا الجزء حسب هيكلة عمود "Leave Type" في ملف الإجازات
-        # مثلاً إذا كان التأخير في عمود مختلف، يجب تغييره
-        # هنا نفترض أن "Late" جزء من نوع الإجازة
-        late_data = leaves[leaves["Leave Type"].str.contains("Late", case=False, na=False)]
-        if late_data.empty:
-            return "مفيش موظفين متأخرين."
-        result = "الموظفين اللي عندهم تأخير:\n"
-        for name, count in late_data["Employee Name"].value_counts().items():
-            result += f"- {name}: {count} مرة\n"
-        return result
-    # ================= Highest performer ================
-    if cmd == "top_employee":
-        if salary.empty:
-            return "مفيش رواتب لسه."
-        if "Net Salary" not in salary.columns:
-            return "عمود 'Net Salary' مش موجود في ملف الرواتب."
-        top = salary.sort_values("Net Salary", ascending=False)
-        if top.empty:
-            return "مفيش بيانات رواتب."
-        top_row = top.iloc[0]
-        name_col = "Employee Name"
-        if name_col not in top_row:
-            name_col = salary.columns[1] # افتراض أن العمود الثاني هو الاسم
-        name = top_row[name_col]
-        net_sal = top_row["Net Salary"]
-        return f"أعلى مرتب: {name} — {net_sal} جنيه"
-    # ================= Salary Report =====================
-    if cmd == "salary_report":
-        if salary.empty:
-            return "ملف الرواتب مش متوفر."
-        if "Net Salary" not in salary.columns:
-            return "عمود 'Net Salary' مش موجود في ملف الرواتب."
-        name_col = "Employee Name"
-        if name_col not in salary.columns:
-            name_col = salary.columns[1] # افتراض أن العمود الثاني هو الاسم
-        result = "تقـرير الرواتب:\n"
-        for _, row in salary.iterrows():
-            name = row[name_col]
-            net_sal = row["Net Salary"]
-            result += f"- {name}: {net_sal} جنيه\n"
-        return result
-    # ================= Search employee ====================
-    if cmd == "search_employee":
-        name = value.lower()
-        if "Employee Name" not in employees.columns:
-            return "عمود 'Employee Name' مش موجود في ملف الموظفين."
-        filtered = employees[employees["Employee Name"].str.lower().str.contains(name, na=False)]
-        if filtered.empty:
-            return "مفيش موظف بالاسم ده."
-        row = filtered.iloc[0]
-        name_val = row.get("Employee Name", "N/A")
-        dept_val = row.get("Department", "N/A")
-        branch_val = row.get("Branch", "N/A")
-        title_val = row.get("Title", "N/A")
-        return (
-            f"تم العثور على الموظف:\n"
-            f"- الاسم: {name_val}\n"
-            f"- القسم: {dept_val}\n"
-            f"- الفرع: {branch_val}\n"
-            f"- الوظيفة: {title_val}\n"
-        )
-    # ================= Count employees =====================
-    if cmd == "count_employees":
-        if employees.empty:
-            return "مفيش بيانات موظفين."
-        return f"عدد الموظفين الحالي: {len(employees)} موظف."
-    # ================= Unknown =====================
-    return "مش فاهم سؤالك، حاول توضّح أكتر ❤️"
-# ===========================
-# 📌 PAGE — AI ASSISTANT
-# ===========================
-def page_ai_assistant():
-    st.subheader("AI Assistant")
-    st.markdown("<p style='color:gray;'>اسأل أي سؤال عن الموظفين، الرواتب، الإجازات، أو خليني أجهز لك تقارير.</p>",
-                unsafe_allow_html=True)
-    # ---- initialize history ----
-    if "ai_chat" not in st.session_state:
-        st.session_state["ai_chat"] = []
-    # ---- chat box ----
-    for sender, msg in st.session_state["ai_chat"]:
-        align = "right" if sender == "user" else "left"
-        color = "#0066cc" if sender == "user" else "#e6e6e6"
-        txt_color = "white" if sender == "user" else "black"
-        st.markdown(
-            f"""
-            <div style='text-align:{align}; margin:8px 0;'>
-                <span style='background:{color}; padding:10px 14px;
-                border-radius:10px; color:{txt_color}; display:inline-block;
-                max-width:80%;'>
-                    {msg}
-                </span>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-    # ---- user input ----
-    user_input = st.text_input("اكتب رسالتك:", key="ai_input",
-                               placeholder="مثال: هات الموظفين اللي عندهم غياب")
-    if st.button("إرسال"):
-        if user_input.strip():
-            # add to history
-            st.session_state["ai_chat"].append(("user", user_input))
-            # understand user
-            cmd, value = ai_understand_command(user_input)
-            # simulate thinking
-            time.sleep(0.4)
-            # execute
-            bot_reply = ai_execute_command(cmd, value)
-            # store bot reply
-            st.session_state["ai_chat"].append(("bot", bot_reply))
-            st.rerun()
-    if st.button("🔄 مسح المحادثة"):
-        st.session_state["ai_chat"] = []
-        st.rerun()
 # ============================
 # Notifications System (unchanged)
 # ============================
@@ -1524,6 +1345,7 @@ def page_salary_report(user):
                     st.info("Preview shown above.")
         except Exception as e:
             st.error(f"Failed to read uploaded file: {e}")
+
     # Save & Push section
     st.markdown("---")
     st.markdown("### Save & Push Salary Report to GitHub")
@@ -1536,6 +1358,7 @@ def page_salary_report(user):
             except Exception:
                 st.error(f"Could not load salary data from {SALARIES_FILE_PATH}. Upload a file first.")
                 return
+
         # Save locally
         try:
             with pd.ExcelWriter(SALARIES_FILE_PATH, engine="openpyxl") as writer:
@@ -1543,6 +1366,7 @@ def page_salary_report(user):
             saved_locally = True
         except Exception:
             saved_locally = False
+
         # Push to GitHub
         pushed_to_github = False
         if saved_locally and GITHUB_TOKEN:
@@ -1554,12 +1378,14 @@ def page_salary_report(user):
                     current_salary_df.to_excel(writer, index=False)
                 output.seek(0)
                 file_content_b64 = base64.b64encode(output.read()).decode("utf-8")
+
                 url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{salary_file_path}"
                 params = {"ref": BRANCH}
                 resp = requests.get(url, headers=github_headers(), params=params, timeout=30)
                 sha = None
                 if resp.status_code == 200:
                     sha = resp.json().get("sha")
+
                 payload = {
                     "message": f"Update {salary_file_path} via HR Salary Report page by {user.get('Employee Name', 'HR')}",
                     "content": file_content_b64,
@@ -1567,6 +1393,7 @@ def page_salary_report(user):
                 }
                 if sha:
                     payload["sha"] = sha
+
                 put_resp = requests.put(url, headers=github_headers(), json=payload, timeout=60)
                 if put_resp.status_code in (200, 201):
                     pushed_to_github = True
@@ -1574,6 +1401,7 @@ def page_salary_report(user):
                     st.warning(f"GitHub API returned status {put_resp.status_code}. Check your token and permissions.")
             except Exception as e:
                 st.error(f"Failed to push salary data to GitHub: {e}")
+
         # Feedback
         if saved_locally:
             if pushed_to_github:
@@ -1585,6 +1413,7 @@ def page_salary_report(user):
                     st.info("Salary data saved locally. GitHub token not configured.")
         else:
             st.error("Failed to save salary data locally.")
+
     # Display current salary data if available
     st.markdown("---")
     st.markdown("### Current Salary Data")
@@ -1596,6 +1425,7 @@ def page_salary_report(user):
         except Exception:
             st.info(f"No salary data file ({SALARIES_FILE_PATH}) found. Upload one first.")
             return
+
     if not current_salary_df.empty:
         st.dataframe(current_salary_df.head(100), use_container_width=True)
         buf = BytesIO()
@@ -2699,17 +2529,17 @@ with st.sidebar:
         st.markdown("---")
         # Determine pages based on user role
         if is_hr:
-            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Notifications", "Directory", "Salary Monthly", "Salary Report", "Settings", "AI Assistant"] # Added "Salary Report", "Settings", "AI Assistant"
+            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Notifications", "Directory", "Salary Monthly", "Salary Report", "Settings"] # Added "Salary Report" and "Settings"
         elif is_bum:
-            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly", "AI Assistant"] # Added "AI Assistant"
+            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
         elif is_am:
-            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly", "AI Assistant"] # Added "AI Assistant"
+            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
         elif is_dm:
-            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly", "AI Assistant"] # Added "AI Assistant"
+            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
         elif is_mr:
-            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly", "AI Assistant"] # Added "AI Assistant"
+            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
         else:
-            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly", "AI Assistant"] # Added "AI Assistant"
+            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
         for p in pages:
             if st.button(p, key=f"nav_{p}", use_container_width=True):
                 st.session_state["current_page"] = p
@@ -2794,7 +2624,5 @@ if st.session_state["logged_in_user"]:
             page_settings(user)
         else:
             st.error("Access denied. HR only.")
-    elif current_page == "AI Assistant": # Added AI Assistant page
-        page_ai_assistant()
 else:
     st.info("Please log in to access the system.")
