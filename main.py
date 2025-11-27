@@ -23,6 +23,14 @@ REPO_OWNER = st.secrets.get("REPO_OWNER", "mohamedomar-hub")
 REPO_NAME = st.secrets.get("REPO_NAME", "hr-system")
 BRANCH = st.secrets.get("BRANCH", "main")
 FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FILE_PATH") else DEFAULT_FILE_PATH
+
+# ============================
+# Recruitment Configuration
+# ============================
+RECRUITMENT_CV_DIR = "recruitment_cvs"
+RECRUITMENT_DATA_FILE = "Recruitment_Data.xlsx"
+GOOGLE_FORM_RECRUITMENT_LINK = "https://docs.google.com/forms/d/e/1FAIpQLSccvOVVSrKDRAF-4rOt0N_rEr8SmQ2F6cVRSwk7RGjMoRhpLQ/viewform"
+
 # ============================
 # Styling - Enhanced Dark Mode CSS with Bell, Fonts, and Sidebar Improvements
 # ============================
@@ -324,6 +332,22 @@ def save_employee_photo(employee_code, uploaded_file):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
+# ============================
+# Recruitment CV Helper
+# ============================
+def save_recruitment_cv(uploaded_file):
+    os.makedirs(RECRUITMENT_CV_DIR, exist_ok=True)
+    ext = uploaded_file.name.split(".")[-1].lower()
+    if ext not in ["pdf", "doc", "docx"]:
+        raise ValueError("Only PDF or DOC/DOCX files allowed for CV.")
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"cv_{timestamp}.{ext}"
+    filepath = os.path.join(RECRUITMENT_CV_DIR, filename)
+    with open(filepath, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    return filename
+
 # ============================
 # GitHub helpers (unchanged)
 # ============================
@@ -1345,7 +1369,6 @@ def page_salary_report(user):
                     st.info("Preview shown above.")
         except Exception as e:
             st.error(f"Failed to read uploaded file: {e}")
-
     # Save & Push section
     st.markdown("---")
     st.markdown("### Save & Push Salary Report to GitHub")
@@ -1358,7 +1381,6 @@ def page_salary_report(user):
             except Exception:
                 st.error(f"Could not load salary data from {SALARIES_FILE_PATH}. Upload a file first.")
                 return
-
         # Save locally
         try:
             with pd.ExcelWriter(SALARIES_FILE_PATH, engine="openpyxl") as writer:
@@ -1366,7 +1388,6 @@ def page_salary_report(user):
             saved_locally = True
         except Exception:
             saved_locally = False
-
         # Push to GitHub
         pushed_to_github = False
         if saved_locally and GITHUB_TOKEN:
@@ -1378,14 +1399,12 @@ def page_salary_report(user):
                     current_salary_df.to_excel(writer, index=False)
                 output.seek(0)
                 file_content_b64 = base64.b64encode(output.read()).decode("utf-8")
-
                 url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{salary_file_path}"
                 params = {"ref": BRANCH}
                 resp = requests.get(url, headers=github_headers(), params=params, timeout=30)
                 sha = None
                 if resp.status_code == 200:
                     sha = resp.json().get("sha")
-
                 payload = {
                     "message": f"Update {salary_file_path} via HR Salary Report page by {user.get('Employee Name', 'HR')}",
                     "content": file_content_b64,
@@ -1393,7 +1412,6 @@ def page_salary_report(user):
                 }
                 if sha:
                     payload["sha"] = sha
-
                 put_resp = requests.put(url, headers=github_headers(), json=payload, timeout=60)
                 if put_resp.status_code in (200, 201):
                     pushed_to_github = True
@@ -1401,7 +1419,6 @@ def page_salary_report(user):
                     st.warning(f"GitHub API returned status {put_resp.status_code}. Check your token and permissions.")
             except Exception as e:
                 st.error(f"Failed to push salary data to GitHub: {e}")
-
         # Feedback
         if saved_locally:
             if pushed_to_github:
@@ -1413,7 +1430,6 @@ def page_salary_report(user):
                     st.info("Salary data saved locally. GitHub token not configured.")
         else:
             st.error("Failed to save salary data locally.")
-
     # Display current salary data if available
     st.markdown("---")
     st.markdown("### Current Salary Data")
@@ -1425,7 +1441,6 @@ def page_salary_report(user):
         except Exception:
             st.info(f"No salary data file ({SALARIES_FILE_PATH}) found. Upload one first.")
             return
-
     if not current_salary_df.empty:
         st.dataframe(current_salary_df.head(100), use_container_width=True)
         buf = BytesIO()
@@ -1440,6 +1455,119 @@ def page_salary_report(user):
         )
     else:
         st.info("No salary data available in the current dataset.")
+# ============================
+# NEW: Salary Report Page (HR Only)
+# ============================
+
+# ============================
+# NEW: Recruitment Page for HR
+# ============================
+def page_recruitment(user):
+    st.subheader("👥 Recruitment Management")
+    if user.get("Title", "").upper() != "HR":
+        st.error("Access denied. HR only.")
+        return
+
+    # ========================
+    # عرض رابط Google Form في الأعلى
+    # ========================
+    st.markdown(f"""
+    <div style="background-color:#0b1220; padding:12px; border-radius:8px; border:1px solid #0b72b9; margin-bottom:20px;">
+        <h4>📝 Candidate Application Form</h4>
+        <p>Share this link with job applicants:</p>
+        <a href="{GOOGLE_FORM_RECRUITMENT_LINK}" target="_blank" style="color:#0b72b9; text-decoration:underline;">
+            👉 Apply via Google Form
+        </a>
+        <p style="font-size:0.9rem; color:#9fb0c8; margin-top:8px;">
+            After applicants submit, download the Excel responses from Google Sheets and upload them below.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    tab_cv, tab_db = st.tabs(["📄 CV Candidates", "📊 Recruitment Database"])
+
+    # ========================
+    # Tab 1: CV Candidates
+    # ========================
+    with tab_cv:
+        st.markdown("### Upload New Candidate CV")
+        uploaded_cv = st.file_uploader("Upload CV (PDF or Word)", type=["pdf", "doc", "docx"])
+        candidate_name = st.text_input("Candidate Name (for reference)")
+        if uploaded_cv and st.button("✅ Save CV"):
+            try:
+                filename = save_recruitment_cv(uploaded_cv)
+                st.success(f"CV saved as: `{filename}`")
+                if candidate_name:
+                    add_notification("", "HR", f"New CV uploaded for: {candidate_name}")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Failed to save CV: {e}")
+
+        st.markdown("---")
+        st.markdown("### All Uploaded CVs")
+        cv_files = []
+        if os.path.exists(RECRUITMENT_CV_DIR):
+            cv_files = sorted(os.listdir(RECRUITMENT_CV_DIR), reverse=True)
+
+        if not cv_files:
+            st.info("No CVs uploaded yet.")
+        else:
+            for cv in cv_files:
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    st.markdown(f"📄 `{cv}`")
+                with col2:
+                    with open(os.path.join(RECRUITMENT_CV_DIR, cv), "rb") as f:
+                        st.download_button("📥", f, file_name=cv, key=f"dl_cv_{cv}")
+            # زر تحميل الكل
+            if st.button("📦 Download All CVs (ZIP)"):
+                zip_path = "all_cvs.zip"
+                with zipfile.ZipFile(zip_path, 'w') as zipf:
+                    for cv in cv_files:
+                        zipf.write(os.path.join(RECRUITMENT_CV_DIR, cv), cv)
+                with open(zip_path, "rb") as f:
+                    st.download_button("Download ZIP", f, file_name="Recruitment_CVs.zip", mime="application/zip")
+
+    # ========================
+    # Tab 2: Recruitment Database
+    # ========================
+    with tab_db:
+        st.markdown("### Upload Recruitment Data from Google Forms")
+        uploaded_db = st.file_uploader("Upload Excel from Google Forms", type=["xlsx"])
+        if uploaded_db:
+            try:
+                new_db_df = pd.read_excel(uploaded_db)
+                st.session_state["recruitment_preview"] = new_db_df.copy()
+                st.success("File loaded successfully.")
+                st.dataframe(new_db_df.head(10), use_container_width=True)
+
+                if st.button("✅ Replace Recruitment Database"):
+                    new_db_df.to_excel(RECRUITMENT_DATA_FILE, index=False)
+                    st.success("Recruitment database updated!")
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Error reading file: {e}")
+
+        st.markdown("---")
+        st.markdown("### Current Recruitment Database")
+        if os.path.exists(RECRUITMENT_DATA_FILE):
+            try:
+                db_df = pd.read_excel(RECRUITMENT_DATA_FILE)
+                st.dataframe(db_df, use_container_width=True)
+                buf = BytesIO()
+                db_df.to_excel(buf, index=False, engine="openpyxl")
+                buf.seek(0)
+                st.download_button(
+                    "📥 Download Recruitment Database",
+                    data=buf,
+                    file_name="Recruitment_Data.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            except Exception as e:
+                st.error(f"Failed to load database: {e}")
+        else:
+            st.info("No recruitment data uploaded yet.")
+
 # ============================
 # NEW: Settings Page
 # ============================
@@ -2529,7 +2657,7 @@ with st.sidebar:
         st.markdown("---")
         # Determine pages based on user role
         if is_hr:
-            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Notifications", "Directory", "Salary Monthly", "Salary Report", "Settings"] # Added "Salary Report" and "Settings"
+            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Recruitment", "Notifications", "Directory", "Salary Monthly", "Salary Report", "Settings"] # Added "Recruitment"
         elif is_bum:
             pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
         elif is_am:
@@ -2617,6 +2745,11 @@ if st.session_state["logged_in_user"]:
     elif current_page == "Salary Report": # Added Salary Report page
         if is_hr:
             page_salary_report(user)
+        else:
+            st.error("Access denied. HR only.")
+    elif current_page == "Recruitment": # 👈 Added Recruitment page
+        if is_hr:
+            page_recruitment(user)
         else:
             st.error("Access denied. HR only.")
     elif current_page == "Settings": # Added Settings page
