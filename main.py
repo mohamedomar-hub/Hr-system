@@ -461,7 +461,7 @@ def save_leaves_data(df):
     except Exception:
         return False
 # ============================
-# Notifications System — ✅ Enhanced to support partial match for 'HR'
+# Notifications System (unchanged)
 # ============================
 def load_notifications():
     if os.path.exists(NOTIFICATIONS_FILE_PATH):
@@ -507,14 +507,9 @@ def get_unread_count(user):
             user_title = str(val).strip().upper()
     if not user_code and not user_title:
         return 0
-    # ✅ Allow partial match: if user_title contains "HR", treat as HR
     mask = (
         (notifications["Recipient Code"].astype(str) == user_code) |
-        (
-            notifications["Recipient Title"].astype(str).str.upper().str.contains("HR", na=False)
-            if user_title and "HR" in user_title
-            else notifications["Recipient Title"].astype(str).str.upper() == user_title
-        )
+        (notifications["Recipient Title"].astype(str).str.upper() == user_title)
     )
     unread = notifications[mask & (~notifications["Is Read"])]
     return len(unread)
@@ -529,16 +524,9 @@ def mark_all_as_read(user):
             user_code = str(val).strip().replace(".0", "")
         if key == "Title":
             user_title = str(val).strip().upper()
-    if not user_code and not user_title:
-        return
-    # ✅ Same logic as above for marking read
     mask = (
         (notifications["Recipient Code"].astype(str) == user_code) |
-        (
-            notifications["Recipient Title"].astype(str).str.upper().str.contains("HR", na=False)
-            if user_title and "HR" in user_title
-            else notifications["Recipient Title"].astype(str).str.upper() == user_title
-        )
+        (notifications["Recipient Title"].astype(str).str.upper() == user_title)
     )
     notifications.loc[mask, "Is Read"] = True
     save_notifications(notifications)
@@ -557,14 +545,9 @@ def page_notifications(user):
             user_title = str(val).strip().upper()
     if not user_code and not user_title:
         return 0
-    # ✅ Same partial match logic
     user_notifs = notifications[
         (notifications["Recipient Code"].astype(str) == user_code) |
-        (
-            notifications["Recipient Title"].astype(str).str.upper().str.contains("HR", na=False)
-            if user_title and "HR" in user_title
-            else notifications["Recipient Title"].astype(str).str.upper() == user_title
-        )
+        (notifications["Recipient Title"].astype(str).str.upper() == user_title)
     ].copy()
     if user_notifs.empty:
         st.info("No notifications for you.")
@@ -1469,7 +1452,7 @@ def page_salary_report(user):
     else:
         st.info("No salary data available in the current dataset.")
 # ============================
-# NEW: Recruitment Page for HR — ✅ Enhanced to show CV links from Google Forms
+# NEW: Recruitment Page for HR
 # ============================
 def page_recruitment(user):
     st.subheader("👥 Recruitment Management")
@@ -1532,7 +1515,7 @@ def page_recruitment(user):
                 with open(zip_path, "rb") as f:
                     st.download_button("Download ZIP", f, file_name="Recruitment_CVs.zip", mime="application/zip")
     # ========================
-    # Tab 2: Recruitment Database — ✅ Added CV Link support
+    # Tab 2: Recruitment Database
     # ========================
     with tab_db:
         st.markdown("### Upload Recruitment Data from Google Forms")
@@ -1555,25 +1538,6 @@ def page_recruitment(user):
             try:
                 db_df = pd.read_excel(RECRUITMENT_DATA_FILE)
                 st.dataframe(db_df, use_container_width=True)
-
-                # ✅ Detect CV link column (case-insensitive, partial match)
-                cv_link_col = None
-                for col in db_df.columns:
-                    if "cv" in col.lower() and ("link" in col.lower() or "url" in col.lower() or "drive" in col.lower()):
-                        cv_link_col = col
-                        break
-                    elif "link" in col.lower() and "cv" in col.lower():
-                        cv_link_col = col
-                        break
-
-                if cv_link_col:
-                    st.markdown("### 📄 Candidate CV Links")
-                    for idx, row in db_df.iterrows():
-                        name = row.get("Name", row.get("اسم", f"Candidate {idx+1}"))
-                        link = row.get(cv_link_col, "")
-                        if pd.notna(link) and str(link).strip().startswith("http"):
-                            st.markdown(f"[📄 CV for {name}]({link})", unsafe_allow_html=True)
-
                 buf = BytesIO()
                 db_df.to_excel(buf, index=False, engine="openpyxl")
                 buf.seek(0)
@@ -1826,6 +1790,27 @@ def page_my_profile(user):
                     except Exception as e:
                         st.error(f"Failed to save photo: {e}")
 # Rest of pages unchanged: leave_request, manager_leaves, dashboard, hr_manager, reports, hr_inbox, ask_hr
+
+# ============================
+# 🔔 NEW: Helper to get manager info (reusable)
+# ============================
+def get_employee_info(df, employee_code):
+    """Returns a row (Series) of employee info or None if not found."""
+    if df.empty:
+        return None
+    col_map = {c.lower().strip(): c for c in df.columns}
+    code_col = col_map.get("employee_code") or col_map.get("employee code")
+    if not code_col:
+        return None
+    df[code_col] = df[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    matched = df[df[code_col] == str(employee_code).strip()]
+    if not matched.empty:
+        return matched.iloc[0]
+    return None
+
+# ============================
+# 🔔 Modified: page_leave_request — sends notification up the hierarchy
+# ============================
 def calculate_leave_balance(user_code, leaves_df):
     """Calculates Annual Leave Balance, Used Days, and Remaining Days."""
     annual_balance = 21 # Default annual leave balance
@@ -1848,6 +1833,7 @@ def calculate_leave_balance(user_code, leaves_df):
         used_days = user_approved_leaves["Leave Days"].sum()
     remaining_days = annual_balance - used_days
     return annual_balance, used_days, remaining_days
+
 def page_leave_request(user):
     st.subheader("Request Leave")
     df_emp = st.session_state.get("df", pd.DataFrame())
@@ -1935,6 +1921,19 @@ def page_leave_request(user):
             if save_leaves_data(leaves_df):
                 st.success("✅ Leave request submitted successfully to your manager.")
                 add_notification(manager_code, "", f"New leave request from {user_code}")
+
+                # 🔔 NEW: Notify manager's manager if manager is AM or DM
+                df = st.session_state.get("df", pd.DataFrame())
+                if not df.empty:
+                    manager_info = get_employee_info(df, manager_code)
+                    if manager_info is not None:
+                        manager_title = str(manager_info.get("Title", "")).strip().upper()
+                        if manager_title in ["AM", "DM"]:
+                            parent_manager_code = manager_info.get("Manager Code", "")
+                            if pd.notna(parent_manager_code) and str(parent_manager_code).strip() not in ["", "nan"]:
+                                parent_manager_code_clean = str(parent_manager_code).strip().replace(".0", "")
+                                add_notification(parent_manager_code_clean, "", f"New leave request from {user_code} (under {manager_code})")
+
                 st.balloons()
             else:
                 st.error("❌ Failed to save leave request.")
@@ -1951,6 +1950,10 @@ def page_leave_request(user):
             st.info("You haven't submitted any leave requests yet.")
     else:
         st.info("No leave requests found.")
+
+# ============================
+# 🔔 Modified: page_manager_leaves — sends notification up the hierarchy on approval
+# ============================
 def page_manager_leaves(user):
     st.subheader("Leave Requests from Your Team")
     manager_code = None
@@ -2058,6 +2061,19 @@ def page_manager_leaves(user):
                         mgr_name = manager_code_to_name.get(manager_code, manager_code)
                         emp_name_for_notif = row.get(name_col_to_use, row['Employee Code'])
                         add_notification("", "HR", f"Leave approved for {emp_name_for_notif} ({row['Employee Code']}) by {mgr_name} ({manager_code}).")
+
+                        # 🔔 NEW: Notify manager's manager if current manager is AM or DM
+                        df_full = st.session_state.get("df", pd.DataFrame())
+                        if not df_full.empty:
+                            current_manager_info = get_employee_info(df_full, manager_code)
+                            if current_manager_info is not None:
+                                current_title = str(current_manager_info.get("Title", "")).strip().upper()
+                                if current_title in ["AM", "DM"]:
+                                    parent_mgr_code = current_manager_info.get("Manager Code", "")
+                                    if pd.notna(parent_mgr_code) and str(parent_mgr_code).strip() not in ["", "nan"]:
+                                        parent_mgr_clean = str(parent_mgr_code).strip().replace(".0", "")
+                                        add_notification(parent_mgr_clean, "", f"Leave approved for {emp_name_for_notif} by {mgr_name} ({manager_code})")
+
                         # NEW: Send full leaves report to HR after approval
                         df_emp_global = st.session_state.get('df', pd.DataFrame())
                         send_full_leaves_report_to_hr(current_leaves, df_emp_global, out_path='HR_Leaves_Report.xlsx')
@@ -2279,7 +2295,7 @@ def page_hr_manager(user):
             df_emp_global[mgr_code_col] = df_emp_global[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
             # الآن الدمج آمن
             leaves_with_names = leaves_df_all.merge(
-                df_emp_global[[emp_code_col, emp_name_col]].rename(columns={emp_name_col: "Employee Name"}),
+                df_emp_global[[emp_code_col, emp_name_col]].rename(columns={emp_code_col: "Employee Code", emp_name_col: "Employee Name"}),
                 on="Employee Code", how="left"
             )
             leaves_with_names = leaves_with_names.merge(
