@@ -2660,10 +2660,10 @@ with st.sidebar:
             if p == "Notifications":
                 # Create button with badge
                 if unread_count > 0:
-                    button_text = f"Notifications <span style='background-color:red; color:white; border-radius:50%; padding:0 4px; font-size:0.8em;'>{unread_count}</span>"
+                    button_label = f"Notifications ({unread_count})"
                 else:
-                    button_text = "Notifications"
-                if st.button(button_text, key=f"nav_{p}", use_container_width=True, help="View your notifications"):
+                    button_label = "Notifications"
+                if st.button(button_label, key=f"nav_{p}", use_container_width=True):
                     st.session_state["current_page"] = p
                     st.rerun()
             else:
