@@ -1790,27 +1790,6 @@ def page_my_profile(user):
                     except Exception as e:
                         st.error(f"Failed to save photo: {e}")
 # Rest of pages unchanged: leave_request, manager_leaves, dashboard, hr_manager, reports, hr_inbox, ask_hr
-
-# ============================
-# 🔔 NEW: Helper to get manager info (reusable)
-# ============================
-def get_employee_info(df, employee_code):
-    """Returns a row (Series) of employee info or None if not found."""
-    if df.empty:
-        return None
-    col_map = {c.lower().strip(): c for c in df.columns}
-    code_col = col_map.get("employee_code") or col_map.get("employee code")
-    if not code_col:
-        return None
-    df[code_col] = df[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-    matched = df[df[code_col] == str(employee_code).strip()]
-    if not matched.empty:
-        return matched.iloc[0]
-    return None
-
-# ============================
-# 🔔 Modified: page_leave_request — sends notification up the hierarchy
-# ============================
 def calculate_leave_balance(user_code, leaves_df):
     """Calculates Annual Leave Balance, Used Days, and Remaining Days."""
     annual_balance = 21 # Default annual leave balance
@@ -1833,7 +1812,6 @@ def calculate_leave_balance(user_code, leaves_df):
         used_days = user_approved_leaves["Leave Days"].sum()
     remaining_days = annual_balance - used_days
     return annual_balance, used_days, remaining_days
-
 def page_leave_request(user):
     st.subheader("Request Leave")
     df_emp = st.session_state.get("df", pd.DataFrame())
@@ -1921,19 +1899,6 @@ def page_leave_request(user):
             if save_leaves_data(leaves_df):
                 st.success("✅ Leave request submitted successfully to your manager.")
                 add_notification(manager_code, "", f"New leave request from {user_code}")
-
-                # 🔔 NEW: Notify manager's manager if manager is AM or DM
-                df = st.session_state.get("df", pd.DataFrame())
-                if not df.empty:
-                    manager_info = get_employee_info(df, manager_code)
-                    if manager_info is not None:
-                        manager_title = str(manager_info.get("Title", "")).strip().upper()
-                        if manager_title in ["AM", "DM"]:
-                            parent_manager_code = manager_info.get("Manager Code", "")
-                            if pd.notna(parent_manager_code) and str(parent_manager_code).strip() not in ["", "nan"]:
-                                parent_manager_code_clean = str(parent_manager_code).strip().replace(".0", "")
-                                add_notification(parent_manager_code_clean, "", f"New leave request from {user_code} (under {manager_code})")
-
                 st.balloons()
             else:
                 st.error("❌ Failed to save leave request.")
@@ -1950,10 +1915,6 @@ def page_leave_request(user):
             st.info("You haven't submitted any leave requests yet.")
     else:
         st.info("No leave requests found.")
-
-# ============================
-# 🔔 Modified: page_manager_leaves — sends notification up the hierarchy on approval
-# ============================
 def page_manager_leaves(user):
     st.subheader("Leave Requests from Your Team")
     manager_code = None
@@ -2061,19 +2022,6 @@ def page_manager_leaves(user):
                         mgr_name = manager_code_to_name.get(manager_code, manager_code)
                         emp_name_for_notif = row.get(name_col_to_use, row['Employee Code'])
                         add_notification("", "HR", f"Leave approved for {emp_name_for_notif} ({row['Employee Code']}) by {mgr_name} ({manager_code}).")
-
-                        # 🔔 NEW: Notify manager's manager if current manager is AM or DM
-                        df_full = st.session_state.get("df", pd.DataFrame())
-                        if not df_full.empty:
-                            current_manager_info = get_employee_info(df_full, manager_code)
-                            if current_manager_info is not None:
-                                current_title = str(current_manager_info.get("Title", "")).strip().upper()
-                                if current_title in ["AM", "DM"]:
-                                    parent_mgr_code = current_manager_info.get("Manager Code", "")
-                                    if pd.notna(parent_mgr_code) and str(parent_mgr_code).strip() not in ["", "nan"]:
-                                        parent_mgr_clean = str(parent_mgr_code).strip().replace(".0", "")
-                                        add_notification(parent_mgr_clean, "", f"Leave approved for {emp_name_for_notif} by {mgr_name} ({manager_code})")
-
                         # NEW: Send full leaves report to HR after approval
                         df_emp_global = st.session_state.get('df', pd.DataFrame())
                         send_full_leaves_report_to_hr(current_leaves, df_emp_global, out_path='HR_Leaves_Report.xlsx')
@@ -2703,16 +2651,33 @@ with st.sidebar:
             pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
         else:
             pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
+
+        # Calculate unread notifications count
+        unread_count = get_unread_count(user)
+
+        # Render navigation buttons with badge on Notifications if needed
         for p in pages:
-            if st.button(p, key=f"nav_{p}", use_container_width=True):
-                st.session_state["current_page"] = p
-                st.rerun()
+            if p == "Notifications":
+                # Create button with badge
+                if unread_count > 0:
+                    button_text = f"Notifications <span style='background-color:red; color:white; border-radius:50%; padding:0 4px; font-size:0.8em;'>{unread_count}</span>"
+                else:
+                    button_text = "Notifications"
+                if st.button(button_text, key=f"nav_{p}", use_container_width=True, help="View your notifications"):
+                    st.session_state["current_page"] = p
+                    st.rerun()
+            else:
+                if st.button(p, key=f"nav_{p}", use_container_width=True):
+                    st.session_state["current_page"] = p
+                    st.rerun()
+
         st.markdown("---")
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state["logged_in_user"] = None
             st.session_state["current_page"] = "My Profile"
             st.success("You have been logged out.")
             st.rerun()
+
 # Main Content
 if st.session_state["logged_in_user"]:
     current_page = st.session_state["current_page"]
