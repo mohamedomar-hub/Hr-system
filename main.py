@@ -530,12 +530,35 @@ def mark_all_as_read(user):
     )
     notifications.loc[mask, "Is Read"] = True
     save_notifications(notifications)
+
+# ============================
+# ✅ NEW: دالة لتمثيل الوقت بشكل نسبي
+# ============================
+def format_relative_time(ts):
+    now = pd.Timestamp.now()
+    if pd.isna(ts):
+        return "N/A"
+    diff = now - ts
+    seconds = int(diff.total_seconds())
+    if seconds < 60:
+        return "الآن"
+    elif seconds < 3600:
+        return f"قبل {seconds // 60} دقيقة"
+    elif seconds < 86400:
+        return f"قبل {seconds // 3600} ساعة"
+    else:
+        return ts.strftime("%d-%m-%Y")
+
+# ============================
+# ✅ NEW: page_notifications — تصميم محسن
+# ============================
 def page_notifications(user):
-    st.subheader("Notifications")
+    st.subheader("🔔 Notifications")
     notifications = load_notifications()
     if notifications.empty:
         st.info("No notifications.")
         return
+
     user_code = None
     user_title = None
     for key, val in user.items():
@@ -544,7 +567,8 @@ def page_notifications(user):
         if key == "Title":
             user_title = str(val).strip().upper()
     if not user_code and not user_title:
-        return 0
+        return
+
     user_notifs = notifications[
         (notifications["Recipient Code"].astype(str) == user_code) |
         (notifications["Recipient Title"].astype(str).str.upper() == user_title)
@@ -552,20 +576,90 @@ def page_notifications(user):
     if user_notifs.empty:
         st.info("No notifications for you.")
         return
+
     user_notifs = user_notifs.sort_values("Timestamp", ascending=False).reset_index(drop=True)
-    col1, col2 = st.columns([4,1])
-    with col2:
-        if st.button("Mark all as read"):
-            mark_all_as_read(user)
-            st.success("All notifications marked as read.")
-            st.rerun()
-    for idx, row in user_notifs.iterrows():
-        status = "✅" if row["Is Read"] else "🆕"
-        time_str = row["Timestamp"].strftime("%d-%m-%Y %H:%M") if pd.notna(row["Timestamp"]) else "N/A"
-        icon = "✅" if "approved" in row["Message"].lower() else "❌" if "rejected" in row["Message"].lower() else "📝"
-        st.markdown(f"{icon} **{status} {row['Message']}**")
-        st.caption(f"• {time_str}")
+
+    # ======================
+    # أولاً: إضافة فلتر
+    # ======================
+    filter_option = st.radio(
+        "Filter notifications:",
+        ["All", "Unread", "Read"],
+        index=1,
+        horizontal=True,
+        key="notif_filter"
+    )
+
+    if filter_option == "Unread":
+        filtered_notifs = user_notifs[~user_notifs["Is Read"]]
+    elif filter_option == "Read":
+        filtered_notifs = user_notifs[user_notifs["Is Read"]]
+    else:
+        filtered_notifs = user_notifs.copy()
+
+    # ======================
+    # زر "Mark all as read" (يظهر فقط إذا كان هناك تنبيهات غير مقروءة)
+    # ======================
+    if not user_notifs[user_notifs["Is Read"] == False].empty:
+        col1, col2 = st.columns([4, 1])
+        with col2:
+            if st.button("✅ Mark all as read", key="mark_all_read_btn"):
+                mark_all_as_read(user)
+                st.success("All notifications marked as read.")
+                st.rerun()
+
+    if filtered_notifs.empty:
+        st.info(f"No {filter_option.lower()} notifications.")
+        return
+
+    # ======================
+    # عرض كل تنبيه كـ كارت
+    # ======================
+    for idx, row in filtered_notifs.iterrows():
+        # تحديد الأيقونة واللون
+        if "approved" in str(row["Message"]).lower():
+            icon = "✅"
+            color = "#4ecdc4"  # أخضر فاتح
+            bg_color = "#0c1525"
+        elif "rejected" in str(row["Message"]).lower():
+            icon = "❌"
+            color = "#ff6b6b"  # أحمر
+            bg_color = "#1e1520"
+        else:
+            icon = "📝"
+            color = "#ffd166"  # أصفر ذهبي
+            bg_color = "#0b1220"
+
+        status_badge = "✅" if row["Is Read"] else "🆕"
+        time_formatted = format_relative_time(row["Timestamp"])
+
+        # عرض الكارت
+        st.markdown(f"""
+        <div style="
+            background-color: {bg_color};
+            border-left: 4px solid {color};
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        ">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                    <span style="font-size: 1.3rem; color: {color};">{icon}</span>
+                    <div>
+                        <div style="color: {color}; font-weight: bold; font-size: 1.05rem;">
+                            {status_badge} {row['Message']}
+                        </div>
+                        <div style="color: #9fb0c8; font-size: 0.9rem; margin-top: 4px;">
+                            • {time_formatted}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         st.markdown("---")
+
 # ============================
 # HR Queries (Ask HR) — unchanged
 # ============================
@@ -2658,7 +2752,6 @@ with st.sidebar:
         # Render navigation buttons with badge on Notifications if needed
         for p in pages:
             if p == "Notifications":
-                # Create button with badge
                 if unread_count > 0:
                     button_label = f"Notifications ({unread_count})"
                 else:
