@@ -532,7 +532,7 @@ def mark_all_as_read(user):
     save_notifications(notifications)
 
 # ============================
-# ✅ NEW: دالة لتمثيل الوقت بشكل نسبي
+# ✅ NEW: Time Function
 # ============================
 def format_relative_time(ts):
     now = pd.Timestamp.now()
@@ -550,7 +550,7 @@ def format_relative_time(ts):
         return ts.strftime("%d-%m-%Y")
 
 # ============================
-# ✅ NEW: page_notifications — تصميم محسن
+# ✅ NEW: page_notifications  
 # ============================
 def page_notifications(user):
     st.subheader("🔔 Notifications")
@@ -580,7 +580,7 @@ def page_notifications(user):
     user_notifs = user_notifs.sort_values("Timestamp", ascending=False).reset_index(drop=True)
 
     # ======================
-    # أولاً: إضافة فلتر
+    # Filter Add
     # ======================
     filter_option = st.radio(
         "Filter notifications:",
