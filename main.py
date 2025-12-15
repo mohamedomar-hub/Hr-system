@@ -2903,7 +2903,7 @@ with st.sidebar:
 if st.session_state["logged_in_user"]:
     current_page = st.session_state["current_page"]
     user = st.session_state["logged_in_user"]
-    title_val = str(user.get("Title") or "").strip().toUpperCase()
+    title_val = str(user.get("Title") or "").strip().upper()
     is_hr = "HR" in title_val
     is_bum = title_val == "BUM"
     is_am = title_val == "AM"
