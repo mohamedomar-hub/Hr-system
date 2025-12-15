@@ -1,0 +1,24 @@
+{
+  "file_paths": {
+    "employees": "Employees.xlsx",
+    "leaves": "Leaves.xlsx",
+    "notifications": "Notifications.xlsx",
+    "hr_queries": "HR_Queries.xlsx",
+    "hr_requests": "HR_Requests.xlsx",
+    "salaries": "Salaries.xlsx",
+    "recruitment_data": "Recruitment_Data.xlsx"
+  },
+  "github": {
+    "repo_owner": "mohamedomar-hub",
+    "repo_name": "hr-system",
+    "branch": "main"
+  },
+  "recruitment": {
+    "cv_dir": "recruitment_cvs",
+    "google_form_link": "https://docs.google.com/forms/d/e/1FAIpQLSccvOVVSrKDRAF-4rOt0N_rEr8SmQ2F6cVRSwk7RGjMoRhpLQ/viewform"
+  },
+  "system": {
+    "logo_path": "logo.jpg",
+    "default_annual_leave_days": 21
+  }
+}
