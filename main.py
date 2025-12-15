@@ -9,6 +9,7 @@ import datetime
 import shutil
 import zipfile
 import json  # <<< Added for JSON support
+import bcrypt  # <<< NEW: For secure password hashing
 
 # ============================
 # Load Configuration from config.json (with safe fallback)
@@ -56,9 +57,7 @@ def load_config():
     except Exception as e:
         st.error(f"Error loading config.json: {e}. Using defaults.")
         return default_config
-
 CONFIG = load_config()
-
 # ============================
 # Configuration from CONFIG (replaces hardcoded values)
 # ============================
@@ -73,13 +72,52 @@ RECRUITMENT_CV_DIR = CONFIG["recruitment"]["cv_dir"]
 RECRUITMENT_DATA_FILE = CONFIG["file_paths"]["recruitment_data"]
 GOOGLE_FORM_RECRUITMENT_LINK = CONFIG["recruitment"]["google_form_link"]
 DEFAULT_ANNUAL_LEAVE = CONFIG["system"]["default_annual_leave_days"]
-
 # GitHub settings (allow Streamlit Secrets to override)
 GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", None)
 REPO_OWNER = st.secrets.get("REPO_OWNER", CONFIG["github"]["repo_owner"])
 REPO_NAME = st.secrets.get("REPO_NAME", CONFIG["github"]["repo_name"])
 BRANCH = st.secrets.get("BRANCH", CONFIG["github"]["branch"])
 FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FILE_PATH") else DEFAULT_FILE_PATH
+
+# ============================
+# 🔐 Secure Password Management (bcrypt-based) — NEW SECTION
+# ============================
+SECURE_PASSWORDS_FILE = "secure_passwords.json"
+
+def load_password_hashes():
+    """Load password hashes from secure JSON file."""
+    if os.path.exists(SECURE_PASSWORDS_FILE):
+        with open(SECURE_PASSWORDS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+def save_password_hashes(hashes):
+    """Save password hashes securely (never plaintext)."""
+    with open(SECURE_PASSWORDS_FILE, "w", encoding="utf-8") as f:
+        json.dump(hashes, f, indent=2)
+
+def hash_password(password: str) -> str:
+    """Hash a plain-text password."""
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+def verify_password(plain_password: str, hashed: str) -> bool:
+    """Verify a plain-text password against a hash."""
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed.encode('utf-8'))
+
+def initialize_passwords_from_excel(df):
+    """One-time: migrate passwords from Excel to secure hashes."""
+    hashes = load_password_hashes()
+    col_map = {c.lower().strip(): c for c in df.columns}
+    code_col = col_map.get("employee_code") or col_map.get("employee code")
+    pass_col = col_map.get("password")
+
+    if code_col and pass_col:
+        for _, row in df.iterrows():
+            emp_code = str(row[code_col]).strip().replace(".0", "")
+            pwd = str(row.get(pass_col, "")).strip()
+            if emp_code and pwd and emp_code not in hashes:
+                hashes[emp_code] = hash_password(pwd)
+        save_password_hashes(hashes)
 
 # ============================
 # Styling - Enhanced Dark Mode CSS with Bell, Fonts, and Sidebar Improvements
@@ -368,7 +406,6 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
 </style>
 """
 st.markdown(enhanced_dark_css, unsafe_allow_html=True)
-
 # ============================
 # Photo Helper
 # ============================
@@ -383,7 +420,6 @@ def save_employee_photo(employee_code, uploaded_file):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
-
 # ============================
 # Recruitment CV Helper
 # ============================
@@ -398,7 +434,6 @@ def save_recruitment_cv(uploaded_file):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
-
 # ============================
 # GitHub helpers (unchanged)
 # ============================
@@ -407,7 +442,6 @@ def github_headers():
     if GITHUB_TOKEN:
         headers["Authorization"] = f"token {GITHUB_TOKEN}"
     return headers
-
 def load_employee_data_from_github():
     try:
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}?ref={BRANCH}"
@@ -421,7 +455,6 @@ def load_employee_data_from_github():
             return pd.DataFrame()
     except Exception:
         return pd.DataFrame()
-
 def get_file_sha():
     try:
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}"
@@ -433,7 +466,6 @@ def get_file_sha():
             return None
     except Exception:
         return None
-
 def upload_to_github(df, commit_message="Update employees via Streamlit"):
     if not GITHUB_TOKEN:
         return False
@@ -452,7 +484,6 @@ def upload_to_github(df, commit_message="Update employees via Streamlit"):
         return put_resp.status_code in (200, 201)
     except Exception:
         return False
-
 # ============================
 # Helpers (unchanged)
 # ============================
@@ -470,20 +501,30 @@ def ensure_session_df():
             else:
                 st.session_state["df"] = pd.DataFrame()
 
+# ============================
+# ✅ NEW: Secure Login using bcrypt hash (replaces old login)
+# ============================
 def login(df, code, password):
     if df is None or df.empty:
         return None
     col_map = {c.lower().strip(): c for c in df.columns}
     code_col = col_map.get("employee_code") or col_map.get("employee code")
-    pass_col = col_map.get("password")
-    if not code_col or not pass_col:
+    if not code_col:
         return None
+
     df_local = df.copy()
     df_local[code_col] = df_local[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-    df_local[pass_col] = df_local[pass_col].astype(str).str.strip()
-    code_s, pwd_s = str(code).strip(), str(password).strip()
-    matched = df_local[(df_local[code_col] == code_s) & (df_local[pass_col] == pwd_s)]
-    if not matched.empty:
+    code_s = str(code).strip()
+
+    # Find user in employee sheet
+    matched = df_local[df_local[code_col] == code_s]
+    if matched.empty:
+        return None
+
+    # Verify password from secure hash file
+    hashes = load_password_hashes()
+    stored_hash = hashes.get(code_s)
+    if stored_hash and verify_password(password, stored_hash):
         return matched.iloc[0].to_dict()
     return None
 
@@ -494,14 +535,12 @@ def save_df_to_local(df):
         return True
     except Exception:
         return False
-
 def save_and_maybe_push(df, actor="HR"):
     saved = save_df_to_local(df)
     pushed = False
     if saved and GITHUB_TOKEN:
         pushed = upload_to_github(df, commit_message=f"Update {FILE_PATH} via Streamlit by {actor}")
     return saved, pushed
-
 def load_leaves_data():
     if os.path.exists(LEAVES_FILE_PATH):
         try:
@@ -516,7 +555,6 @@ def load_leaves_data():
             "Employee Code", "Manager Code", "Start Date", "End Date",
             "Leave Type", "Reason", "Status", "Decision Date", "Comment"
         ])
-
 def save_leaves_data(df):
     try:
         with pd.ExcelWriter(LEAVES_FILE_PATH, engine="openpyxl") as writer:
@@ -524,7 +562,6 @@ def save_leaves_data(df):
         return True
     except Exception:
         return False
-
 # ============================
 # Notifications System (unchanged)
 # ============================
@@ -541,7 +578,6 @@ def load_notifications():
         return pd.DataFrame(columns=[
             "Recipient Code", "Recipient Title", "Message", "Timestamp", "Is Read"
         ])
-
 def save_notifications(df):
     try:
         with pd.ExcelWriter(NOTIFICATIONS_FILE_PATH, engine="openpyxl") as writer:
@@ -549,7 +585,6 @@ def save_notifications(df):
         return True
     except Exception:
         return False
-
 def add_notification(recipient_code, recipient_title, message):
     notifications = load_notifications()
     new_row = pd.DataFrame([{
@@ -561,7 +596,6 @@ def add_notification(recipient_code, recipient_title, message):
     }])
     notifications = pd.concat([notifications, new_row], ignore_index=True)
     save_notifications(notifications)
-
 def get_unread_count(user):
     notifications = load_notifications()
     if notifications.empty:
@@ -581,7 +615,6 @@ def get_unread_count(user):
     )
     unread = notifications[mask & (~notifications["Is Read"])]
     return len(unread)
-
 def mark_all_as_read(user):
     notifications = load_notifications()
     if notifications.empty:
@@ -599,7 +632,6 @@ def mark_all_as_read(user):
     )
     notifications.loc[mask, "Is Read"] = True
     save_notifications(notifications)
-
 # ============================
 # ✅ NEW: Time Function
 # ============================
@@ -617,7 +649,6 @@ def format_relative_time(ts):
         return f"قبل {seconds // 3600} ساعة"
     else:
         return ts.strftime("%d-%m-%Y")
-
 # ============================
 # ✅ NEW: page_notifications  
 # ============================
@@ -718,7 +749,6 @@ def page_notifications(user):
         </div>
         """, unsafe_allow_html=True)
         st.markdown("---")
-
 # ============================
 # HR Queries (Ask HR) — unchanged
 # ============================
@@ -740,7 +770,6 @@ def load_hr_queries():
         except Exception:
             pass
         return df
-
 def save_hr_queries(df):
     try:
         if "ID" in df.columns:
@@ -757,7 +786,6 @@ def save_hr_queries(df):
         return True
     except Exception:
         return False
-
 # ============================
 # HR Requests (Ask Employees) — NEW
 # ============================
@@ -780,7 +808,6 @@ def load_hr_requests():
         except Exception:
             pass
         return df
-
 def save_hr_requests(df):
     try:
         if "ID" in df.columns:
@@ -797,7 +824,6 @@ def save_hr_requests(df):
         return True
     except Exception:
         return False
-
 def save_request_file(uploaded_file, employee_code, request_id):
     os.makedirs("hr_request_files", exist_ok=True)
     ext = uploaded_file.name.split(".")[-1].lower()
@@ -806,7 +832,6 @@ def save_request_file(uploaded_file, employee_code, request_id):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
-
 def save_response_file(uploaded_file, employee_code, request_id):
     os.makedirs("hr_response_files", exist_ok=True)
     ext = uploaded_file.name.split(".")[-1].lower()
@@ -815,7 +840,6 @@ def save_response_file(uploaded_file, employee_code, request_id):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
-
 def page_ask_employees(user):
     st.subheader("📤 Ask Employees")
     st.info("🔍 Type employee name or code to search. HR can send requests with file attachments.")
@@ -909,7 +933,6 @@ def page_ask_employees(user):
         add_notification(selected_code, "", f"HR has sent you a new request (ID: {new_id}). Check 'Request HR' page.")
         st.success(f"Request sent to {selected_name} (Code: {selected_code}) successfully.")
         st.rerun()
-
 def page_request_hr(user):
     st.subheader("📥 Request HR")
     st.info("Here you can respond to requests sent by HR. You can upload files as response.")
@@ -971,7 +994,6 @@ def page_request_hr(user):
             add_notification("", "HR", f"Employee {user_code} responded to request ID {row['ID']}.")
             st.success("Response submitted successfully.")
             st.rerun()
-
 # ============================
 # Team Hierarchy — NEW: Recursive Function (Updated for Summary) - FROM edit.txt
 # ============================
@@ -1064,7 +1086,6 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
     else:
         node["Summary"] = {"AM":0, "DM":0, "MR":0, "Total":0}
     return node
-
 # ============================
 # NEW: Helper function to send full leaves report to HR - FROM edit.txt
 # ============================
@@ -1115,7 +1136,6 @@ def send_full_leaves_report_to_hr(leaves_df, df_emp, out_path="HR_Leaves_Report.
         return True, out_path
     except Exception as e:
         return False, str(e)
-
 def page_my_team(user, role="AM"):
     st.subheader("My Team Structure")
     user_code = None
@@ -1317,7 +1337,6 @@ def page_my_team(user, role="AM"):
         color = ROLE_COLORS.get(role, "#e6eef8")  # Default text color
         st.markdown(f'<span style="color: {color};">{icon} <strong>{root_manager_info}</strong> (Code: {root_manager_code})</span>', unsafe_allow_html=True)
         st.info("No direct subordinates found under your supervision.")
-
 # ============================
 # NEW: Directory Page Function (Updated to Show Specific Columns Only)
 # ============================
@@ -1398,7 +1417,6 @@ def page_directory(user):
         st.info(f"Showing {len(display_df)} of {len(df)} employees.")
     else:
         st.error("No columns could be mapped for display. Please check your Excel sheet headers.")
-
 # ============================
 # NEW: Salary Monthly Page
 # ============================
@@ -1501,7 +1519,6 @@ def page_salary_monthly(user):
                          st.rerun()
     except Exception as e:
         st.error(f"❌ Error loading salary  {e}")
-
 # ============================
 # NEW: Salary Report Page (HR Only)
 # ============================
@@ -1617,7 +1634,6 @@ def page_salary_report(user):
         )
     else:
         st.info("No salary data available in the current dataset.")
-
 # ============================
 # NEW: Recruitment Page for HR
 # ============================
@@ -1718,7 +1734,6 @@ def page_recruitment(user):
                 st.error(f"Failed to load database: {e}")
         else:
             st.info("No recruitment data uploaded yet.")
-
 # ============================
 # NEW: Settings Page
 # ============================
@@ -1805,7 +1820,6 @@ def page_settings(user):
                     mime="application/zip"
                 )
             st.success("Backup created successfully.")
-
 # ============================
 # Pages
 # ============================
@@ -1827,7 +1841,6 @@ def render_logo_and_title():
         unread = get_unread_count(user)
         if unread > 0:
             st.markdown(f'<div class="notification-bell">{unread}<div class="notification-badge">{unread}</div></div>', unsafe_allow_html=True)
-
 # ============================
 # ✅ NEW: Employee Photos Page for HR
 # ============================
@@ -1887,7 +1900,6 @@ def page_employee_photos(user):
                 mime="application/zip"
             )
         st.success("✅ ZIP file created. Click the button to download.")
-
 # ============================
 # Modified: My Profile with Photo Upload and Tabs
 # ============================
@@ -1904,7 +1916,7 @@ def page_my_profile(user):
         st.error("Employee code column not found in dataset.")
         return
     user_code = None
-    for key in user.keys():
+    for key, val in user.items():
         if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
             val = str(user[key]).strip()
             if val.endswith('.0'):
@@ -1961,8 +1973,36 @@ def page_my_profile(user):
                     except Exception as e:
                         st.error(f"Failed to save photo: {e}")
 
-# Rest of pages unchanged: leave_request, manager_leaves, dashboard, hr_manager, reports, hr_inbox, ask_hr
+    # === Change Password Section ===
+    st.markdown("---")
+    st.markdown("### 🔐 Change Your Password")
+    with st.form("change_password_form"):
+        current_pwd = st.text_input("Current Password", type="password")
+        new_pwd = st.text_input("New Password", type="password")
+        confirm_pwd = st.text_input("Confirm New Password", type="password")
+        pwd_submitted = st.form_submit_button("Change Password")
 
+    if pwd_submitted:
+        if not current_pwd or not new_pwd or not confirm_pwd:
+            st.error("All fields are required.")
+        elif new_pwd != confirm_pwd:
+            st.error("New password and confirmation do not match.")
+        else:
+            # Verify current password
+            hashes = load_password_hashes()
+            user_code_clean = str(user.get("Employee Code", "")).strip().replace(".0", "")
+            stored_hash = hashes.get(user_code_clean)
+
+            if stored_hash and verify_password(current_pwd, stored_hash):
+                # Update to new password hash
+                hashes[user_code_clean] = hash_password(new_pwd)
+                save_password_hashes(hashes)
+                st.success("✅ Your password has been updated successfully.")
+                add_notification("", "HR", f"Employee {user_code_clean} changed their password.")
+            else:
+                st.error("❌ Current password is incorrect.")
+
+# Rest of pages unchanged: leave_request, manager_leaves, dashboard, hr_manager, reports, hr_inbox, ask_hr
 # ✅ IMPORTANT: Modified to use DEFAULT_ANNUAL_LEAVE from config
 def calculate_leave_balance(user_code, leaves_df):
     """Calculates Annual Leave Balance, Used Days, and Remaining Days."""
@@ -1986,7 +2026,6 @@ def calculate_leave_balance(user_code, leaves_df):
         used_days = user_approved_leaves["Leave Days"].sum()
     remaining_days = annual_balance - used_days
     return annual_balance, used_days, remaining_days
-
 def page_leave_request(user):
     st.subheader("Request Leave")
     df_emp = st.session_state.get("df", pd.DataFrame())
@@ -2090,7 +2129,6 @@ def page_leave_request(user):
             st.info("You haven't submitted any leave requests yet.")
     else:
         st.info("No leave requests found.")
-
 def page_manager_leaves(user):
     st.subheader("Leave Requests from Your Team")
     manager_code = None
@@ -2343,7 +2381,6 @@ def page_manager_leaves(user):
                     st.info("No subordinates found under your management.")
             else:
                 st.warning("Required columns (Employee Code, Manager Code, Title) not found for detailed report.")
-
 def page_dashboard(user):
     st.subheader("Dashboard")
     df = st.session_state.get("df", pd.DataFrame())
@@ -2392,7 +2429,6 @@ def page_dashboard(user):
                     st.info("Saved locally. GitHub token not configured.")
         else:
             st.error("Failed to save dataset locally.")
-
 def page_hr_manager(user):
     st.subheader("HR Manager")
     st.info("Upload new employee sheet, manage employees, and perform administrative actions.")
@@ -2596,7 +2632,6 @@ def page_hr_manager(user):
             st.rerun()
         except Exception as e:
             st.error(f"❌ Failed to clear: {e}")
-
 def page_reports(user):
     st.subheader("Reports (Placeholder)")
     st.info("Reports section - ready to be expanded.")
@@ -2611,7 +2646,6 @@ def page_reports(user):
         df.to_excel(writer, index=False, sheet_name="Employees")
     buf.seek(0)
     st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
 def page_hr_inbox(user):
     st.subheader("📬 HR Inbox")
     st.markdown("View employee queries and reply to them here.")
@@ -2690,7 +2724,6 @@ def page_hr_inbox(user):
                     st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("---")
-
 def page_ask_hr(user):
     st.subheader("💬 Ask HR")
     if user is None:
@@ -2767,11 +2800,17 @@ def page_ask_hr(user):
             st.markdown("**🕒 HR Reply:** Pending")
         st.markdown("</div>")
         st.markdown("---")
-
 # ============================
 # Main App Flow
 # ============================
 ensure_session_df()
+
+# ✅ One-time migration: move passwords from Excel to secure hash file
+if not os.path.exists(SECURE_PASSWORDS_FILE):
+    df_init = st.session_state.get("df", pd.DataFrame())
+    if not df_init.empty:
+        initialize_passwords_from_excel(df_init)
+
 render_logo_and_title()
 # Initialize session state
 if "logged_in_user" not in st.session_state:
@@ -2859,7 +2898,7 @@ with st.sidebar:
 if st.session_state["logged_in_user"]:
     current_page = st.session_state["current_page"]
     user = st.session_state["logged_in_user"]
-    title_val = str(user.get("Title") or "").strip().upper()
+    title_val = str(user.get("Title") or "").strip().toUpperCase()
     is_hr = "HR" in title_val
     is_bum = title_val == "BUM"
     is_am = title_val == "AM"
