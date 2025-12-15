@@ -2839,10 +2839,14 @@ with st.sidebar:
                 submitted = st.form_submit_button("Sign in")
             if submitted:
                 df = st.session_state.get("df", pd.DataFrame())
-                user = login(df, uid, pwd)
-                if user is None:
-                    st.error("Invalid credentials or required columns missing.")
+                if df.empty:
+                    st.error("Employee data not loaded. Please check your file.")
                 else:
+                     user = login(df, uid, pwd)
+                     if user is None:
+                         st.error("Invalid credentials or required columns missing.")
+                     else:
+                          if "Title" not in user:
                     st.session_state["logged_in_user"] = user
                     st.session_state["current_page"] = "My Profile"
                     st.success("Login successful!")
