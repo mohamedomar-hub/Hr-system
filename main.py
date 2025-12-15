@@ -2846,12 +2846,12 @@ with st.sidebar:
                      if user is None:
                          st.error("Invalid credentials or required columns missing.")
                      else:
-                          if "Title" not in user:
-                          user["Title"] = "Unknown"
-                    st.session_state["logged_in_user"] = user
-                    st.session_state["current_page"] = "My Profile"
-                    st.success("Login successful!")
-                    st.rerun()
+                         if "Title" not in user:
+                             user["Title"] = "Unknown"
+                         st.session_state["logged_in_user"] = user
+                         st.session_state["current_page"] = "My Profile"
+                         st.success("Login successful!")
+                         st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
         # --- End Login Form Container ---
     else:
