@@ -1,4 +1,4 @@
-# hr_system_dark_mode_v3_final_with_responded_requests_and_hierarchical_structure_and_directory.py
+# hr_system_with_config_json.py
 import streamlit as st
 import pandas as pd
 import requests
@@ -8,27 +8,79 @@ import os
 import datetime
 import shutil
 import zipfile
+import json  # <<< Added for JSON support
+
 # ============================
-# Configuration / Defaults
+# Load Configuration from config.json (with safe fallback)
 # ============================
-DEFAULT_FILE_PATH = "Employees.xlsx"
-LEAVES_FILE_PATH = "Leaves.xlsx"
-NOTIFICATIONS_FILE_PATH = "Notifications.xlsx"
-HR_QUERIES_FILE_PATH = "HR_Queries.xlsx"
-HR_REQUESTS_FILE_PATH = "HR_Requests.xlsx"
-SALARIES_FILE_PATH = "Salaries.xlsx" # Added for salary page
-LOGO_PATH = "logo.jpg"
+def load_config():
+    default_config = {
+        "file_paths": {
+            "employees": "Employees.xlsx",
+            "leaves": "Leaves.xlsx",
+            "notifications": "Notifications.xlsx",
+            "hr_queries": "HR_Queries.xlsx",
+            "hr_requests": "HR_Requests.xlsx",
+            "salaries": "Salaries.xlsx",
+            "recruitment_data": "Recruitment_Data.xlsx"
+        },
+        "github": {
+            "repo_owner": "mohamedomar-hub",
+            "repo_name": "hr-system",
+            "branch": "main"
+        },
+        "recruitment": {
+            "cv_dir": "recruitment_cvs",
+            "google_form_link": "https://docs.google.com/forms/d/e/1FAIpQLSccvOVVSrKDRAF-4rOt0N_rEr8SmQ2F6cVRSwk7RGjMoRhpLQ/viewform"
+        },
+        "system": {
+            "logo_path": "logo.jpg",
+            "default_annual_leave_days": 21
+        }
+    }
+    try:
+        with open("config.json", "r", encoding="utf-8") as f:
+            user_config = json.load(f)
+            # Deep merge to allow partial overrides
+            def deep_merge(a, b):
+                for k, v in b.items():
+                    if isinstance(v, dict) and k in a and isinstance(a[k], dict):
+                        deep_merge(a[k], v)
+                    else:
+                        a[k] = v
+                return a
+            return deep_merge(default_config, user_config)
+    except FileNotFoundError:
+        st.warning("config.json not found. Using default settings.")
+        return default_config
+    except Exception as e:
+        st.error(f"Error loading config.json: {e}. Using defaults.")
+        return default_config
+
+CONFIG = load_config()
+
+# ============================
+# Configuration from CONFIG (replaces hardcoded values)
+# ============================
+DEFAULT_FILE_PATH = CONFIG["file_paths"]["employees"]
+LEAVES_FILE_PATH = CONFIG["file_paths"]["leaves"]
+NOTIFICATIONS_FILE_PATH = CONFIG["file_paths"]["notifications"]
+HR_QUERIES_FILE_PATH = CONFIG["file_paths"]["hr_queries"]
+HR_REQUESTS_FILE_PATH = CONFIG["file_paths"]["hr_requests"]
+SALARIES_FILE_PATH = CONFIG["file_paths"]["salaries"]
+LOGO_PATH = CONFIG["system"]["logo_path"]
+RECRUITMENT_CV_DIR = CONFIG["recruitment"]["cv_dir"]
+RECRUITMENT_DATA_FILE = CONFIG["file_paths"]["recruitment_data"]
+GOOGLE_FORM_RECRUITMENT_LINK = CONFIG["recruitment"]["google_form_link"]
+DEFAULT_ANNUAL_LEAVE = CONFIG["system"]["default_annual_leave_days"]
+
+# GitHub settings (allow Streamlit Secrets to override)
 GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", None)
-REPO_OWNER = st.secrets.get("REPO_OWNER", "mohamedomar-hub")
-REPO_NAME = st.secrets.get("REPO_NAME", "hr-system")
-BRANCH = st.secrets.get("BRANCH", "main")
+REPO_OWNER = st.secrets.get("REPO_OWNER", CONFIG["github"]["repo_owner"])
+REPO_NAME = st.secrets.get("REPO_NAME", CONFIG["github"]["repo_name"])
+BRANCH = st.secrets.get("BRANCH", CONFIG["github"]["branch"])
 FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FILE_PATH") else DEFAULT_FILE_PATH
-# ============================
-# Recruitment Configuration
-# ============================
-RECRUITMENT_CV_DIR = "recruitment_cvs"
-RECRUITMENT_DATA_FILE = "Recruitment_Data.xlsx"
-GOOGLE_FORM_RECRUITMENT_LINK = "https://docs.google.com/forms/d/e/1FAIpQLSccvOVVSrKDRAF-4rOt0N_rEr8SmQ2F6cVRSwk7RGjMoRhpLQ/viewform"
+
 # ============================
 # Styling - Enhanced Dark Mode CSS with Bell, Fonts, and Sidebar Improvements
 # ============================
@@ -316,6 +368,7 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
 </style>
 """
 st.markdown(enhanced_dark_css, unsafe_allow_html=True)
+
 # ============================
 # Photo Helper
 # ============================
@@ -330,6 +383,7 @@ def save_employee_photo(employee_code, uploaded_file):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
 # ============================
 # Recruitment CV Helper
 # ============================
@@ -344,6 +398,7 @@ def save_recruitment_cv(uploaded_file):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
 # ============================
 # GitHub helpers (unchanged)
 # ============================
@@ -352,6 +407,7 @@ def github_headers():
     if GITHUB_TOKEN:
         headers["Authorization"] = f"token {GITHUB_TOKEN}"
     return headers
+
 def load_employee_data_from_github():
     try:
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}?ref={BRANCH}"
@@ -365,6 +421,7 @@ def load_employee_data_from_github():
             return pd.DataFrame()
     except Exception:
         return pd.DataFrame()
+
 def get_file_sha():
     try:
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}"
@@ -376,6 +433,7 @@ def get_file_sha():
             return None
     except Exception:
         return None
+
 def upload_to_github(df, commit_message="Update employees via Streamlit"):
     if not GITHUB_TOKEN:
         return False
@@ -394,6 +452,7 @@ def upload_to_github(df, commit_message="Update employees via Streamlit"):
         return put_resp.status_code in (200, 201)
     except Exception:
         return False
+
 # ============================
 # Helpers (unchanged)
 # ============================
@@ -410,6 +469,7 @@ def ensure_session_df():
                     st.session_state["df"] = pd.DataFrame()
             else:
                 st.session_state["df"] = pd.DataFrame()
+
 def login(df, code, password):
     if df is None or df.empty:
         return None
@@ -426,6 +486,7 @@ def login(df, code, password):
     if not matched.empty:
         return matched.iloc[0].to_dict()
     return None
+
 def save_df_to_local(df):
     try:
         with pd.ExcelWriter(FILE_PATH, engine="openpyxl") as writer:
@@ -433,12 +494,14 @@ def save_df_to_local(df):
         return True
     except Exception:
         return False
+
 def save_and_maybe_push(df, actor="HR"):
     saved = save_df_to_local(df)
     pushed = False
     if saved and GITHUB_TOKEN:
         pushed = upload_to_github(df, commit_message=f"Update {FILE_PATH} via Streamlit by {actor}")
     return saved, pushed
+
 def load_leaves_data():
     if os.path.exists(LEAVES_FILE_PATH):
         try:
@@ -453,6 +516,7 @@ def load_leaves_data():
             "Employee Code", "Manager Code", "Start Date", "End Date",
             "Leave Type", "Reason", "Status", "Decision Date", "Comment"
         ])
+
 def save_leaves_data(df):
     try:
         with pd.ExcelWriter(LEAVES_FILE_PATH, engine="openpyxl") as writer:
@@ -460,6 +524,7 @@ def save_leaves_data(df):
         return True
     except Exception:
         return False
+
 # ============================
 # Notifications System (unchanged)
 # ============================
@@ -476,6 +541,7 @@ def load_notifications():
         return pd.DataFrame(columns=[
             "Recipient Code", "Recipient Title", "Message", "Timestamp", "Is Read"
         ])
+
 def save_notifications(df):
     try:
         with pd.ExcelWriter(NOTIFICATIONS_FILE_PATH, engine="openpyxl") as writer:
@@ -483,6 +549,7 @@ def save_notifications(df):
         return True
     except Exception:
         return False
+
 def add_notification(recipient_code, recipient_title, message):
     notifications = load_notifications()
     new_row = pd.DataFrame([{
@@ -494,6 +561,7 @@ def add_notification(recipient_code, recipient_title, message):
     }])
     notifications = pd.concat([notifications, new_row], ignore_index=True)
     save_notifications(notifications)
+
 def get_unread_count(user):
     notifications = load_notifications()
     if notifications.empty:
@@ -513,6 +581,7 @@ def get_unread_count(user):
     )
     unread = notifications[mask & (~notifications["Is Read"])]
     return len(unread)
+
 def mark_all_as_read(user):
     notifications = load_notifications()
     if notifications.empty:
@@ -558,7 +627,6 @@ def page_notifications(user):
     if notifications.empty:
         st.info("No notifications.")
         return
-
     user_code = None
     user_title = None
     for key, val in user.items():
@@ -568,7 +636,6 @@ def page_notifications(user):
             user_title = str(val).strip().upper()
     if not user_code and not user_title:
         return
-
     user_notifs = notifications[
         (notifications["Recipient Code"].astype(str) == user_code) |
         (notifications["Recipient Title"].astype(str).str.upper() == user_title)
@@ -576,9 +643,7 @@ def page_notifications(user):
     if user_notifs.empty:
         st.info("No notifications for you.")
         return
-
     user_notifs = user_notifs.sort_values("Timestamp", ascending=False).reset_index(drop=True)
-
     # ======================
     # Filter Add
     # ======================
@@ -589,14 +654,12 @@ def page_notifications(user):
         horizontal=True,
         key="notif_filter"
     )
-
     if filter_option == "Unread":
         filtered_notifs = user_notifs[~user_notifs["Is Read"]]
     elif filter_option == "Read":
         filtered_notifs = user_notifs[user_notifs["Is Read"]]
     else:
         filtered_notifs = user_notifs.copy()
-
     # ======================
     # زر "Mark all as read" (يظهر فقط إذا كان هناك تنبيهات غير مقروءة)
     # ======================
@@ -607,11 +670,9 @@ def page_notifications(user):
                 mark_all_as_read(user)
                 st.success("All notifications marked as read.")
                 st.rerun()
-
     if filtered_notifs.empty:
         st.info(f"No {filter_option.lower()} notifications.")
         return
-
     # ======================
     # عرض كل تنبيه كـ كارت
     # ======================
@@ -629,10 +690,8 @@ def page_notifications(user):
             icon = "📝"
             color = "#ffd166"  # أصفر ذهبي
             bg_color = "#0b1220"
-
         status_badge = "✅" if row["Is Read"] else "🆕"
         time_formatted = format_relative_time(row["Timestamp"])
-
         # عرض الكارت
         st.markdown(f"""
         <div style="
@@ -681,6 +740,7 @@ def load_hr_queries():
         except Exception:
             pass
         return df
+
 def save_hr_queries(df):
     try:
         if "ID" in df.columns:
@@ -697,6 +757,7 @@ def save_hr_queries(df):
         return True
     except Exception:
         return False
+
 # ============================
 # HR Requests (Ask Employees) — NEW
 # ============================
@@ -719,6 +780,7 @@ def load_hr_requests():
         except Exception:
             pass
         return df
+
 def save_hr_requests(df):
     try:
         if "ID" in df.columns:
@@ -735,6 +797,7 @@ def save_hr_requests(df):
         return True
     except Exception:
         return False
+
 def save_request_file(uploaded_file, employee_code, request_id):
     os.makedirs("hr_request_files", exist_ok=True)
     ext = uploaded_file.name.split(".")[-1].lower()
@@ -743,6 +806,7 @@ def save_request_file(uploaded_file, employee_code, request_id):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
 def save_response_file(uploaded_file, employee_code, request_id):
     os.makedirs("hr_response_files", exist_ok=True)
     ext = uploaded_file.name.split(".")[-1].lower()
@@ -751,6 +815,7 @@ def save_response_file(uploaded_file, employee_code, request_id):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
 def page_ask_employees(user):
     st.subheader("📤 Ask Employees")
     st.info("🔍 Type employee name or code to search. HR can send requests with file attachments.")
@@ -844,6 +909,7 @@ def page_ask_employees(user):
         add_notification(selected_code, "", f"HR has sent you a new request (ID: {new_id}). Check 'Request HR' page.")
         st.success(f"Request sent to {selected_name} (Code: {selected_code}) successfully.")
         st.rerun()
+
 def page_request_hr(user):
     st.subheader("📥 Request HR")
     st.info("Here you can respond to requests sent by HR. You can upload files as response.")
@@ -905,6 +971,7 @@ def page_request_hr(user):
             add_notification("", "HR", f"Employee {user_code} responded to request ID {row['ID']}.")
             st.success("Response submitted successfully.")
             st.rerun()
+
 # ============================
 # Team Hierarchy — NEW: Recursive Function (Updated for Summary) - FROM edit.txt
 # ============================
@@ -997,6 +1064,7 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
     else:
         node["Summary"] = {"AM":0, "DM":0, "MR":0, "Total":0}
     return node
+
 # ============================
 # NEW: Helper function to send full leaves report to HR - FROM edit.txt
 # ============================
@@ -1047,6 +1115,7 @@ def send_full_leaves_report_to_hr(leaves_df, df_emp, out_path="HR_Leaves_Report.
         return True, out_path
     except Exception as e:
         return False, str(e)
+
 def page_my_team(user, role="AM"):
     st.subheader("My Team Structure")
     user_code = None
@@ -1248,6 +1317,7 @@ def page_my_team(user, role="AM"):
         color = ROLE_COLORS.get(role, "#e6eef8")  # Default text color
         st.markdown(f'<span style="color: {color};">{icon} <strong>{root_manager_info}</strong> (Code: {root_manager_code})</span>', unsafe_allow_html=True)
         st.info("No direct subordinates found under your supervision.")
+
 # ============================
 # NEW: Directory Page Function (Updated to Show Specific Columns Only)
 # ============================
@@ -1328,6 +1398,7 @@ def page_directory(user):
         st.info(f"Showing {len(display_df)} of {len(df)} employees.")
     else:
         st.error("No columns could be mapped for display. Please check your Excel sheet headers.")
+
 # ============================
 # NEW: Salary Monthly Page
 # ============================
@@ -1430,6 +1501,7 @@ def page_salary_monthly(user):
                          st.rerun()
     except Exception as e:
         st.error(f"❌ Error loading salary  {e}")
+
 # ============================
 # NEW: Salary Report Page (HR Only)
 # ============================
@@ -1545,6 +1617,7 @@ def page_salary_report(user):
         )
     else:
         st.info("No salary data available in the current dataset.")
+
 # ============================
 # NEW: Recruitment Page for HR
 # ============================
@@ -1645,6 +1718,7 @@ def page_recruitment(user):
                 st.error(f"Failed to load database: {e}")
         else:
             st.info("No recruitment data uploaded yet.")
+
 # ============================
 # NEW: Settings Page
 # ============================
@@ -1731,6 +1805,7 @@ def page_settings(user):
                     mime="application/zip"
                 )
             st.success("Backup created successfully.")
+
 # ============================
 # Pages
 # ============================
@@ -1752,6 +1827,7 @@ def render_logo_and_title():
         unread = get_unread_count(user)
         if unread > 0:
             st.markdown(f'<div class="notification-bell">{unread}<div class="notification-badge">{unread}</div></div>', unsafe_allow_html=True)
+
 # ============================
 # ✅ NEW: Employee Photos Page for HR
 # ============================
@@ -1811,6 +1887,7 @@ def page_employee_photos(user):
                 mime="application/zip"
             )
         st.success("✅ ZIP file created. Click the button to download.")
+
 # ============================
 # Modified: My Profile with Photo Upload and Tabs
 # ============================
@@ -1883,10 +1960,13 @@ def page_my_profile(user):
                         st.rerun()
                     except Exception as e:
                         st.error(f"Failed to save photo: {e}")
+
 # Rest of pages unchanged: leave_request, manager_leaves, dashboard, hr_manager, reports, hr_inbox, ask_hr
+
+# ✅ IMPORTANT: Modified to use DEFAULT_ANNUAL_LEAVE from config
 def calculate_leave_balance(user_code, leaves_df):
     """Calculates Annual Leave Balance, Used Days, and Remaining Days."""
-    annual_balance = 21 # Default annual leave balance
+    annual_balance = DEFAULT_ANNUAL_LEAVE  # <<< NOW FROM CONFIG
     # Filter leaves for the specific user and approved status
     user_approved_leaves = leaves_df[
         (leaves_df["Employee Code"].astype(str) == str(user_code)) &
@@ -1906,6 +1986,7 @@ def calculate_leave_balance(user_code, leaves_df):
         used_days = user_approved_leaves["Leave Days"].sum()
     remaining_days = annual_balance - used_days
     return annual_balance, used_days, remaining_days
+
 def page_leave_request(user):
     st.subheader("Request Leave")
     df_emp = st.session_state.get("df", pd.DataFrame())
@@ -2009,6 +2090,7 @@ def page_leave_request(user):
             st.info("You haven't submitted any leave requests yet.")
     else:
         st.info("No leave requests found.")
+
 def page_manager_leaves(user):
     st.subheader("Leave Requests from Your Team")
     manager_code = None
@@ -2261,6 +2343,7 @@ def page_manager_leaves(user):
                     st.info("No subordinates found under your management.")
             else:
                 st.warning("Required columns (Employee Code, Manager Code, Title) not found for detailed report.")
+
 def page_dashboard(user):
     st.subheader("Dashboard")
     df = st.session_state.get("df", pd.DataFrame())
@@ -2309,6 +2392,7 @@ def page_dashboard(user):
                     st.info("Saved locally. GitHub token not configured.")
         else:
             st.error("Failed to save dataset locally.")
+
 def page_hr_manager(user):
     st.subheader("HR Manager")
     st.info("Upload new employee sheet, manage employees, and perform administrative actions.")
@@ -2512,6 +2596,7 @@ def page_hr_manager(user):
             st.rerun()
         except Exception as e:
             st.error(f"❌ Failed to clear: {e}")
+
 def page_reports(user):
     st.subheader("Reports (Placeholder)")
     st.info("Reports section - ready to be expanded.")
@@ -2526,6 +2611,7 @@ def page_reports(user):
         df.to_excel(writer, index=False, sheet_name="Employees")
     buf.seek(0)
     st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
 def page_hr_inbox(user):
     st.subheader("📬 HR Inbox")
     st.markdown("View employee queries and reply to them here.")
@@ -2604,6 +2690,7 @@ def page_hr_inbox(user):
                     st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("---")
+
 def page_ask_hr(user):
     st.subheader("💬 Ask HR")
     if user is None:
@@ -2680,6 +2767,7 @@ def page_ask_hr(user):
             st.markdown("**🕒 HR Reply:** Pending")
         st.markdown("</div>")
         st.markdown("---")
+
 # ============================
 # Main App Flow
 # ============================
@@ -2745,10 +2833,8 @@ with st.sidebar:
             pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
         else:
             pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
-
         # Calculate unread notifications count
         unread_count = get_unread_count(user)
-
         # Render navigation buttons with badge on Notifications if needed
         for p in pages:
             if p == "Notifications":
@@ -2763,14 +2849,12 @@ with st.sidebar:
                 if st.button(p, key=f"nav_{p}", use_container_width=True):
                     st.session_state["current_page"] = p
                     st.rerun()
-
         st.markdown("---")
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state["logged_in_user"] = None
             st.session_state["current_page"] = "My Profile"
             st.success("You have been logged out.")
             st.rerun()
-
 # Main Content
 if st.session_state["logged_in_user"]:
     current_page = st.session_state["current_page"]
