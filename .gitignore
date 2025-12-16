@@ -1,0 +1,22 @@
+# ملفات حساسة لا يجب رفعها على GitHub
+secure_passwords.json
+Salaries.xlsx
+secrets.toml
+
+# مجلدات الصور والمستندات المرفوعة
+employee_photos/
+recruitment_cvs/
+hr_request_files/
+hr_response_files/
+
+# نسخ احتياطية
+*.zip
+backup_*.zip
+
+# ملفات نظام التشغيل
+.DS_Store
+Thumbs.db
+
+# ملفات Python المؤقتة
+__pycache__/
+*.pyc
