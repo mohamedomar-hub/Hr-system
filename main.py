@@ -10,7 +10,6 @@ import shutil
 import zipfile
 import json  # <<< Added for JSON support
 import bcrypt  # <<< NEW: For secure password hashing
-
 # ============================
 # Load Configuration from config.json (with safe fallback)
 # ============================
@@ -78,39 +77,32 @@ REPO_OWNER = st.secrets.get("REPO_OWNER", CONFIG["github"]["repo_owner"])
 REPO_NAME = st.secrets.get("REPO_NAME", CONFIG["github"]["repo_name"])
 BRANCH = st.secrets.get("BRANCH", CONFIG["github"]["branch"])
 FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FILE_PATH") else DEFAULT_FILE_PATH
-
 # ============================
 # 🔐 Secure Password Management (bcrypt-based) — NEW SECTION
 # ============================
 SECURE_PASSWORDS_FILE = "secure_passwords.json"
-
 def load_password_hashes():
     """Load password hashes from secure JSON file."""
     if os.path.exists(SECURE_PASSWORDS_FILE):
         with open(SECURE_PASSWORDS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
-
 def save_password_hashes(hashes):
     """Save password hashes securely (never plaintext)."""
     with open(SECURE_PASSWORDS_FILE, "w", encoding="utf-8") as f:
         json.dump(hashes, f, indent=2)
-
 def hash_password(password: str) -> str:
     """Hash a plain-text password."""
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
 def verify_password(plain_password: str, hashed: str) -> bool:
     """Verify a plain-text password against a hash."""
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed.encode('utf-8'))
-
 def initialize_passwords_from_excel(df):
     """One-time: migrate passwords from Excel to secure hashes."""
     hashes = load_password_hashes()
     col_map = {c.lower().strip(): c for c in df.columns}
     code_col = col_map.get("employee_code") or col_map.get("employee code")
     pass_col = col_map.get("password")
-
     if code_col and pass_col:
         for _, row in df.iterrows():
             emp_code = str(row[code_col]).strip().replace(".0", "")
@@ -118,7 +110,6 @@ def initialize_passwords_from_excel(df):
             if emp_code and pwd and emp_code not in hashes:
                 hashes[emp_code] = hash_password(pwd)
         save_password_hashes(hashes)
-
 # ============================
 # Styling - Enhanced Dark Mode CSS with Bell, Fonts, and Sidebar Improvements
 # ============================
@@ -228,7 +219,7 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
 .notification-bell:hover {
     background: #0a5aa0;
     transform: scale(1.1);
-    animation: bellRing 0.6s ease; /* إضافة انيميشن */
+    animation: bellRing 0.6s ease;
 }
 .notification-badge {
     position: absolute;
@@ -387,12 +378,12 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
     padding: 8px 16px;
     border: none;
     transition: all 0.2s ease;
-    width: 100%; /* لجعل الأزرار تأخذ العرض الكامل */
-    margin: 4px 0; /* مسافة بين الأزرار */
+    width: 100%;
+    margin: 4px 0;
 }
 [data-testid="stSidebar"] .stButton>button:hover {
     background-color: #0a5aa0;
-    transform: scale(1.02); /* تكبير طفيف */
+    transform: scale(1.02);
     box-shadow: 0 4px 8px rgba(0,0,0,0.3);
 }
 /* Animation for notification bell */
@@ -406,6 +397,41 @@ body, h1, h2, h3, h4, h5, p, div, span, li {
 </style>
 """
 st.markdown(enhanced_dark_css, unsafe_allow_html=True)
+
+# ============================
+# ✅ NEW: External Password Change Page (No Login Required)
+# ============================
+def page_forgot_password():
+    st.subheader("🔐 Change Password (No Login Required)")
+    st.info("Enter your Employee Code and current password to set a new one.")
+    
+    with st.form("external_password_change"):
+        emp_code = st.text_input("Employee Code")
+        current_pwd = st.text_input("Current Password", type="password")
+        new_pwd = st.text_input("New Password", type="password")
+        confirm_pwd = st.text_input("Confirm New Password", type="password")
+        submitted = st.form_submit_button("Change Password")
+
+    if submitted:
+        if not emp_code.strip() or not current_pwd or not new_pwd or not confirm_pwd:
+            st.error("All fields are required.")
+        elif new_pwd != confirm_pwd:
+            st.error("New password and confirmation do not match.")
+        else:
+            emp_code_clean = emp_code.strip().replace(".0", "")
+            hashes = load_password_hashes()
+            stored_hash = hashes.get(emp_code_clean)
+            if not stored_hash:
+                st.error("Employee code not found.")
+            elif not verify_password(current_pwd, stored_hash):
+                st.error("Current password is incorrect.")
+            else:
+                hashes[emp_code_clean] = hash_password(new_pwd)
+                save_password_hashes(hashes)
+                st.success("✅ Your password has been updated successfully.")
+                add_notification("", "HR", f"Employee {emp_code_clean} changed password externally.")
+                st.rerun()
+
 # ============================
 # Photo Helper
 # ============================
@@ -500,7 +526,6 @@ def ensure_session_df():
                     st.session_state["df"] = pd.DataFrame()
             else:
                 st.session_state["df"] = pd.DataFrame()
-
 # ============================
 # ✅ NEW: Secure Login using bcrypt hash (replaces old login)
 # ============================
@@ -511,23 +536,19 @@ def login(df, code, password):
     code_col = col_map.get("employee_code") or col_map.get("employee code")
     if not code_col:
         return None
-
     df_local = df.copy()
     df_local[code_col] = df_local[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     code_s = str(code).strip()
-
     # Find user in employee sheet
     matched = df_local[df_local[code_col] == code_s]
     if matched.empty:
         return None
-
     # Verify password from secure hash file
     hashes = load_password_hashes()
     stored_hash = hashes.get(code_s)
     if stored_hash and verify_password(password, stored_hash):
         return matched.iloc[0].to_dict()
     return None
-
 def save_df_to_local(df):
     try:
         with pd.ExcelWriter(FILE_PATH, engine="openpyxl") as writer:
@@ -988,7 +1009,6 @@ def page_request_hr(user):
             if uploaded_resp_file:
                 # Save the uploaded file
                 resp_filename = save_response_file(uploaded_resp_file, user_code, row["ID"])
-                requests_df.loc[requests_df["ID"] == row["ID"], "Response File"] = resp_filename
                 response_file_name = resp_filename
             save_hr_requests(requests_df)
             add_notification("", "HR", f"Employee {user_code} responded to request ID {row['ID']}.")
@@ -1972,7 +1992,6 @@ def page_my_profile(user):
                         st.rerun()
                     except Exception as e:
                         st.error(f"Failed to save photo: {e}")
-
     # === Change Password Section ===
     st.markdown("---")
     st.markdown("### 🔐 Change Your Password")
@@ -1981,7 +2000,6 @@ def page_my_profile(user):
         new_pwd = st.text_input("New Password", type="password")
         confirm_pwd = st.text_input("Confirm New Password", type="password")
         pwd_submitted = st.form_submit_button("Change Password")
-
     if pwd_submitted:
         if not current_pwd or not new_pwd or not confirm_pwd:
             st.error("All fields are required.")
@@ -1992,7 +2010,6 @@ def page_my_profile(user):
             hashes = load_password_hashes()
             user_code_clean = str(user.get("Employee Code", "")).strip().replace(".0", "")
             stored_hash = hashes.get(user_code_clean)
-
             if stored_hash and verify_password(current_pwd, stored_hash):
                 # Update to new password hash
                 hashes[user_code_clean] = hash_password(new_pwd)
@@ -2001,7 +2018,6 @@ def page_my_profile(user):
                 add_notification("", "HR", f"Employee {user_code_clean} changed their password.")
             else:
                 st.error("❌ Current password is incorrect.")
-
 # Rest of pages unchanged: leave_request, manager_leaves, dashboard, hr_manager, reports, hr_inbox, ask_hr
 # ✅ IMPORTANT: Modified to use DEFAULT_ANNUAL_LEAVE from config
 def calculate_leave_balance(user_code, leaves_df):
@@ -2804,19 +2820,21 @@ def page_ask_hr(user):
 # Main App Flow
 # ============================
 ensure_session_df()
-
 # ✅ One-time migration: move passwords from Excel to secure hash file
 if not os.path.exists(SECURE_PASSWORDS_FILE):
     df_init = st.session_state.get("df", pd.DataFrame())
     if not df_init.empty:
         initialize_passwords_from_excel(df_init)
-
 render_logo_and_title()
 # Initialize session state
 if "logged_in_user" not in st.session_state:
     st.session_state["logged_in_user"] = None
 if "current_page" not in st.session_state:
     st.session_state["current_page"] = "My Profile"
+# Add session state flag for external password page
+if "external_password_page" not in st.session_state:
+    st.session_state["external_password_page"] = False
+
 # ============================
 # Sidebar Navigation - Always Visible
 # ============================
@@ -2828,7 +2846,7 @@ with st.sidebar:
         st.markdown('<div class="sidebar-title">HRAS — Averroes Admin</div>', unsafe_allow_html=True)
     st.markdown("<hr style='border: 1px solid #0b72b9; margin: 10px 0;'>", unsafe_allow_html=True)
     # Show login form or menu based on session state
-    if not st.session_state["logged_in_user"]:
+    if not st.session_state["logged_in_user"] and not st.session_state["external_password_page"]:
         # --- Login Form Container ---
         with st.container():
             st.markdown("<div style='background-color:#0b1220; padding: 10px; border-radius: 8px; border: 1px solid #0b72b9;'>", unsafe_allow_html=True)
@@ -2853,130 +2871,142 @@ with st.sidebar:
                          st.success("Login successful!")
                          st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
-        # --- End Login Form Container ---
+        # --- زر لتغيير الباسورد بدون تسجيل دخول ---
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🔐 Change Password (No Login)", use_container_width=True):
+            st.session_state["external_password_page"] = True
+            st.rerun()
     else:
+        if st.session_state["external_password_page"]:
+            if st.button("← Back to Login", use_container_width=True):
+                st.session_state["external_password_page"] = False
+                st.rerun()
+        else:
+            user = st.session_state["logged_in_user"]
+            title_val = str(user.get("Title") or user.get("title") or "").strip().upper()
+            is_hr = "HR" in title_val
+            is_bum = title_val == "BUM"
+            is_am = title_val == "AM"
+            is_dm = title_val == "DM"
+            is_mr = title_val == "MR"
+            st.write(f"👋 **Welcome, {user.get('Employee Name') or 'User'}**")
+            st.markdown("---")
+            # Determine pages based on user role
+            if is_hr:
+                pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Recruitment", "Notifications", "Directory", "Salary Monthly", "Salary Report", "Settings"] # Added "Recruitment"
+            elif is_bum:
+                pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
+            elif is_am:
+                pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
+            elif is_dm:
+                pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
+            elif is_mr:
+                pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
+            else:
+                pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
+            # Calculate unread notifications count
+            unread_count = get_unread_count(user)
+            # Render navigation buttons with badge on Notifications if needed
+            for p in pages:
+                if p == "Notifications":
+                    if unread_count > 0:
+                        button_label = f"Notifications ({unread_count})"
+                    else:
+                        button_label = "Notifications"
+                    if st.button(button_label, key=f"nav_{p}", use_container_width=True):
+                        st.session_state["current_page"] = p
+                        st.rerun()
+                else:
+                    if st.button(p, key=f"nav_{p}", use_container_width=True):
+                        st.session_state["current_page"] = p
+                        st.rerun()
+            st.markdown("---")
+            if st.button("🚪 Logout", use_container_width=True):
+                st.session_state["logged_in_user"] = None
+                st.session_state["current_page"] = "My Profile"
+                st.success("You have been logged out.")
+                st.rerun()
+# Main Content
+if st.session_state["external_password_page"]:
+    page_forgot_password()
+else:
+    if st.session_state["logged_in_user"]:
+        current_page = st.session_state["current_page"]
         user = st.session_state["logged_in_user"]
-        title_val = str(user.get("Title") or user.get("title") or "").strip().upper()
+        title_val = str(user.get("Title") or "").strip().upper()
         is_hr = "HR" in title_val
         is_bum = title_val == "BUM"
         is_am = title_val == "AM"
         is_dm = title_val == "DM"
-        is_mr = title_val == "MR"
-        st.write(f"👋 **Welcome, {user.get('Employee Name') or 'User'}**")
-        st.markdown("---")
-        # Determine pages based on user role
-        if is_hr:
-            pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Recruitment", "Notifications", "Directory", "Salary Monthly", "Salary Report", "Settings"] # Added "Recruitment"
-        elif is_bum:
-            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
-        elif is_am:
-            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
-        elif is_dm:
-            pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
-        elif is_mr:
-            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
-        else:
-            pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
-        # Calculate unread notifications count
-        unread_count = get_unread_count(user)
-        # Render navigation buttons with badge on Notifications if needed
-        for p in pages:
-            if p == "Notifications":
-                if unread_count > 0:
-                    button_label = f"Notifications ({unread_count})"
-                else:
-                    button_label = "Notifications"
-                if st.button(button_label, key=f"nav_{p}", use_container_width=True):
-                    st.session_state["current_page"] = p
-                    st.rerun()
+        is_mr = title_val == "MR" # Added for clarity
+        if current_page == "My Profile":
+            page_my_profile(user)
+        elif current_page == "Notifications":
+            page_notifications(user)
+        elif current_page == "Leave Request":
+            page_leave_request(user)
+        elif current_page == "Team Leaves":
+            # Now accessible by BUM, AM, DM, MR
+            if is_bum or is_am or is_dm or is_mr:
+                page_manager_leaves(user)
             else:
-                if st.button(p, key=f"nav_{p}", use_container_width=True):
-                    st.session_state["current_page"] = p
-                    st.rerun()
-        st.markdown("---")
-        if st.button("🚪 Logout", use_container_width=True):
-            st.session_state["logged_in_user"] = None
-            st.session_state["current_page"] = "My Profile"
-            st.success("You have been logged out.")
-            st.rerun()
-# Main Content
-if st.session_state["logged_in_user"]:
-    current_page = st.session_state["current_page"]
-    user = st.session_state["logged_in_user"]
-    title_val = str(user.get("Title") or "").strip().upper()
-    is_hr = "HR" in title_val
-    is_bum = title_val == "BUM"
-    is_am = title_val == "AM"
-    is_dm = title_val == "DM"
-    is_mr = title_val == "MR" # Added for clarity
-    if current_page == "My Profile":
-        page_my_profile(user)
-    elif current_page == "Notifications":
-        page_notifications(user)
-    elif current_page == "Leave Request":
-        page_leave_request(user)
-    elif current_page == "Team Leaves":
-        # Now accessible by BUM, AM, DM, MR
-        if is_bum or is_am or is_dm or is_mr:
-            page_manager_leaves(user)
-        else:
-            st.error("Access denied. BUM, AM, DM, or MR only.")
-    elif current_page == "Dashboard":
-        page_dashboard(user)
-    elif current_page == "Reports":
-        page_reports(user)
-    elif current_page == "HR Manager":
-        page_hr_manager(user)
-    elif current_page == "Team Structure":
-        # Allow BUM, AM, DM to see this page
-        if is_bum or is_am or is_dm:
-            page_my_team(user, role=title_val)
-        else:
-            st.error("Access denied. BUM, AM, or DM only.")
-    elif current_page == "My Team":
-        # Keep old "My Team" for DM if needed, otherwise remove or redirect
-        # For simplicity, we'll assume "Team Structure" covers this now for DM too
-        if is_dm:
-            page_my_team(user, role="DM")
-        else:
-            st.error("Access denied. DM only for legacy 'My Team'. Use 'Team Structure' instead.")
-    elif current_page == "HR Inbox":
-        if is_hr:
-            page_hr_inbox(user)
-        else:
-            st.error("Access denied. HR only.")
-    elif current_page == "Employee Photos":
-        if is_hr:
-            page_employee_photos(user)
-        else:
-            st.error("Access denied. HR only.")
-    elif current_page == "Ask HR":
-        page_ask_hr(user)
-    elif current_page == "Ask Employees":
-        if is_hr:
-            page_ask_employees(user)
-        else:
-            st.error("Access denied. HR only.")
-    elif current_page == "Request HR":
-        page_request_hr(user)
-    elif current_page == "Directory":
-        page_directory(user)
-    elif current_page == "Salary Monthly": # Added Salary Monthly page
-        page_salary_monthly(user)
-    elif current_page == "Salary Report": # Added Salary Report page
-        if is_hr:
-            page_salary_report(user)
-        else:
-            st.error("Access denied. HR only.")
-    elif current_page == "Recruitment": # 👈 Added Recruitment page
-        if is_hr:
-            page_recruitment(user)
-        else:
-            st.error("Access denied. HR only.")
-    elif current_page == "Settings": # Added Settings page
-        if is_hr:
-            page_settings(user)
-        else:
-            st.error("Access denied. HR only.")
-else:
-    st.info("Please log in to access the system.")
+                st.error("Access denied. BUM, AM, DM, or MR only.")
+        elif current_page == "Dashboard":
+            page_dashboard(user)
+        elif current_page == "Reports":
+            page_reports(user)
+        elif current_page == "HR Manager":
+            page_hr_manager(user)
+        elif current_page == "Team Structure":
+            # Allow BUM, AM, DM to see this page
+            if is_bum or is_am or is_dm:
+                page_my_team(user, role=title_val)
+            else:
+                st.error("Access denied. BUM, AM, or DM only.")
+        elif current_page == "My Team":
+            # Keep old "My Team" for DM if needed, otherwise remove or redirect
+            # For simplicity, we'll assume "Team Structure" covers this now for DM too
+            if is_dm:
+                page_my_team(user, role="DM")
+            else:
+                st.error("Access denied. DM only for legacy 'My Team'. Use 'Team Structure' instead.")
+        elif current_page == "HR Inbox":
+            if is_hr:
+                page_hr_inbox(user)
+            else:
+                st.error("Access denied. HR only.")
+        elif current_page == "Employee Photos":
+            if is_hr:
+                page_employee_photos(user)
+            else:
+                st.error("Access denied. HR only.")
+        elif current_page == "Ask HR":
+            page_ask_hr(user)
+        elif current_page == "Ask Employees":
+            if is_hr:
+                page_ask_employees(user)
+            else:
+                st.error("Access denied. HR only.")
+        elif current_page == "Request HR":
+            page_request_hr(user)
+        elif current_page == "Directory":
+            page_directory(user)
+        elif current_page == "Salary Monthly": # Added Salary Monthly page
+            page_salary_monthly(user)
+        elif current_page == "Salary Report": # Added Salary Report page
+            if is_hr:
+                page_salary_report(user)
+            else:
+                st.error("Access denied. HR only.")
+        elif current_page == "Recruitment": # 👈 Added Recruitment page
+            if is_hr:
+                page_recruitment(user)
+            else:
+                st.error("Access denied. HR only.")
+        elif current_page == "Settings": # Added Settings page
+            if is_hr:
+                page_settings(user)
+            else:
+                st.error("Access denied. HR only.")
+    else:
+        st.info("Please log in to access the system.")
