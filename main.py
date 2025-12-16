@@ -43,7 +43,7 @@ def encrypt_salary_value(value) -> str:
     except Exception:
         return ""
 
-# ✅ دالة فك التشفير
+# ✅     دالة فك التشفير
 def decrypt_salary_value(encrypted_str: str) -> float:
     try:
         if not encrypted_str or pd.isna(encrypted_str):
