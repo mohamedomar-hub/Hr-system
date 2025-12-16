@@ -10,13 +10,12 @@ import shutil
 import zipfile
 import json
 import bcrypt
-
 # 🔐 NEW: For salary encryption
 from cryptography.fernet import Fernet, InvalidToken
 import hashlib
 
 # ============================
-# SALARY ENCRYPTION KEY SETUP
+# SALARY ENCRYPTION SETUP (Secure: from Streamlit Secrets)
 # ============================
 SALARY_SECRET_KEY = st.secrets.get("SALARY_SECRET_KEY")
 if not SALARY_SECRET_KEY:
@@ -54,6 +53,7 @@ def decrypt_salary_value(encrypted_str: str) -> float:
         return float(decrypted.decode())
     except (InvalidToken, Exception):
         return 0.0
+
 # ============================
 # Load Configuration from config.json (with safe fallback)
 # ============================
@@ -99,9 +99,7 @@ def load_config():
     except Exception as e:
         st.error(f"Error loading config.json: {e}. Using defaults.")
         return default_config
-
 CONFIG = load_config()
-
 # ============================
 # Configuration from CONFIG (replaces hardcoded values)
 # ============================
@@ -116,34 +114,27 @@ RECRUITMENT_CV_DIR = CONFIG["recruitment"]["cv_dir"]
 RECRUITMENT_DATA_FILE = CONFIG["file_paths"]["recruitment_data"]
 GOOGLE_FORM_RECRUITMENT_LINK = CONFIG["recruitment"]["google_form_link"]
 DEFAULT_ANNUAL_LEAVE = CONFIG["system"]["default_annual_leave_days"]
-
 GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", None)
 REPO_OWNER = st.secrets.get("REPO_OWNER", CONFIG["github"]["repo_owner"])
 REPO_NAME = st.secrets.get("REPO_NAME", CONFIG["github"]["repo_name"])
 BRANCH = st.secrets.get("BRANCH", CONFIG["github"]["branch"])
 FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FILE_PATH") else DEFAULT_FILE_PATH
-
 # ============================
 # 🔐 Secure Password Management (bcrypt-based) — NEW SECTION
 # ============================
 SECURE_PASSWORDS_FILE = "secure_passwords.json"
-
 def load_password_hashes():
     if os.path.exists(SECURE_PASSWORDS_FILE):
         with open(SECURE_PASSWORDS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
-
 def save_password_hashes(hashes):
     with open(SECURE_PASSWORDS_FILE, "w", encoding="utf-8") as f:
         json.dump(hashes, f, indent=2)
-
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
 def verify_password(plain_password: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed.encode('utf-8'))
-
 def initialize_passwords_from_excel(df):
     hashes = load_password_hashes()
     col_map = {c.lower().strip(): c for c in df.columns}
@@ -156,12 +147,10 @@ def initialize_passwords_from_excel(df):
             if emp_code and pwd and emp_code not in hashes:
                 hashes[emp_code] = hash_password(pwd)
         save_password_hashes(hashes)
-
 # ============================
 # Styling - Enhanced Dark Mode CSS
 # ============================
 st.set_page_config(page_title="HRAS — Averroes Admin", page_icon="👥", layout="wide")
-
 hide_streamlit_style = """
 <style>
 #MainMenu {visibility: hidden;}
@@ -170,14 +159,12 @@ div[data-testid="stDeployButton"] { display: none; }
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-
 enhanced_dark_css = """
 <style>
 /* ... CSS unchanged ... */
 </style>
 """
 st.markdown(enhanced_dark_css, unsafe_allow_html=True)
-
 # ============================
 # ✅ NEW: External Password Change Page (No Login Required)
 # ============================
@@ -209,7 +196,6 @@ def page_forgot_password():
                 st.success("✅ Your password has been updated successfully.")
                 add_notification("", "HR", f"Employee {emp_code_clean} changed password externally.")
                 st.rerun()
-
 # ============================
 # Photo & Recruitment Helpers (unchanged)
 # ============================
@@ -224,7 +210,6 @@ def save_employee_photo(employee_code, uploaded_file):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
-
 def save_recruitment_cv(uploaded_file):
     os.makedirs(RECRUITMENT_CV_DIR, exist_ok=True)
     ext = uploaded_file.name.split(".")[-1].lower()
@@ -236,7 +221,6 @@ def save_recruitment_cv(uploaded_file):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
-
 # ============================
 # GitHub helpers (unchanged)
 # ============================
@@ -245,7 +229,6 @@ def github_headers():
     if GITHUB_TOKEN:
         headers["Authorization"] = f"token {GITHUB_TOKEN}"
     return headers
-
 def load_employee_data_from_github():
     try:
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}?ref={BRANCH}"
@@ -259,7 +242,6 @@ def load_employee_data_from_github():
             return pd.DataFrame()
     except Exception:
         return pd.DataFrame()
-
 def get_file_sha():
     try:
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}"
@@ -271,7 +253,6 @@ def get_file_sha():
             return None
     except Exception:
         return None
-
 def upload_to_github(df, commit_message="Update employees via Streamlit"):
     if not GITHUB_TOKEN:
         return False
@@ -290,7 +271,6 @@ def upload_to_github(df, commit_message="Update employees via Streamlit"):
         return put_resp.status_code in (200, 201)
     except Exception:
         return False
-
 # ============================
 # Helpers
 # ============================
@@ -307,7 +287,6 @@ def ensure_session_df():
                     st.session_state["df"] = pd.DataFrame()
             else:
                 st.session_state["df"] = pd.DataFrame()
-
 # ============================
 # Login & Save Helpers (unchanged)
 # ============================
@@ -329,7 +308,6 @@ def login(df, code, password):
     if stored_hash and verify_password(password, stored_hash):
         return matched.iloc[0].to_dict()
     return None
-
 def save_df_to_local(df):
     try:
         with pd.ExcelWriter(FILE_PATH, engine="openpyxl") as writer:
@@ -337,14 +315,12 @@ def save_df_to_local(df):
         return True
     except Exception:
         return False
-
 def save_and_maybe_push(df, actor="HR"):
     saved = save_df_to_local(df)
     pushed = False
     if saved and GITHUB_TOKEN:
         pushed = upload_to_github(df, commit_message=f"Update {FILE_PATH} via Streamlit by {actor}")
     return saved, pushed
-
 def load_leaves_data():
     if os.path.exists(LEAVES_FILE_PATH):
         try:
@@ -359,7 +335,6 @@ def load_leaves_data():
             "Employee Code", "Manager Code", "Start Date", "End Date",
             "Leave Type", "Reason", "Status", "Decision Date", "Comment"
         ])
-
 def save_leaves_data(df):
     try:
         with pd.ExcelWriter(LEAVES_FILE_PATH, engine="openpyxl") as writer:
@@ -367,7 +342,6 @@ def save_leaves_data(df):
         return True
     except Exception:
         return False
-
 # ============================
 # Notifications System (unchanged)
 # ============================
@@ -384,7 +358,6 @@ def load_notifications():
         return pd.DataFrame(columns=[
             "Recipient Code", "Recipient Title", "Message", "Timestamp", "Is Read"
         ])
-
 def save_notifications(df):
     try:
         with pd.ExcelWriter(NOTIFICATIONS_FILE_PATH, engine="openpyxl") as writer:
@@ -392,7 +365,6 @@ def save_notifications(df):
         return True
     except Exception:
         return False
-
 def add_notification(recipient_code, recipient_title, message):
     notifications = load_notifications()
     new_row = pd.DataFrame([{
@@ -404,7 +376,6 @@ def add_notification(recipient_code, recipient_title, message):
     }])
     notifications = pd.concat([notifications, new_row], ignore_index=True)
     save_notifications(notifications)
-
 def get_unread_count(user):
     notifications = load_notifications()
     if notifications.empty:
@@ -424,7 +395,6 @@ def get_unread_count(user):
     )
     unread = notifications[mask & (~notifications["Is Read"])]
     return len(unread)
-
 def mark_all_as_read(user):
     notifications = load_notifications()
     if notifications.empty:
@@ -442,7 +412,6 @@ def mark_all_as_read(user):
     )
     notifications.loc[mask, "Is Read"] = True
     save_notifications(notifications)
-
 # ============================
 # Other Helpers (unchanged)
 # ============================
@@ -460,7 +429,6 @@ def format_relative_time(ts):
         return f"قبل {seconds // 3600} ساعة"
     else:
         return ts.strftime("%d-%m-%Y")
-
 # ============================
 # NEW: page_notifications  
 # ============================
@@ -550,12 +518,10 @@ def page_notifications(user):
         </div>
         """, unsafe_allow_html=True)
         st.markdown("---")
-
 # HR Queries / Requests / Team Hierarchy / Recruitment / Settings / Pages — UNCHANGED
 # (All other functions remain exactly as in your original file)
-
 # ============================
-# 🔒 MODIFIED: Salary Monthly Page — Decrypt on Display
+# 🔒 MODIFIED: Salary Monthly Page — Decrypt on Display (Fixed index error)
 # ============================
 def page_salary_monthly(user):
     st.subheader("Monthly Salaries")
@@ -571,12 +537,10 @@ def page_salary_monthly(user):
             st.error(f"❌ Missing columns: {missing_cols}")
             st.info("Ensure columns: Employee Code, Month, Basic Salary, KPI Bonus, Deductions (as encrypted strings).")
             return
-
         user_salaries = salary_df[salary_df["Employee Code"].astype(str) == user_code]
         if user_salaries.empty:
             st.info(f"🚫 No salary records found for you (Code: {user_code}).")
             return
-
         # 🔓 DECRYPT SALARY VALUES FOR DISPLAY
         decryptable_cols = ["Basic Salary", "KPI Bonus", "Deductions"]
         for col in decryptable_cols:
@@ -590,15 +554,12 @@ def page_salary_monthly(user):
         else:
             # If Net Salary exists (encrypted), decrypt it
             user_salaries["Net Salary"] = user_salaries["Net Salary"].apply(decrypt_salary_value)
-
         if st.button("📊 Show All Details"):
             st.session_state["show_all_details"] = not st.session_state.get("show_all_details", False)
-
         if st.session_state.get("show_all_details", False):
             st.markdown("### All Salary Records")
             display_cols = ["Month", "Basic Salary", "KPI Bonus", "Deductions", "Net Salary"]
             st.dataframe(user_salaries[display_cols].reset_index(drop=True), use_container_width=True)
-
         for index, row in user_salaries.iterrows():
             month = row["Month"]
             button_key = f"show_details_{month}_{index}"
@@ -610,7 +571,6 @@ def page_salary_monthly(user):
                     "ded": row['Deductions'],
                     "net": row['Net Salary']
                 }
-
         for index, row in user_salaries.iterrows():
             month = row["Month"]
             details_key = f"salary_details_{month}"
@@ -638,13 +598,11 @@ def page_salary_monthly(user):
                 </div>
                 """
                 st.markdown(card_content, unsafe_allow_html=True)
-
-                # For download: Re-encrypt to original encrypted state!
-                original_row = salary_df[salary_df.index == user_salaries.index[index]].iloc[0].copy()
+                # ✅ تنزيل الصف الأصلي (المشفر) باستخدام `row` مباشرة — آمن وخالٍ من الأخطاء
                 import io
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    pd.DataFrame([original_row]).to_excel(writer, index=False, sheet_name=f"Salary_{month}")
+                    pd.DataFrame([row]).to_excel(writer, index=False, sheet_name=f"Salary_{month}")
                 output.seek(0)
                 st.download_button(
                     label=f"📥 Download Salary Slip for {month}",
@@ -657,7 +615,6 @@ def page_salary_monthly(user):
                     st.rerun()
     except Exception as e:
         st.error(f"❌ Error loading salary data: {e}")
-
 # ============================
 # 🔒 MODIFIED: Salary Report Page — Encrypt on Upload
 # ============================
@@ -672,7 +629,6 @@ def page_salary_report(user):
             if not all(col in new_salary_df.columns for col in required_cols):
                 st.error("Missing required columns. Must include: Employee Code, Month, Basic Salary, KPI Bonus, Deductions.")
                 return
-
             # 🔒 ENCRYPT SALARY COLUMNS BEFORE SAVING
             cols_to_encrypt = ["Basic Salary", "KPI Bonus", "Deductions"]
             for col in cols_to_encrypt:
@@ -680,11 +636,9 @@ def page_salary_report(user):
             # Optionally encrypt Net Salary if present
             if "Net Salary" in new_salary_df.columns:
                 new_salary_df["Net Salary"] = new_salary_df["Net Salary"].apply(encrypt_salary_value)
-
             st.session_state["uploaded_salary_df_preview"] = new_salary_df.copy()
             st.success("File loaded and encrypted. Preview below (values appear as encrypted strings).")
             st.dataframe(new_salary_df.head(50), use_container_width=True)
-
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("Replace In-Memory Salary Dataset with Uploaded File"):
@@ -694,7 +648,6 @@ def page_salary_report(user):
                     st.success("✅ Salary data encrypted and saved locally.")
         except Exception as e:
             st.error(f"Failed to process uploaded file: {e}")
-
     st.markdown("---")
     st.markdown("### Save & Push Salary Report to GitHub")
     if st.button("Save current salary dataset locally and push to GitHub"):
@@ -711,7 +664,6 @@ def page_salary_report(user):
             saved_locally = True
         except Exception:
             saved_locally = False
-
         pushed_to_github = False
         if saved_locally and GITHUB_TOKEN:
             try:
@@ -735,7 +687,6 @@ def page_salary_report(user):
                 pushed_to_github = put_resp.status_code in (200, 201)
             except Exception as e:
                 st.error(f"GitHub push failed: {e}")
-
         if saved_locally:
             if pushed_to_github:
                 st.success("✅ Salary data saved and pushed to GitHub.")
@@ -746,7 +697,6 @@ def page_salary_report(user):
                     st.info("✅ Saved locally. GitHub token not configured.")
         else:
             st.error("❌ Failed to save locally.")
-
     st.markdown("---")
     st.markdown("### Current Salary Data (Encrypted View)")
     current_salary_df = st.session_state.get("salary_df")
@@ -768,21 +718,16 @@ def page_salary_report(user):
         )
     else:
         st.info("No salary data available.")
-
 # ============================
 # ALL OTHER PAGE FUNCTIONS REMAIN UNCHANGED
 # (page_recruitment, page_settings, page_employee_photos, etc.)
 # ============================
 # (We keep them exactly as in your original file — no changes needed)
-
 # ============================
 # Render Logo, Sidebar, Main App Flow — UNCHANGED
 # ============================
-
 # ... (Rest of your original code from "def render_logo_and_title():" until the end, unchanged)
-
 # We now include them here for completeness with NO MODIFICATIONS:
-
 def render_logo_and_title():
     cols = st.columns([1,6,1])
     with cols[1]:
@@ -801,7 +746,6 @@ def render_logo_and_title():
         unread = get_unread_count(user)
         if unread > 0:
             st.markdown(f'<div class="notification-bell">{unread}<div class="notification-badge">{unread}</div></div>', unsafe_allow_html=True)
-
 def page_employee_photos(user):
     st.subheader("📸 Employee Photos (HR Only)")
     os.makedirs("employee_photos", exist_ok=True)
@@ -853,7 +797,6 @@ def page_employee_photos(user):
                 mime="application/zip"
             )
         st.success("✅ ZIP file created. Click the button to download.")
-
 def page_my_profile(user):
     st.subheader("My Profile")
     st.markdown(f"### 👋 Welcome, {user.get('Employee Name', 'User')}")
@@ -944,7 +887,6 @@ def page_my_profile(user):
                 add_notification("", "HR", f"Employee {user_code_clean} changed their password.")
             else:
                 st.error("❌ Current password is incorrect.")
-
 def calculate_leave_balance(user_code, leaves_df):
     annual_balance = DEFAULT_ANNUAL_LEAVE
     user_approved_leaves = leaves_df[
@@ -961,7 +903,6 @@ def calculate_leave_balance(user_code, leaves_df):
         used_days = user_approved_leaves["Leave Days"].sum()
     remaining_days = annual_balance - used_days
     return annual_balance, used_days, remaining_days
-
 def page_leave_request(user):
     st.subheader("Request Leave")
     df_emp = st.session_state.get("df", pd.DataFrame())
@@ -1061,7 +1002,6 @@ def page_leave_request(user):
             st.info("You haven't submitted any leave requests yet.")
     else:
         st.info("No leave requests found.")
-
 def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
     emp_code_col = "Employee Code"
     emp_name_col = "Employee Name"
@@ -1144,7 +1084,6 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
     else:
         node["Summary"] = {"AM":0, "DM":0, "MR":0, "Total":0}
     return node
-
 def send_full_leaves_report_to_hr(leaves_df, df_emp, out_path="HR_Leaves_Report.xlsx"):
     try:
         df_emp_local = df_emp.copy()
@@ -1188,7 +1127,6 @@ def send_full_leaves_report_to_hr(leaves_df, df_emp, out_path="HR_Leaves_Report.
         return True, out_path
     except Exception as e:
         return False, str(e)
-
 def page_my_team(user, role="AM"):
     st.subheader("My Team Structure")
     user_code = None
@@ -1333,7 +1271,6 @@ def page_my_team(user, role="AM"):
         color = ROLE_COLORS.get(role, "#e6eef8")
         st.markdown(f'<span style="color: {color};">{icon} <strong>{root_manager_info}</strong> (Code: {root_manager_code})</span>', unsafe_allow_html=True)
         st.info("No direct subordinates found under your supervision.")
-
 def page_directory(user):
     st.subheader("Company Directory")
     df = st.session_state.get("df", pd.DataFrame())
@@ -1401,7 +1338,6 @@ def page_directory(user):
         st.info(f"Showing {len(display_df)} of {len(df)} employees.")
     else:
         st.error("No columns could be mapped for display. Please check your Excel sheet headers.")
-
 def load_hr_queries():
     if os.path.exists(HR_QUERIES_FILE_PATH):
         try:
@@ -1420,7 +1356,6 @@ def load_hr_queries():
         except Exception:
             pass
         return df
-
 def save_hr_queries(df):
     try:
         if "ID" in df.columns:
@@ -1437,7 +1372,6 @@ def save_hr_queries(df):
         return True
     except Exception:
         return False
-
 def load_hr_requests():
     if os.path.exists(HR_REQUESTS_FILE_PATH):
         try:
@@ -1457,7 +1391,6 @@ def load_hr_requests():
         except Exception:
             pass
         return df
-
 def save_hr_requests(df):
     try:
         if "ID" in df.columns:
@@ -1474,7 +1407,6 @@ def save_hr_requests(df):
         return True
     except Exception:
         return False
-
 def save_request_file(uploaded_file, employee_code, request_id):
     os.makedirs("hr_request_files", exist_ok=True)
     ext = uploaded_file.name.split(".")[-1].lower()
@@ -1483,7 +1415,6 @@ def save_request_file(uploaded_file, employee_code, request_id):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
-
 def save_response_file(uploaded_file, employee_code, request_id):
     os.makedirs("hr_response_files", exist_ok=True)
     ext = uploaded_file.name.split(".")[-1].lower()
@@ -1492,7 +1423,6 @@ def save_response_file(uploaded_file, employee_code, request_id):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
-
 def page_ask_employees(user):
     st.subheader("📤 Ask Employees")
     st.info("🔍 Type employee name or code to search. HR can send requests with file attachments.")
@@ -1576,7 +1506,6 @@ def page_ask_employees(user):
         add_notification(selected_code, "", f"HR has sent you a new request (ID: {new_id}). Check 'Request HR' page.")
         st.success(f"Request sent to {selected_name} (Code: {selected_code}) successfully.")
         st.rerun()
-
 def page_request_hr(user):
     st.subheader("📥 Request HR")
     st.info("Here you can respond to requests sent by HR. You can upload files as response.")
@@ -1634,7 +1563,6 @@ def page_request_hr(user):
             add_notification("", "HR", f"Employee {user_code} responded to request ID {row['ID']}.")
             st.success("Response submitted successfully.")
             st.rerun()
-
 def page_recruitment(user):
     st.subheader("👥 Recruitment Management")
     if user.get("Title", "").upper() != "HR":
@@ -1722,7 +1650,6 @@ def page_recruitment(user):
                 st.error(f"Failed to load database: {e}")
         else:
             st.info("No recruitment data uploaded yet.")
-
 def page_settings(user):
     st.subheader("⚙️ System Settings")
     if user.get("Title", "").upper() != "HR":
@@ -1786,7 +1713,6 @@ def page_settings(user):
                     mime="application/zip"
                 )
             st.success("Backup created successfully.")
-
 def page_dashboard(user):
     st.subheader("Dashboard")
     df = st.session_state.get("df", pd.DataFrame())
@@ -1835,7 +1761,6 @@ def page_dashboard(user):
                     st.info("Saved locally. GitHub token not configured.")
         else:
             st.error("Failed to save dataset locally.")
-
 def page_hr_manager(user):
     st.subheader("HR Manager")
     st.info("Upload new employee sheet, manage employees, and perform administrative actions.")
@@ -2027,7 +1952,6 @@ def page_hr_manager(user):
             st.rerun()
         except Exception as e:
             st.error(f"❌ Failed to clear: {e}")
-
 def page_reports(user):
     st.subheader("Reports (Placeholder)")
     st.info("Reports section - ready to be expanded.")
@@ -2042,7 +1966,6 @@ def page_reports(user):
         df.to_excel(writer, index=False, sheet_name="Employees")
     buf.seek(0)
     st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-
 def page_hr_inbox(user):
     st.subheader("📬 HR Inbox")
     st.markdown("View employee queries and reply to them here.")
@@ -2121,7 +2044,6 @@ def page_hr_inbox(user):
                     st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("---")
-
 def page_ask_hr(user):
     st.subheader("💬 Ask HR")
     if user is None:
@@ -2198,26 +2120,21 @@ def page_ask_hr(user):
             st.markdown("**🕒 HR Reply:** Pending")
         st.markdown("</div>")
         st.markdown("---")
-
 # ============================
 # Main App Flow
 # ============================
 ensure_session_df()
-
 if not os.path.exists(SECURE_PASSWORDS_FILE):
     df_init = st.session_state.get("df", pd.DataFrame())
     if not df_init.empty:
         initialize_passwords_from_excel(df_init)
-
 render_logo_and_title()
-
 if "logged_in_user" not in st.session_state:
     st.session_state["logged_in_user"] = None
 if "current_page" not in st.session_state:
     st.session_state["current_page"] = "My Profile"
 if "external_password_page" not in st.session_state:
     st.session_state["external_password_page"] = False
-
 with st.sidebar:
     if os.path.exists(LOGO_PATH):
         st.image(LOGO_PATH, use_container_width=True)
@@ -2299,7 +2216,6 @@ with st.sidebar:
                 st.session_state["current_page"] = "My Profile"
                 st.success("You have been logged out.")
                 st.rerun()
-
 if st.session_state["external_password_page"]:
     page_forgot_password()
 else:
