@@ -18,31 +18,34 @@ import hashlib
 # ============================
 # SALARY ENCRYPTION KEY SETUP
 # ============================
-SALARY_SECRET_KEY = "_ubyhG8HFfN4AIsC2X8ZeVf8JxhZhE6XLasNRUtxYAY=="
+SALARY_SECRET_KEY = st.secrets.get("SALARY_SECRET_KEY")
+if not SALARY_SECRET_KEY:
+    st.error("❌ Missing SALARY_SECRET_KEY in Streamlit Secrets.")
+    st.stop()
 
+# ✅ دالة لإنشاء كائن Fernet من أي سلسلة نصية (secret)
 def get_fernet_from_secret(secret: str) -> Fernet:
-    """Generate a valid Fernet key from any string secret."""
-    # Use SHA-256 to derive a 32-byte key
-    key = hashlib.sha256(secret.encode()).digest()
-    # Encode as URL-safe base64 (Fernet requirement)
-    fernet_key = base64.urlsafe_b64encode(key)
+    """Generate a valid Fernet key from any string secret using SHA-256."""
+    key = hashlib.sha256(secret.encode()).digest()  # 32 bytes
+    fernet_key = base64.urlsafe_b64encode(key)      # Fernet requires URL-safe base64
     return Fernet(fernet_key)
 
+# ✅ إنشاء كائن التشفير مرة واحدة (مستوى عالمي - global scope)
 fernet_salary = get_fernet_from_secret(SALARY_SECRET_KEY)
 
+# ✅ دالة تشفير القيمة الرقمية
 def encrypt_salary_value(value) -> str:
-    """Encrypt a numeric salary value and return base64 string."""
     try:
         if pd.isna(value):
             return ""
-        num_str = str(float(value))  # Normalize to float string
+        num_str = str(float(value))
         encrypted = fernet_salary.encrypt(num_str.encode())
         return base64.urlsafe_b64encode(encrypted).decode()
     except Exception:
         return ""
 
+# ✅ دالة فك التشفير
 def decrypt_salary_value(encrypted_str: str) -> float:
-    """Decrypt a base64-encoded encrypted salary value."""
     try:
         if not encrypted_str or pd.isna(encrypted_str):
             return 0.0
@@ -51,7 +54,6 @@ def decrypt_salary_value(encrypted_str: str) -> float:
         return float(decrypted.decode())
     except (InvalidToken, Exception):
         return 0.0
-
 # ============================
 # Load Configuration from config.json (with safe fallback)
 # ============================
