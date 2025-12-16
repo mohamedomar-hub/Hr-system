@@ -4,3 +4,4 @@ streamlit
 requests
 plotly
 bcrypt
+cryptography
