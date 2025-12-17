@@ -264,36 +264,48 @@ enhanced_dark_css = """
 st.markdown(enhanced_dark_css, unsafe_allow_html=True)
 
 # ============================
-# ✅ External Password Change Page (No Login Required)
+# ✅ MODIFIED: External Password Change Page (No Login Required)
 # ============================
 def page_forgot_password():
     st.subheader("🔐 Change Password (No Login Required)")
-    st.info("Enter your Employee Code and current password to set a new one.")
+    st.info("Enter your Employee Code. If your password was reset by HR, you can set a new one directly.")
     with st.form("external_password_change"):
         emp_code = st.text_input("Employee Code")
-        current_pwd = st.text_input("Current Password", type="password")
         new_pwd = st.text_input("New Password", type="password")
         confirm_pwd = st.text_input("Confirm New Password", type="password")
-        submitted = st.form_submit_button("Change Password")
+        submitted = st.form_submit_button("Set New Password")
     if submitted:
-        if not emp_code.strip() or not current_pwd or not new_pwd or not confirm_pwd:
+        if not emp_code.strip() or not new_pwd or not confirm_pwd:
             st.error("All fields are required.")
         elif new_pwd != confirm_pwd:
             st.error("New password and confirmation do not match.")
         else:
             emp_code_clean = emp_code.strip().replace(".0", "")
             hashes = load_password_hashes()
-            stored_hash = hashes.get(emp_code_clean)
-            if not stored_hash:
-                st.error("Employee code not found.")
-            elif not verify_password(current_pwd, stored_hash):
-                st.error("Current password is incorrect.")
-            else:
-                hashes[emp_code_clean] = hash_password(new_pwd)
-                save_password_hashes(hashes)
-                st.success("✅ Your password has been updated successfully.")
-                add_notification("", "HR", f"Employee {emp_code_clean} changed password externally.")
-                st.rerun()
+            
+            # ✅ التحقق من وجود الموظف في ملف Employees.xlsx (وليس secure_passwords.json)
+            df = st.session_state.get("df", pd.DataFrame())
+            if df.empty:
+                st.error("Employee data not loaded.")
+                return
+
+            col_map = {c.lower().strip(): c for c in df.columns}
+            code_col = col_map.get("employee_code") or col_map.get("employee code")
+            if not code_col:
+                st.error("Employee code column not found in dataset.")
+                return
+
+            df[code_col] = df[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+            if emp_code_clean not in df[code_col].values:
+                st.error("Employee code not found in the company database.")
+                return
+
+            # ✅ الآن: نسمح بإنشاء باسورد جديد بغض النظر عن وجود الهاش أو لا
+            hashes[emp_code_clean] = hash_password(new_pwd)
+            save_password_hashes(hashes)
+            st.success("✅ Your password has been set successfully. You can now log in.")
+            add_notification("", "HR", f"Employee {emp_code_clean} set a new password after reset.")
+            st.rerun()
 
 # ============================
 # Photo & Recruitment Helpers
@@ -544,7 +556,7 @@ def format_relative_time(ts):
         return ts.strftime("%d-%m-%Y")
 
 # ============================
-# NEW: page_notifications  
+# page_notifications  
 # ============================
 def page_notifications(user):
     st.subheader("🔔 Notifications")
@@ -950,7 +962,18 @@ def page_hr_manager(user):
                 st.success(f"✅ Password for Employee {emp_code_clean} has been reset. Employee must set a new password using the external link.")
                 add_notification(emp_code_clean, "", "Your password was reset by HR. Please set a new password using the 'Change Password (No Login)' link on the login page.")
             else:
-                st.error("Employee code not found in password database.")
+                # Even if not in hashes, if in Employees.xlsx, we treat it as reset
+                col_map = {c.lower().strip(): c for c in df.columns}
+                code_col = col_map.get("employee_code") or col_map.get("employee code")
+                if code_col:
+                    df[code_col] = df[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+                    if emp_code_clean in df[code_col].values:
+                        st.success(f"✅ Employee {emp_code_clean} marked for password reset. They can now set a new password.")
+                        add_notification(emp_code_clean, "", "Your account is ready for a new password. Use the 'Change Password (No Login)' link.")
+                    else:
+                        st.error("Employee code not found in company database.")
+                else:
+                    st.error("Employee code column not found.")
 
     st.markdown("---")
 
