@@ -1,12 +1,12 @@
 {
   "file_paths": {
-    "employees": "Employees.xlsx",
-    "leaves": "Leaves.xlsx",
-    "notifications": "Notifications.xlsx",
-    "hr_queries": "HR_Queries.xlsx",
-    "hr_requests": "HR_Requests.xlsx",
-    "salaries": "Salaries.xlsx",
-    "recruitment_data": "Recruitment_Data.xlsx"
+    "employees": "employees.json",
+    "leaves": "leaves.json",
+    "notifications": "notifications.json",
+    "hr_queries": "hr_queries.json",
+    "hr_requests": "hr_requests.json",
+    "salaries": "salaries.json",
+    "recruitment_data": "recruitment_data.json"
   },
   "github": {
     "repo_owner": "mohamedomar-hub",
