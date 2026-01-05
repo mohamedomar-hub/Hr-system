@@ -754,89 +754,97 @@ def page_manager_leaves(user):
         st.info("No leave history for your team.")
 
 # ============================
-# Salary Monthly Page — Decrypt on Display (Handles both encrypted and plain values)
+# Salary Monthly Page — **REPLACED WITH IMPROVED VERSION FROM edit.txt**
 # ============================
 def page_salary_monthly(user):
     st.subheader("Monthly Salaries")
-    user_code = str(user.get("Employee Code", "N/A")).strip().replace(".0", "")
+    # 🔹 Normalize logged-in employee code
+    user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
     try:
+        # 🔹 Load salaries JSON
         if not os.path.exists(SALARIES_FILE_PATH):
             st.error(f"❌ File '{SALARIES_FILE_PATH}' not found.")
             return
         salary_df = load_json_file(SALARIES_FILE_PATH)
+        if salary_df.empty:
+            st.info("No salary data available.")
+            return
+        # 🔹 Ensure required columns
         required_columns = ["Employee Code", "Month", "Basic Salary", "KPI Bonus", "Deductions"]
-        missing_cols = [col for col in required_columns if col not in salary_df.columns]
+        missing_cols = [c for c in required_columns if c not in salary_df.columns]
         if missing_cols:
             st.error(f"❌ Missing columns: {missing_cols}")
-            st.info("Ensure columns: Employee Code, Month, Basic Salary, KPI Bonus, Deductions (as encrypted strings).")
             return
-        user_salaries = salary_df[salary_df["Employee Code"].astype(str) == user_code]
+        # 🔹 Normalize Employee Code column BEFORE filtering
+        salary_df["Employee Code"] = (
+            salary_df["Employee Code"]
+            .astype(str)
+            .str.strip()
+            .str.replace(".0", "", regex=False)
+        )
+        # 🔹 Filter salaries for current user
+        user_salaries = salary_df[salary_df["Employee Code"] == user_code].copy()
         if user_salaries.empty:
             st.info(f"🚫 No salary records found for you (Code: {user_code}).")
             return
-        # Decrypt or interpret as plain number
-        decryptable_cols = ["Basic Salary", "KPI Bonus", "Deductions"]
-        for col in decryptable_cols:
-            if col in user_salaries.columns:
-                user_salaries[col] = user_salaries[col].apply(decrypt_salary_value)
-        if "Net Salary" not in user_salaries.columns:
-            user_salaries["Net Salary"] = (
-                user_salaries["Basic Salary"] + user_salaries["KPI Bonus"] - user_salaries["Deductions"]
-            )
-        else:
-            user_salaries["Net Salary"] = user_salaries["Net Salary"].apply(decrypt_salary_value)
+        # 🔐 Decrypt numeric columns FIRST
+        for col in ["Basic Salary", "KPI Bonus", "Deductions"]:
+            user_salaries[col] = user_salaries[col].apply(decrypt_salary_value)
+        # 🧮 Calculate Net Salary safely
+        user_salaries["Net Salary"] = (
+            user_salaries["Basic Salary"]
+            + user_salaries["KPI Bonus"]
+            - user_salaries["Deductions"]
+        )
+        # 🔹 Sort by Month (optional but nice)
+        user_salaries = user_salaries.reset_index(drop=True)
+        # 🔘 Toggle full table
         if st.button("📊 Show All Details"):
             st.session_state["show_all_details"] = not st.session_state.get("show_all_details", False)
         if st.session_state.get("show_all_details", False):
             st.markdown("### All Salary Records")
-            display_cols = ["Month", "Basic Salary", "KPI Bonus", "Deductions", "Net Salary"]
-            st.dataframe(user_salaries[display_cols].reset_index(drop=True), use_container_width=True)
-        for index, row in user_salaries.iterrows():
+            st.dataframe(
+                user_salaries[["Month", "Basic Salary", "KPI Bonus", "Deductions", "Net Salary"]],
+                use_container_width=True
+            )
+        # 🔹 Per-month detailed cards
+        for idx, row in user_salaries.iterrows():
             month = row["Month"]
-            button_key = f"show_details_{month}_{index}"
-            if st.button(f"Show Details for {month}", key=button_key):
-                st.session_state[f"salary_details_{month}"] = {
-                    "month": month,
-                    "basic": row['Basic Salary'],
-                    "kpi": row['KPI Bonus'],
-                    "ded": row['Deductions'],
-                    "net": row['Net Salary']
-                }
-        for index, row in user_salaries.iterrows():
+            btn_key = f"show_details_{month}_{idx}"
+            if st.button(f"Show Details for {month}", key=btn_key):
+                st.session_state[f"salary_details_{month}"] = row.to_dict()
+        for idx, row in user_salaries.iterrows():
             month = row["Month"]
             details_key = f"salary_details_{month}"
             if st.session_state.get(details_key):
                 details = st.session_state[details_key]
-                st.markdown(f"<div style='background-color:#0b1220; padding: 8px; border-left: 4px solid #ffd166; margin-bottom: 8px;'><span style='color:#ffd166; font-weight:bold;'>Salary Details for {details['month']}</span></div>", unsafe_allow_html=True)
-                card_content = f"""
-                <div style="background-color:#0c1525; padding: 12px; border-radius: 8px; margin-bottom: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <span style="color:#9fb0c8;">💰 Basic Salary:</span>
-                        <span style="color:#ffd166; font-weight:bold;">{details['basic']:.2f}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <span style="color:#9fb0c8;">🎯 KPI Bonus:</span>
-                        <span style="color:#ffd166; font-weight:bold;">{details['kpi']:.2f}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <span style="color:#9fb0c8;">📉 Deductions:</span>
-                        <span style="color:#ff6b6b; font-weight:bold;">{details['ded']:.2f}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; border-top: 1px solid #1e293b; padding-top: 8px;">
-                        <span style="color:#9fb0c8; font-weight:bold;">🧮 Net Salary:</span>
-                        <span style="color:#4ecdc4; font-weight:bold;">{details['net']:.2f}</span>
-                    </div>
+                card = f"""
+                <div style="background-color:#0c1525; padding:14px; border-radius:10px;
+                margin-bottom:10px; box-shadow:0 4px 8px rgba(0,0,0,0.25)">
+                <h4 style="color:#ffd166;">Salary Details – {details['Month']}</h4>
+                <p style="color:#9fb0c8;">💰 Basic Salary:
+                <b style="color:#ffd166;">{details['Basic Salary']:.2f}</b></p>
+                <p style="color:#9fb0c8;">🎯 KPI Bonus:
+                <b style="color:#ffd166;">{details['KPI Bonus']:.2f}</b></p>
+                <p style="color:#9fb0c8;">📉 Deductions:
+                <b style="color:#ff6b6b;">{details['Deductions']:.2f}</b></p>
+                <hr style="border-color:#1e293b;">
+                <p style="color:#9fb0c8;">🧮 Net Salary:
+                <b style="color:#4ecdc4;">{details['Net Salary']:.2f}</b></p>
                 </div>
                 """
-                st.markdown(card_content, unsafe_allow_html=True)
+                st.markdown(card, unsafe_allow_html=True)
+                # 📥 Download salary slip
                 output = BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    pd.DataFrame([row]).to_excel(writer, index=False, sheet_name=f"Salary_{month}")
+                with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                    pd.DataFrame([details]).to_excel(
+                        writer, index=False, sheet_name=f"Salary_{month}"
+                    )
                 output.seek(0)
                 st.download_button(
-                    label=f"📥 Download Salary Slip for {month}",
+                    f"📥 Download Salary Slip for {month}",
                     data=output,
-                    file_name=f"Salary_Slip_{user_code}_{month}.xlsx",
+                    file_name=f"Salary_{user_code}_{month}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
                 if st.button(f"Hide Details for {month}", key=f"hide_{month}"):
