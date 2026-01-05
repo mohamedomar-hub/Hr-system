@@ -1,6 +1,6 @@
 # ملفات حساسة لا يجب رفعها على GitHub
 secure_passwords.json
-Salaries.xlsx
+Salaries.json
 secrets.toml
 
 # مجلدات الصور والمستندات المرفوعة
