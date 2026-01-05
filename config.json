@@ -5,7 +5,7 @@
     "notifications": "notifications.json",
     "hr_queries": "hr_queries.json",
     "hr_requests": "hr_requests.json",
-    "salaries": "salaries.json",
+    "salaries": "Salaries.json",
     "recruitment_data": "recruitment_data.json"
   },
   "github": {
