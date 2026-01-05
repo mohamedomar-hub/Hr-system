@@ -133,7 +133,7 @@ def initialize_passwords_from_data(data_list):
             hashes[emp_code] = hash_password(pwd)
     save_password_hashes(hashes)
 # ============================
-# JSON File Helpers (REPLACES EXCEL)
+# JSON File Helpers (REPLACES EXCEL) — ✅ MODIFIED TO ENCRYPT SALARIES BEFORE SAVING
 # ============================
 def load_json_file(filepath, default_columns=None):
     if os.path.exists(filepath):
@@ -147,14 +147,23 @@ def load_json_file(filepath, default_columns=None):
         if default_columns:
             return pd.DataFrame(columns=default_columns)
         return pd.DataFrame()
+
 def save_json_file(df, filepath):
     try:
-        data = df.where(pd.notnull(df), None).to_dict(orient='records')
+        # 🔒 Encrypt sensitive salary columns BEFORE saving (even locally)
+        sensitive_cols = ["Basic Salary", "KPI Bonus", "Deductions", "Net Salary"]
+        df_copy = df.copy()
+        for col in sensitive_cols:
+            if col in df_copy.columns:
+                df_copy[col] = df_copy[col].apply(encrypt_salary_value)
+        # Save encrypted version to disk
+        data = df_copy.where(pd.notnull(df_copy), None).to_dict(orient='records')
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         return True
     except Exception:
         return False
+
 # ============================
 # Styling - Enhanced Dark Mode CSS
 # ============================
@@ -170,91 +179,91 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 enhanced_dark_css = """
 <style>
 .sidebar-title {
-    font-size: 1.4rem;
-    font-weight: bold;
-    color: #ffd166;
-    text-align: center;
-    margin-bottom: 10px;
+font-size: 1.4rem;
+font-weight: bold;
+color: #ffd166;
+text-align: center;
+margin-bottom: 10px;
 }
 .hr-message-card {
-    background-color: #0b1220;
-    border-left: 4px solid #0b72b9;
-    padding: 12px;
-    margin: 10px 0;
-    border-radius: 8px;
+background-color: #0b1220;
+border-left: 4px solid #0b72b9;
+padding: 12px;
+margin: 10px 0;
+border-radius: 8px;
 }
 .hr-message-title {
-    color: #ffd166;
-    font-weight: bold;
-    font-size: 1.1rem;
+color: #ffd166;
+font-weight: bold;
+font-size: 1.1rem;
 }
 .hr-message-meta {
-    color: #9fb0c8;
-    font-size: 0.9rem;
-    margin: 4px 0;
+color: #9fb0c8;
+font-size: 0.9rem;
+margin: 4px 0;
 }
 .hr-message-body {
-    color: #e6eef8;
-    margin-top: 6px;
+color: #e6eef8;
+margin-top: 6px;
 }
 .leave-balance-card {
-    background-color: #0b1220;
-    border-radius: 8px;
-    padding: 12px;
-    text-align: center;
-    border: 1px solid #0b72b9;
+background-color: #0b1220;
+border-radius: 8px;
+padding: 12px;
+text-align: center;
+border: 1px solid #0b72b9;
 }
 .leave-balance-title {
-    color: #9fb0c8;
-    font-size: 0.9rem;
+color: #9fb0c8;
+font-size: 0.9rem;
 }
 .leave-balance-value {
-    color: #ffd166;
-    font-size: 1.4rem;
-    font-weight: bold;
-    margin-top: 4px;
+color: #ffd166;
+font-size: 1.4rem;
+font-weight: bold;
+margin-top: 4px;
 }
 .leave-balance-value.used {
-    color: #ff6b6b;
+color: #ff6b6b;
 }
 .leave-balance-value.remaining {
-    color: #4ecdc4;
+color: #4ecdc4;
 }
 .team-structure-card {
-    background-color: #0b1220;
-    border-radius: 8px;
-    padding: 12px;
-    text-align: center;
-    border: 1px solid #0b72b9;
+background-color: #0b1220;
+border-radius: 8px;
+padding: 12px;
+text-align: center;
+border: 1px solid #0b72b9;
 }
 .team-structure-title {
-    color: #9fb0c8;
-    font-size: 0.9rem;
+color: #9fb0c8;
+font-size: 0.9rem;
 }
 .team-structure-value {
-    color: #ffd166;
-    font-size: 1.4rem;
-    font-weight: bold;
-    margin-top: 4px;
+color: #ffd166;
+font-size: 1.4rem;
+font-weight: bold;
+margin-top: 4px;
 }
 .team-structure-value.am { color: #0b72b9; }
 .team-structure-value.dm { color: #4ecdc4; }
 .team-structure-value.mr { color: #ff6b6b; }
 .notification-bell {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    background-color: #ff6b6b;
-    color: white;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-weight: bold;
-    font-size: 0.8rem;
-    z-index: 100;
+position: absolute;
+top: 20px;
+right: 20px;
+background-color: #ff6b6b;
+color: white;
+width: 24px;
+height: 24px;
+border-radius: 50%;
+display: flex;
+justify-content: center;
+align-items: center;
+font-weight: bold;
+font-size: 0.8rem;
+z-index: 100;
 }
 </style>
 """
@@ -324,7 +333,7 @@ def save_recruitment_cv(uploaded_file):
         f.write(uploaded_file.getbuffer())
     return filename
 # ============================
-# GitHub helpers (JSON version)
+# GitHub helpers (JSON version) — ✅ MODIFIED TO ENCRYPT BEFORE UPLOAD
 # ============================
 def github_headers():
     headers = {"Accept": "application/vnd.github.v3+json"}
@@ -359,7 +368,27 @@ def upload_json_to_github(filepath, data_list, commit_message):
     if not GITHUB_TOKEN:
         return False
     try:
-        json_content = json.dumps(data_list, ensure_ascii=False, indent=2).encode('utf-8')
+        # 🔒 Encrypt sensitive columns BEFORE uploading to GitHub
+        sensitive_cols = ["Basic Salary", "KPI Bonus", "Deductions", "Net Salary"]
+        data_list_copy = [row.copy() for row in data_list]
+        for item in data_list_copy:
+            for col in sensitive_cols:
+                if col in item and item[col] is not None:
+                    # Avoid double-encryption
+                    if isinstance(item[col], str):
+                        try:
+                            # Try to decode — if it fails, it's not encrypted yet
+                            base64.urlsafe_b64decode(item[col].encode())
+                            # If it passes, it's already encrypted → skip
+                            continue
+                        except Exception:
+                            # Not encrypted → encrypt it
+                            item[col] = encrypt_salary_value(item[col])
+                    else:
+                        # Numeric value → encrypt
+                        item[col] = encrypt_salary_value(item[col])
+
+        json_content = json.dumps(data_list_copy, ensure_ascii=False, indent=2).encode('utf-8')
         file_content_b64 = base64.b64encode(json_content).decode("utf-8")
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{filepath}"
         sha = get_file_sha(filepath)
@@ -766,9 +795,9 @@ def page_salary_monthly(user):
                     file_name=f"Salary_Slip_{user_code}_{month}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-            if st.button(f"Hide Details for {month}", key=f"hide_{month}"):
-                del st.session_state[details_key]
-                st.rerun()
+                if st.button(f"Hide Details for {month}", key=f"hide_{month}"):
+                    del st.session_state[details_key]
+                    st.rerun()
     except Exception as e:
         st.error(f"❌ Error loading salary data: {e}")
 # ============================
@@ -807,9 +836,9 @@ def page_salary_report(user):
         current_salary_df = st.session_state.get("salary_df")
         if current_salary_df is None:
             current_salary_df = load_json_file(SALARIES_FILE_PATH)
-            if current_salary_df is None:
-                st.error(f"Could not load salary data from {SALARIES_FILE_PATH}. Upload a file first.")
-                return
+        if current_salary_df is None:
+            st.error(f"Could not load salary data from {SALARIES_FILE_PATH}. Upload a file first.")
+            return
         saved = save_json_file(current_salary_df, SALARIES_FILE_PATH)
         pushed_to_github = False
         if saved and GITHUB_TOKEN:
@@ -1944,13 +1973,13 @@ def page_recruitment(user):
                 with col2:
                     with open(os.path.join(RECRUITMENT_CV_DIR, cv), "rb") as f:
                         st.download_button("📥", f, file_name=cv, key=f"dl_cv_{cv}")
-            if st.button("📦 Download All CVs (ZIP)"):
-                zip_path = "all_cvs.zip"
-                with zipfile.ZipFile(zip_path, 'w') as zipf:
-                    for cv in cv_files:
-                        zipf.write(os.path.join(RECRUITMENT_CV_DIR, cv), cv)
-                with open(zip_path, "rb") as f:
-                    st.download_button("Download ZIP", f, file_name="Recruitment_CVs.zip", mime="application/zip")
+        if st.button("📦 Download All CVs (ZIP)"):
+            zip_path = "all_cvs.zip"
+            with zipfile.ZipFile(zip_path, 'w') as zipf:
+                for cv in cv_files:
+                    zipf.write(os.path.join(RECRUITMENT_CV_DIR, cv), cv)
+            with open(zip_path, "rb") as f:
+                st.download_button("Download ZIP", f, file_name="Recruitment_CVs.zip", mime="application/zip")
     with tab_db:
         st.markdown("### Upload Recruitment Data from Google Forms")
         uploaded_db = st.file_uploader("Upload Excel from Google Forms", type=["xlsx"])
@@ -2185,7 +2214,7 @@ def page_hr_inbox(user):
                     st.success("Message deleted!")
                     st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("---")
+    st.markdown("---")
 def page_ask_hr(user):
     st.subheader("💬 Ask HR")
     if user is None:
@@ -2261,7 +2290,7 @@ def page_ask_hr(user):
         else:
             st.markdown("**🕒 HR Reply:** Pending")
         st.markdown("</div>")
-        st.markdown("---")
+    st.markdown("---")
 # ============================
 # Main App Flow
 # ============================
