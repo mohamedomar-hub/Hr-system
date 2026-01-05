@@ -50,7 +50,7 @@ def decrypt_salary_value(encrypted_str: str) -> float:
         except Exception:
             # If decoding fails, assume it's plain text (e.g., transitional file)
             return float(encrypted_str)
-    except (ValueError, Exception):
+    except (InvalidToken, ValueError, Exception):
         return 0.0
 
 # ============================
