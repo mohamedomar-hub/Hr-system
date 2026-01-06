@@ -48,7 +48,6 @@ def decrypt_salary_value(encrypted_str: str) -> float:
             return float(encrypted_str)
     except (InvalidToken, ValueError, Exception):
         return 0.0
-
 # ============================
 # 🆕 FUNCTION: Sanitize employee data (APPLY YOUR 3 RULES)
 # ============================
@@ -60,18 +59,17 @@ def sanitize_employee_data(df: pd.DataFrame) -> pd.DataFrame:
     3. Hide 'E-Mail' for anyone NOT in ['BUM', 'AM', 'DM'].
     """
     df = df.copy()
-    # Rule 1 & 3: drop columns if present
-    if 'annual_leave_balance' in df.columns:
-        df = df.drop(columns=['annual_leave_balance'])
-    if 'monthly_salary' in df.columns:
-        df = df.drop(columns=['monthly_salary'])
-    # Rule 2: hide email except for BUM, AM, DM
+    # Rule 1 & 2: drop sensitive columns if present
+    sensitive_columns_to_drop = ['annual_leave_balance', 'monthly_salary']
+    for col in sensitive_columns_to_drop:
+        if col in df.columns:
+            df = df.drop(columns=[col])
+    # Rule 3: hide email except for BUM, AM, DM
     if 'E-Mail' in df.columns and 'Title' in df.columns:
         allowed_titles = {'BUM', 'AM', 'DM'}
         mask = ~df['Title'].astype(str).str.upper().isin(allowed_titles)
         df.loc[mask, 'E-Mail'] = ""  # blank out, not delete column
     return df
-
 # ============================
 # Load Configuration from config.json
 # ============================
@@ -210,91 +208,91 @@ st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 enhanced_dark_css = """
 <style>
 .sidebar-title {
-font-size: 1.4rem;
-font-weight: bold;
-color: #ffd166;
-text-align: center;
-margin-bottom: 10px;
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: #ffd166;
+    text-align: center;
+    margin-bottom: 10px;
 }
 .hr-message-card {
-background-color: #0b1220;
-border-left: 4px solid #0b72b9;
-padding: 12px;
-margin: 10px 0;
-border-radius: 8px;
+    background-color: #0b1220;
+    border-left: 4px solid #0b72b9;
+    padding: 12px;
+    margin: 10px 0;
+    border-radius: 8px;
 }
 .hr-message-title {
-color: #ffd166;
-font-weight: bold;
-font-size: 1.1rem;
+    color: #ffd166;
+    font-weight: bold;
+    font-size: 1.1rem;
 }
 .hr-message-meta {
-color: #9fb0c8;
-font-size: 0.9rem;
-margin: 4px 0;
+    color: #9fb0c8;
+    font-size: 0.9rem;
+    margin: 4px 0;
 }
 .hr-message-body {
-color: #e6eef8;
-margin-top: 6px;
+    color: #e6eef8;
+    margin-top: 6px;
 }
 .leave-balance-card {
-background-color: #0b1220;
-border-radius: 8px;
-padding: 12px;
-text-align: center;
-border: 1px solid #0b72b9;
+    background-color: #0b1220;
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+    border: 1px solid #0b72b9;
 }
 .leave-balance-title {
-color: #9fb0c8;
-font-size: 0.9rem;
+    color: #9fb0c8;
+    font-size: 0.9rem;
 }
 .leave-balance-value {
-color: #ffd166;
-font-size: 1.4rem;
-font-weight: bold;
-margin-top: 4px;
+    color: #ffd166;
+    font-size: 1.4rem;
+    font-weight: bold;
+    margin-top: 4px;
 }
 .leave-balance-value.used {
-color: #ff6b6b;
+    color: #ff6b6b;
 }
 .leave-balance-value.remaining {
-color: #4ecdc4;
+    color: #4ecdc4;
 }
 .team-structure-card {
-background-color: #0b1220;
-border-radius: 8px;
-padding: 12px;
-text-align: center;
-border: 1px solid #0b72b9;
+    background-color: #0b1220;
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+    border: 1px solid #0b72b9;
 }
 .team-structure-title {
-color: #9fb0c8;
-font-size: 0.9rem;
+    color: #9fb0c8;
+    font-size: 0.9rem;
 }
 .team-structure-value {
-color: #ffd166;
-font-size: 1.4rem;
-font-weight: bold;
-margin-top: 4px;
+    color: #ffd166;
+    font-size: 1.4rem;
+    font-weight: bold;
+    margin-top: 4px;
 }
 .team-structure-value.am { color: #0b72b9; }
 .team-structure-value.dm { color: #4ecdc4; }
 .team-structure-value.mr { color: #ff6b6b; }
 .notification-bell {
-position: absolute;
-top: 20px;
-right: 20px;
-background-color: #ff6b6b;
-color: white;
-width: 24px;
-height: 24px;
-border-radius: 50%;
-display: flex;
-justify-content: center;
-align-items: center;
-font-weight: bold;
-font-size: 0.8rem;
-z-index: 100;
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background-color: #ff6b6b;
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    font-size: 0.8rem;
+    z-index: 100;
 }
 </style>
 """
@@ -405,25 +403,22 @@ def upload_json_to_github(filepath, data_list, commit_message):
         df_temp = pd.DataFrame(data_list)
         df_sanitized = sanitize_employee_data(df_temp)
         data_list_sanitized = df_sanitized.to_dict(orient='records')
-        # 🔒 Encrypt sensitive columns BEFORE uploading to GitHub
+
+        # 🔒 Encrypt sensitive columns before uploading to GitHub (including annual_leave_balance & monthly_salary already dropped, but encrypt salary cols just in case)
         sensitive_cols = ["Basic Salary", "KPI Bonus", "Deductions", "Net Salary"]
         data_list_copy = [row.copy() for row in data_list_sanitized]
         for item in data_list_copy:
             for col in sensitive_cols:
                 if col in item and item[col] is not None:
-                    # Avoid double-encryption
                     if isinstance(item[col], str):
                         try:
-                            # Try to decode — if it fails, it's not encrypted yet
                             base64.urlsafe_b64decode(item[col].encode())
-                            # If it passes, it's already encrypted → skip
                             continue
                         except Exception:
-                            # Not encrypted → encrypt it
                             item[col] = encrypt_salary_value(item[col])
                     else:
-                        # Numeric value → encrypt
                         item[col] = encrypt_salary_value(item[col])
+
         json_content = json.dumps(data_list_copy, ensure_ascii=False, indent=2).encode('utf-8')
         file_content_b64 = base64.b64encode(json_content).decode("utf-8")
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{filepath}"
@@ -632,31 +627,31 @@ def page_notifications(user):
         time_formatted = format_relative_time(row["Timestamp"])
         st.markdown(f"""
         <div style="
-        background-color: {bg_color};
-        border-left: 4px solid {color};
-        padding: 12px;
-        margin: 10px 0;
-        border-radius: 8px;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            background-color: {bg_color};
+            border-left: 4px solid {color};
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
         ">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-        <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
-        <span style="font-size: 1.3rem; color: {color};">{icon}</span>
-        <div>
-        <div style="color: {color}; font-weight: bold; font-size: 1.05rem;">
-        {status_badge} {row['Message']}
-        </div>
-        <div style="color: #9fb0c8; font-size: 0.9rem; margin-top: 4px;">
-        • {time_formatted}
-        </div>
-        </div>
-        </div>
-        </div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                    <span style="font-size: 1.3rem; color: {color};">{icon}</span>
+                    <div>
+                        <div style="color: {color}; font-weight: bold; font-size: 1.05rem;">
+                            {status_badge} {row['Message']}
+                        </div>
+                        <div style="color: #9fb0c8; font-size: 0.9rem; margin-top: 4px;">
+                            • {time_formatted}
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
-        st.markdown("---")
+    st.markdown("---")
 # ============================
-# 🆕 ADDITION: page_manager_leaves — Fully Implemented
+# 🆕 ADDITION: page_manager_leaves — Fully Implemented & FIXED
 # ============================
 def page_manager_leaves(user):
     st.subheader("📅 Team Leave Requests")
@@ -668,8 +663,9 @@ def page_manager_leaves(user):
     if leaves_df.empty:
         st.info("No leave requests in the system.")
         return
-    # Filter team leaves
-    team_leaves = leaves_df[leaves_df["Manager Code"].astype(str) == manager_code].copy()
+    # Filter team leaves using Manager Code (ensure consistent string format)
+    leaves_df["Manager Code"] = leaves_df["Manager Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    team_leaves = leaves_df[leaves_df["Manager Code"] == manager_code].copy()
     if team_leaves.empty:
         st.info("No leave requests from your team.")
         return
@@ -697,13 +693,13 @@ def page_manager_leaves(user):
         for idx, row in pending_leaves.iterrows():
             emp_name = row.get(name_col_to_use, "") if name_col_to_use in row else ""
             emp_display = f"{emp_name} ({row['Employee Code']})" if emp_name else row['Employee Code']
-            st.markdown(f"**Employee**: {emp_display} | **Dates**: {row['Start Date'].strftime('%d-%m-%Y')} → {row['End Date'].strftime('%d-%m-%Y')} | **Type**: {row['Leave Type']}")
+            st.markdown(f"**Employee**: {emp_display} | **Dates**: {row['Start Date']} → {row['End Date']} | **Type**: {row['Leave Type']}")
             st.write(f"**Reason**: {row['Reason']}")
             col1, col2 = st.columns(2)
             with col1:
                 if st.button("✅ Approve", key=f"app_{idx}_{row['Employee Code']}"):
-                    leaves_df.at[row.name, "Status"] = "Approved"
-                    leaves_df.at[row.name, "Decision Date"] = pd.Timestamp.now()
+                    leaves_df.at[leaves_df[leaves_df["Manager Code"] == manager_code].index[leaves_df[leaves_df["Manager Code"] == manager_code]["Employee Code"] == row["Employee Code"]].tolist()[idx], "Status"] = "Approved"
+                    leaves_df.at[leaves_df[leaves_df["Manager Code"] == manager_code].index[leaves_df[leaves_df["Manager Code"] == manager_code]["Employee Code"] == row["Employee Code"]].tolist()[idx], "Decision Date"] = pd.Timestamp.now()
                     save_leaves_data(leaves_df)
                     add_notification(row['Employee Code'], "", "Your leave request has been approved!")
                     st.success("Approved!")
@@ -711,9 +707,9 @@ def page_manager_leaves(user):
             with col2:
                 if st.button("❌ Reject", key=f"rej_{idx}_{row['Employee Code']}"):
                     comment = st.text_input("Comment (optional)", key=f"com_{idx}_{row['Employee Code']}")
-                    leaves_df.at[row.name, "Status"] = "Rejected"
-                    leaves_df.at[row.name, "Decision Date"] = pd.Timestamp.now()
-                    leaves_df.at[row.name, "Comment"] = comment
+                    leaves_df.at[leaves_df[leaves_df["Manager Code"] == manager_code].index[leaves_df[leaves_df["Manager Code"] == manager_code]["Employee Code"] == row["Employee Code"]].tolist()[idx], "Status"] = "Rejected"
+                    leaves_df.at[leaves_df[leaves_df["Manager Code"] == manager_code].index[leaves_df[leaves_df["Manager Code"] == manager_code]["Employee Code"] == row["Employee Code"]].tolist()[idx], "Decision Date"] = pd.Timestamp.now()
+                    leaves_df.at[leaves_df[leaves_df["Manager Code"] == manager_code].index[leaves_df[leaves_df["Manager Code"] == manager_code]["Employee Code"] == row["Employee Code"]].tolist()[idx], "Comment"] = comment
                     save_leaves_data(leaves_df)
                     msg = f"Your leave request was rejected. Comment: {comment}" if comment else "Your leave request was rejected."
                     add_notification(row['Employee Code'], "", msg)
@@ -734,7 +730,7 @@ def page_manager_leaves(user):
             "Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"
         ]], use_container_width=True)
         # ✅ Add Download Button for Full History
-        buf = BytesIO()
+        buf = Bytesio()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
             all_leaves[["Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"]].to_excel(writer, index=False)
         buf.seek(0)
@@ -1600,41 +1596,41 @@ def page_my_team(user, role="AM"):
     st.markdown("""
     <style>
     .team-node {
-    background-color: #0b1220;
-    border-left: 4px solid #0b72b9;
-    padding: 12px;
-    margin: 8px 0;
-    border-radius: 6px;
+        background-color: #0b1220;
+        border-left: 4px solid #0b72b9;
+        padding: 12px;
+        margin: 8px 0;
+        border-radius: 6px;
     }
     .team-node-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-weight: 600;
-    color: #ffd166;
-    margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 600;
+        color: #ffd166;
+        margin-bottom: 8px;
     }
     .team-node-summary {
-    font-size: 0.9rem;
-    color: #9fb0c8;
-    margin-top: 4px;
+        font-size: 0.9rem;
+        color: #9fb0c8;
+        margin-top: 4px;
     }
     .team-node-children {
-    margin-left: 20px;
-    margin-top: 8px;
+        margin-left: 20px;
+        margin-top: 8px;
     }
     .team-member {
-    display: flex;
-    align-items: center;
-    padding: 6px 12px;
-    background-color: #111827;
-    border-radius: 4px;
-    margin: 4px 0;
-    font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        padding: 6px 12px;
+        background-color: #111827;
+        border-radius: 4px;
+        margin: 4px 0;
+        font-size: 0.95rem;
     }
     .team-member-icon {
-    margin-right: 8px;
-    font-size: 1.1rem;
+        margin-right: 8px;
+        font-size: 1.1rem;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -1828,7 +1824,7 @@ def save_hr_queries(df):
             for idx in df[df["ID"].isna()].index:
                 existing_max += 1
                 df.at[idx, "ID"] = existing_max
-            df["ID"] = df["ID"].astype(int)
+        df["ID"] = df["ID"].astype(int)
     return save_json_file(df, HR_QUERIES_FILE_PATH)
 def load_hr_requests():
     return load_json_file(HR_REQUESTS_FILE_PATH, default_columns=[
@@ -1847,7 +1843,7 @@ def save_hr_requests(df):
             for idx in df[df["ID"].isna()].index:
                 existing_max += 1
                 df.at[idx, "ID"] = existing_max
-            df["ID"] = df["ID"].astype(int)
+        df["ID"] = df["ID"].astype(int)
     return save_json_file(df, HR_REQUESTS_FILE_PATH)
 def save_request_file(uploaded_file, employee_code, request_id):
     os.makedirs("hr_request_files", exist_ok=True)
@@ -2051,13 +2047,13 @@ def page_recruitment(user):
                 with col2:
                     with open(os.path.join(RECRUITMENT_CV_DIR, cv), "rb") as f:
                         st.download_button("📥", f, file_name=cv, key=f"dl_cv_{cv}")
-        if st.button("📦 Download All CVs (ZIP)"):
-            zip_path = "all_cvs.zip"
-            with zipfile.ZipFile(zip_path, 'w') as zipf:
-                for cv in cv_files:
-                    zipf.write(os.path.join(RECRUITMENT_CV_DIR, cv), cv)
-            with open(zip_path, "rb") as f:
-                st.download_button("Download ZIP", f, file_name="Recruitment_CVs.zip", mime="application/zip")
+            if st.button("📦 Download All CVs (ZIP)"):
+                zip_path = "all_cvs.zip"
+                with zipfile.ZipFile(zip_path, 'w') as zipf:
+                    for cv in cv_files:
+                        zipf.write(os.path.join(RECRUITMENT_CV_DIR, cv), cv)
+                with open(zip_path, "rb") as f:
+                    st.download_button("Download ZIP", f, file_name="Recruitment_CVs.zip", mime="application/zip")
     with tab_db:
         st.markdown("### Upload Recruitment Data from Google Forms")
         uploaded_db = st.file_uploader("Upload Excel from Google Forms", type=["xlsx"])
@@ -2442,7 +2438,7 @@ with st.sidebar:
             elif is_dm:
                 pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
             elif is_mr:
-                pages = ["My Profile", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
+                pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]  # ⚠️ MR excluded from Team Leaves
             else:
                 pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
             unread_count = get_unread_count(user)
@@ -2483,12 +2479,12 @@ else:
             page_notifications(user)
         elif current_page == "Leave Request":
             page_leave_request(user)
-        # ✅ Team Leaves is now ACTIVE and handled!
+        # ✅ Team Leaves is now ACTIVE and handled! MR excluded
         elif current_page == "Team Leaves":
-            if is_bum or is_am or is_dm or is_mr:
+            if is_bum or is_am or is_dm:
                 page_manager_leaves(user)
             else:
-                st.error("Access denied. BUM, AM, DM, or MR only.")
+                st.error("Access denied. BUM, AM, or DM only.")
         elif current_page == "Dashboard":
             page_dashboard(user)
         elif current_page == "Reports":
