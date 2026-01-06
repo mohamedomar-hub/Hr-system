@@ -473,7 +473,7 @@ def save_and_maybe_push(df, actor="HR"):
             saved = True  # حتى لو فشل محليًا، نعتبره ناجحًا إذا رُفع لـ GitHub
     return saved, pushed
 def load_leaves_data():
-    return load_json_file(LEAVES_FILE_PATH, default_columns=[
+    df = load_json_file(LEAVES_FILE_PATH, default_columns=[
         "Employee Code", "Manager Code", "Start Date", "End Date",
         "Leave Type", "Reason", "Status", "Decision Date", "Comment"
     ])
