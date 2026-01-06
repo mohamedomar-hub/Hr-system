@@ -479,9 +479,10 @@ def load_leaves_data():
     ])
     date_cols = ["Start Date", "End Date", "Decision Date"]
     for col in date_cols:
-        if col in df.columns:   
+        if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors="coerce")
-            return df
+    return df
+
 def save_leaves_data(df):
     df = df.copy()
     date_cols = ["Start Date", "End Date", "Decision Date"]
