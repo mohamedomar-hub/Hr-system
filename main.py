@@ -477,6 +477,11 @@ def load_leaves_data():
         "Employee Code", "Manager Code", "Start Date", "End Date",
         "Leave Type", "Reason", "Status", "Decision Date", "Comment"
     ])
+    date_cols = ["Start Date", "End Date", "Decision Date"]
+    for col in date_cols:
+        if col in df.columns:   
+            df[col] = pd.to_datetime(df[col], errors="coerce")
+            return df
 def save_leaves_data(df):
     df = df.copy()
     if "Start Date" in df.columns:
