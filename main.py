@@ -484,12 +484,10 @@ def load_leaves_data():
             return df
 def save_leaves_data(df):
     df = df.copy()
-    if "Start Date" in df.columns:
-        df["Start Date"] = pd.to_datetime(df["Start Date"], errors="coerce").astype(str)
-    if "End Date" in df.columns:
-        df["End Date"] = pd.to_datetime(df["End Date"], errors="coerce").astype(str)
-    if "Decision Date" in df.columns:
-        df["Decision Date"] = pd.to_datetime(df["Decision Date"], errors="coerce").astype(str)
+    date_cols = ["Start Date", "End Date", "Decision Date"]
+    for col in date_cols:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors="coerce").dt.strftime("%Y-%m-%d")
     return save_json_file(df, LEAVES_FILE_PATH)
 # ============================
 # Notifications System
