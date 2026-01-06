@@ -466,9 +466,11 @@ def save_df_to_local(df):
 def save_and_maybe_push(df, actor="HR"):
     saved = save_json_file(df, FILE_PATH)
     pushed = False
-    if saved and GITHUB_TOKEN:
+    if GITHUB_TOKEN:
         data_list = df.where(pd.notnull(df), None).to_dict(orient='records')
         pushed = upload_json_to_github(FILE_PATH, data_list, f"Update {FILE_PATH} via Streamlit by {actor}")
+        if pushed:
+            saved = True  # حتى لو فشل محليًا، نعتبره ناجحًا إذا رُفع لـ GitHub
     return saved, pushed
 def load_leaves_data():
     return load_json_file(LEAVES_FILE_PATH, default_columns=[
