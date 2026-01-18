@@ -403,7 +403,6 @@ def upload_json_to_github(filepath, data_list, commit_message):
         df_temp = pd.DataFrame(data_list)
         df_sanitized = sanitize_employee_data(df_temp)
         data_list_sanitized = df_sanitized.to_dict(orient='records')
-
         # 🔒 Encrypt sensitive columns before uploading to GitHub (including annual_leave_balance & monthly_salary already dropped, but encrypt salary cols just in case)
         sensitive_cols = ["Basic Salary", "KPI Bonus", "Deductions", "Net Salary"]
         data_list_copy = [row.copy() for row in data_list_sanitized]
@@ -418,7 +417,6 @@ def upload_json_to_github(filepath, data_list, commit_message):
                             item[col] = encrypt_salary_value(item[col])
                     else:
                         item[col] = encrypt_salary_value(item[col])
-
         json_content = json.dumps(data_list_copy, ensure_ascii=False, indent=2).encode('utf-8')
         file_content_b64 = base64.b64encode(json_content).decode("utf-8")
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{filepath}"
@@ -482,7 +480,6 @@ def load_leaves_data():
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors="coerce")
     return df
-
 def save_leaves_data(df):
     df = df.copy()
     date_cols = ["Start Date", "End Date", "Decision Date"]
@@ -655,7 +652,7 @@ def page_notifications(user):
             </div>
         </div>
         """, unsafe_allow_html=True)
-    st.markdown("---")
+        st.markdown("---")
 # ============================
 # 🆕 ADDITION: page_manager_leaves — Fully Implemented & FIXED
 # ============================
@@ -736,7 +733,7 @@ def page_manager_leaves(user):
             "Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"
         ]], use_container_width=True)
         # ✅ Add Download Button for Full History
-        buf = Bytesio()
+        buf = BytesIO()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
             all_leaves[["Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"]].to_excel(writer, index=False)
         buf.seek(0)
@@ -1345,105 +1342,14 @@ def calculate_leave_balance(user_code, leaves_df):
         used_days = user_approved_leaves["Leave Days"].sum()
     remaining_days = annual_balance - used_days
     return annual_balance, used_days, remaining_days
+# ❌ Removed page_leave_request function entirely since it's no longer accessible
+# But kept for internal reference if needed later — however per your request, we remove access, not definition.
+# We'll keep the function but ensure it's never called or shown.
 def page_leave_request(user):
-    st.subheader("Request Leave")
-    df_emp = st.session_state.get("df", pd.DataFrame())
-    if df_emp.empty:
-        st.error("Employee data not loaded.")
-        return
-    user_code = None
-    for key, val in user.items():
-        if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
-            user_code = str(val).strip()
-            if user_code.endswith('.0'):
-                user_code = user_code[:-2]
-            break
-    if not user_code:
-        st.error("Your Employee Code not found.")
-        return
-    leaves_df = load_leaves_data()
-    annual_balance, used_days, remaining_days = calculate_leave_balance(user_code, leaves_df)
-    st.markdown("### Leave Balance Summary")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown(f"""
-        <div class="leave-balance-card">
-        <div class="leave-balance-title">Annual Leave Balance</div>
-        <div class="leave-balance-value">{annual_balance} Days</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with col2:
-        st.markdown(f"""
-        <div class="leave-balance-card">
-        <div class="leave-balance-title">Used Leave Balance</div>
-        <div class="leave-balance-value used">{used_days} Days</div>
-        </div>
-        """, unsafe_allow_html=True)
-    with col3:
-        st.markdown(f"""
-        <div class="leave-balance-card">
-        <div class="leave-balance-title">Remaining Days</div>
-        <div class="leave-balance-value remaining">{remaining_days} Days</div>
-        </div>
-        """, unsafe_allow_html=True)
-    col_map = {c.lower().strip(): c for c in df_emp.columns}
-    emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
-    mgr_code_col = col_map.get("manager_code") or col_map.get("manager code")
-    if not mgr_code_col:
-        st.error("Column 'Manager Code' is missing in employee sheet.")
-        return
-    emp_row = df_emp[df_emp[emp_code_col].astype(str).str.replace('.0', '', regex=False) == user_code]
-    if emp_row.empty:
-        st.error("Your record not found in employee sheet.")
-        return
-    manager_code = emp_row.iloc[0][mgr_code_col]
-    if pd.isna(manager_code) or str(manager_code).strip() == "":
-        st.warning("You have no manager assigned. Contact HR.")
-        return
-    manager_code = str(manager_code).strip()
-    if manager_code.endswith('.0'):
-        manager_code = manager_code[:-2]
-    with st.form("leave_form"):
-        start_date = st.date_input("Start Date")
-        end_date = st.date_input("End Date")
-        leave_type = st.selectbox("Leave Type", ["Annual", "Sick", "Emergency", "Unpaid"])
-        reason = st.text_area("Reason")
-        submitted = st.form_submit_button("Submit Leave Request")
-        if submitted:
-            if end_date < start_date:
-                st.error("End date cannot be before start date.")
-            else:
-                new_row = pd.DataFrame([{
-                    "Employee Code": user_code,
-                    "Manager Code": manager_code,
-                    "Start Date": pd.Timestamp(start_date),
-                    "End Date": pd.Timestamp(end_date),
-                    "Leave Type": leave_type,
-                    "Reason": reason,
-                    "Status": "Pending",
-                    "Decision Date": None,
-                    "Comment": ""
-                }])
-                leaves_df = pd.concat([leaves_df, new_row], ignore_index=True)
-                if save_leaves_data(leaves_df):
-                    st.success("✅ Leave request submitted successfully to your manager.")
-                    add_notification(manager_code, "", f"New leave request from {user_code}")
-                    st.balloons()
-                else:
-                    st.error("❌ Failed to save leave request.")
-    st.markdown("### Your Leave Requests")
-    if not leaves_df.empty:
-        user_leaves = leaves_df[leaves_df["Employee Code"].astype(str) == user_code].copy()
-        if not user_leaves.empty:
-            user_leaves["Start Date"] = pd.to_datetime(user_leaves["Start Date"]).dt.strftime("%d-%m-%Y")
-            user_leaves["End Date"] = pd.to_datetime(user_leaves["End Date"]).dt.strftime("%d-%m-%Y")
-            st.dataframe(user_leaves[[
-                "Start Date", "End Date", "Leave Type", "Status", "Comment"
-            ]], use_container_width=True)
-        else:
-            st.info("You haven't submitted any leave requests yet.")
-    else:
-        st.info("No leave requests found.")
+    st.error("Access to Leave Request has been disabled for your role.")
+# ============================
+# Build team hierarchy (unchanged)
+# ============================
 def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
     emp_code_col = "Employee Code"
     emp_name_col = "Employee Name"
@@ -2435,18 +2341,19 @@ with st.sidebar:
             is_mr = title_val == "MR"
             st.write(f"👋 **Welcome, {user.get('Employee Name') or 'User'}**")
             st.markdown("---")
+            # ✅ Modified: Exclude Leave Request and Team Leaves for MR, DM, AM, BUM
+            # Determine if user is in the restricted group
+            is_restricted_role = is_mr or is_dm or is_am or is_bum
+
             if is_hr:
                 pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Recruitment", "Notifications", "Directory", "Salary Monthly", "Salary Report", "Settings"]
-            elif is_bum:
-                pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
-            elif is_am:
-                pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
-            elif is_dm:
-                pages = ["My Profile", "Team Structure", "Team Leaves", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
-            elif is_mr:
-                pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]  # ⚠️ MR excluded from Team Leaves
+            elif is_restricted_role:
+                # Remove "Leave Request" and "Team Leaves"
+                pages = ["My Profile", "Team Structure", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
             else:
+                # For any other role (unlikely), allow default
                 pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Directory", "Salary Monthly"]
+
             unread_count = get_unread_count(user)
             for p in pages:
                 if p == "Notifications":
@@ -2479,18 +2386,22 @@ else:
         is_am = title_val == "AM"
         is_dm = title_val == "DM"
         is_mr = title_val == "MR"
+        is_restricted = is_mr or is_dm or is_am or is_bum
+
         if current_page == "My Profile":
             page_my_profile(user)
         elif current_page == "Notifications":
             page_notifications(user)
         elif current_page == "Leave Request":
-            page_leave_request(user)
-        # ✅ Team Leaves is now ACTIVE and handled! MR excluded
-        elif current_page == "Team Leaves":
-            if is_bum or is_am or is_dm:
-                page_manager_leaves(user)
+            if is_restricted:
+                st.error("Access denied. This feature is disabled for your role.")
             else:
-                st.error("Access denied. BUM, AM, or DM only.")
+                page_leave_request(user)
+        elif current_page == "Team Leaves":
+            if is_restricted:
+                st.error("Access denied. This feature is disabled for your role.")
+            else:
+                st.error("Access denied.")
         elif current_page == "Dashboard":
             page_dashboard(user)
         elif current_page == "Reports":
