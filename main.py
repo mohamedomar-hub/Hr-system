@@ -125,7 +125,7 @@ NOTIFICATIONS_FILE_PATH = CONFIG["file_paths"]["notifications"]
 HR_QUERIES_FILE_PATH = CONFIG["file_paths"]["hr_queries"]
 HR_REQUESTS_FILE_PATH = CONFIG["file_paths"]["hr_requests"]
 SALARIES_FILE_PATH = CONFIG["file_paths"]["salaries"]
-LOGO_PATH = CONFIG["system"]["logo_path"]
+# LOGO_PATH = CONFIG["system"]["logo_path"]  # ← تم حذف هذا السطر
 RECRUITMENT_CV_DIR = CONFIG["recruitment"]["cv_dir"]
 RECRUITMENT_DATA_FILE = CONFIG["file_paths"]["recruitment_data"]
 GOOGLE_FORM_RECRUITMENT_LINK = CONFIG["recruitment"]["google_form_link"]
@@ -467,8 +467,8 @@ def save_and_maybe_push(df, actor="HR"):
     if GITHUB_TOKEN:
         data_list = df.where(pd.notnull(df), None).to_dict(orient='records')
         pushed = upload_json_to_github(FILE_PATH, data_list, f"Update {FILE_PATH} via Streamlit by {actor}")
-    if pushed:
-        saved = True
+        if pushed:
+            saved = True
     return saved, pushed
 def load_leaves_data():
     df = load_json_file(LEAVES_FILE_PATH, default_columns=[
@@ -872,6 +872,9 @@ def page_salary_report(user):
                     save_json_file(new_salary_df, SALARIES_FILE_PATH)
                     st.session_state["salary_df"] = new_salary_df.copy()
                     st.success("✅ Salary data encrypted and saved locally.")
+            with col2:
+                if st.button("Preview only (do not replace)"):
+                    st.info("Preview shown above.")
         except Exception as e:
             st.error(f"Failed to process uploaded file: {e}")
     st.markdown("---")
@@ -1168,23 +1171,8 @@ def page_hr_manager(user):
 # Remaining Page Functions (unchanged)
 # ============================
 def render_logo_and_title():
-    cols = st.columns([1,6,1])
-    with cols[1]:
-        st.markdown("""
-<div style="text-align: center; margin-bottom: 12px;">
-<h1 style="color: #ffd166; font-weight: 800; font-size: 2.4rem; text-shadow: 0 2px 6px rgba(0,0,0,0.4); letter-spacing: -0.5px; line-height: 1.3;">
-Human Resources<br>Averroes Pharma
-</h1>
-<p style="color: #aab8c8; font-size: 1rem; margin-top: 6px;">
-Created by Admin Averroes
-</p>
-</div>
-""", unsafe_allow_html=True)
-    user = st.session_state.get("logged_in_user")
-    if user:
-        unread = get_unread_count(user)
-        if unread > 0:
-            st.markdown(f'<div class="notification-bell">{unread}</div>', unsafe_allow_html=True)
+    pass  # لا تفعل شيء
+
 def page_employee_photos(user):
     st.subheader("📸 Employee Photos (HR Only)")
     os.makedirs("employee_photos", exist_ok=True)
@@ -1905,48 +1893,48 @@ def page_ask_employees(user):
         if filtered_options.empty:
             st.warning("No employee found matching your search.")
             return
-    else:
-        filtered_options = emp_options.copy()
-    if len(filtered_options) == 1:
-        selected_row = filtered_options.iloc[0]
-    elif len(filtered_options) > 1:
-        selected_display = st.selectbox("Select Employee", filtered_options["Display"].tolist())
-        selected_row = filtered_options[filtered_options["Display"] == selected_display].iloc[0]
-    else:
-        return
-    selected_code = selected_row[code_col]
-    selected_name = selected_row[name_col]
-    st.success(f"✅ Selected: {selected_name} (Code: {selected_code})")
-    request_text = st.text_area("Request Details", height=100)
-    uploaded_file = st.file_uploader("Attach File (Optional)", type=["pdf", "docx", "xlsx", "jpg", "png"])
-    if st.button("Send Request"):
-        if not request_text.strip():
-            st.warning("Please enter a request message.")
+        else:
+            filtered_options = emp_options.copy()
+        if len(filtered_options) == 1:
+            selected_row = filtered_options.iloc[0]
+        elif len(filtered_options) > 1:
+            selected_display = st.selectbox("Select Employee", filtered_options["Display"].tolist())
+            selected_row = filtered_options[filtered_options["Display"] == selected_display].iloc[0]
+        else:
             return
-        hr_code = str(user.get("Employee Code", "N/A")).strip().replace(".0", "")
-        requests_df = load_hr_requests()
-        new_id = int(requests_df["ID"].max()) + 1 if "ID" in requests_df.columns and not requests_df.empty else 1
-        file_attached = ""
-        if uploaded_file:
-            file_attached = save_request_file(uploaded_file, selected_code, new_id)
-        new_row = pd.DataFrame([{
-            "ID": new_id,
-            "HR Code": hr_code,
-            "Employee Code": selected_code,
-            "Employee Name": selected_name,
-            "Request": request_text.strip(),
-            "File Attached": file_attached,
-            "Status": "Pending",
-            "Response": "",
-            "Response File": "",
-            "Date Sent": pd.Timestamp.now(),
-            "Date Responded": pd.NaT
-        }])
-        requests_df = pd.concat([requests_df, new_row], ignore_index=True)
-        save_hr_requests(requests_df)
-        add_notification(selected_code, "", f"HR has sent you a new request (ID: {new_id}). Check 'Request HR' page.")
-        st.success(f"Request sent to {selected_name} (Code: {selected_code}) successfully.")
-        st.rerun()
+        selected_code = selected_row[code_col]
+        selected_name = selected_row[name_col]
+        st.success(f"✅ Selected: {selected_name} (Code: {selected_code})")
+        request_text = st.text_area("Request Details", height=100)
+        uploaded_file = st.file_uploader("Attach File (Optional)", type=["pdf", "docx", "xlsx", "jpg", "png"])
+        if st.button("Send Request"):
+            if not request_text.strip():
+                st.warning("Please enter a request message.")
+                return
+            hr_code = str(user.get("Employee Code", "N/A")).strip().replace(".0", "")
+            requests_df = load_hr_requests()
+            new_id = int(requests_df["ID"].max()) + 1 if "ID" in requests_df.columns and not requests_df.empty else 1
+            file_attached = ""
+            if uploaded_file:
+                file_attached = save_request_file(uploaded_file, selected_code, new_id)
+            new_row = pd.DataFrame([{
+                "ID": new_id,
+                "HR Code": hr_code,
+                "Employee Code": selected_code,
+                "Employee Name": selected_name,
+                "Request": request_text.strip(),
+                "File Attached": file_attached,
+                "Status": "Pending",
+                "Response": "",
+                "Response File": "",
+                "Date Sent": pd.Timestamp.now(),
+                "Date Responded": pd.NaT
+            }])
+            requests_df = pd.concat([requests_df, new_row], ignore_index=True)
+            save_hr_requests(requests_df)
+            add_notification(selected_code, "", f"HR has sent you a new request (ID: {new_id}). Check 'Request HR' page.")
+            st.success(f"Request sent to {selected_name} (Code: {selected_code}) successfully.")
+            st.rerun()
 def page_request_hr(user):
     st.subheader("📥 Request HR")
     st.info("Here you can respond to requests sent by HR. You can upload files as response.")
@@ -2111,7 +2099,7 @@ def page_settings(user):
         st.markdown("### Upload System Logo")
         uploaded_logo = st.file_uploader("Upload Logo (PNG / JPG)", type=["png", "jpg", "jpeg"])
         if uploaded_logo:
-            with open(LOGO_PATH, "wb") as f:
+            with open("logo.jpg", "wb") as f:  # ← هنا انت بتكتب على logo.jpg مباشرة
                 f.write(uploaded_logo.getbuffer())
             st.success("Logo updated successfully.")
     with tab4:
@@ -2232,17 +2220,17 @@ def page_hr_inbox(user):
         if reply_existing:
             st.markdown("**🟢 Existing reply:**")
             st.markdown(reply_existing)
-            col1, col2 = st.columns([1, 4])
-            with col1:
-                if st.button("🗂️ Mark as Closed", key=f"close_{idx}"):
-                    try:
-                        hr_df.at[idx, "Status"] = "Closed"
-                        hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
-                        save_hr_queries(hr_df)
-                        st.success("✅ Message marked as closed.")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Failed to close message: {e}")
+        col1, col2 = st.columns([1, 4])
+        with col1:
+            if st.button("🗂️ Mark as Closed", key=f"close_{idx}"):
+                try:
+                    hr_df.at[idx, "Status"] = "Closed"
+                    hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
+                    save_hr_queries(hr_df)
+                    st.success("✅ Message marked as closed.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed to close message: {e}")
         else:
             reply_text = st.text_area("✍️ Write reply here:", value="", key=f"reply_{idx}", height=120)
             col1, col2, col3 = st.columns([2, 2, 1])
@@ -2275,7 +2263,7 @@ def page_hr_inbox(user):
                     st.success("Message deleted!")
                     st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("---")
+    st.markdown("---")
 def page_ask_hr(user):
     st.subheader("💬 Ask HR")
     if user is None:
@@ -2351,7 +2339,7 @@ def page_ask_hr(user):
         else:
             st.markdown("**🕒 HR Reply:** Pending")
         st.markdown("</div>")
-        st.markdown("---")
+    st.markdown("---")
 # ============================
 # Main App Flow
 # ============================
@@ -2360,7 +2348,7 @@ if not os.path.exists(SECURE_PASSWORDS_FILE):
     df_init = st.session_state.get("df", pd.DataFrame())
     if not df_init.empty:
         initialize_passwords_from_data(df_init.to_dict(orient='records'))
-render_logo_and_title()
+# render_logo_and_title()  # ← تم حذف هذا السطر
 if "logged_in_user" not in st.session_state:
     st.session_state["logged_in_user"] = None
 if "current_page" not in st.session_state:
@@ -2368,10 +2356,8 @@ if "current_page" not in st.session_state:
 if "external_password_page" not in st.session_state:
     st.session_state["external_password_page"] = False
 with st.sidebar:
-# if LOGO_PATH and os.path.exists(LOGO_PATH):
-#     st.image(LOGO_PATH, use_container_width=True)
-# else:
-#     st.markdown('<div class="sidebar-title">HRAS — Averroes Admin</div>', unsafe_allow_html=True)
+    # تم حذف كل الكود الخاص باللوجو من هنا
+    st.markdown('<div class="sidebar-title">HRAS — Averroes Admin</div>', unsafe_allow_html=True)
     st.markdown("<hr style='border: 1px solid #0b72b9; margin: 10px 0;'>", unsafe_allow_html=True)
     if not st.session_state["logged_in_user"] and not st.session_state["external_password_page"]:
         with st.container():
@@ -2397,10 +2383,10 @@ with st.sidebar:
                             st.success("Login successful!")
                             st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🔐 Change Password (No Login)", use_container_width=True):
-            st.session_state["external_password_page"] = True
-            st.rerun()
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("🔐 Change Password (No Login)", use_container_width=True):
+                st.session_state["external_password_page"] = True
+                st.rerun()
     else:
         if st.session_state["external_password_page"]:
             if st.button("← Back to Login", use_container_width=True):
