@@ -2384,7 +2384,6 @@ def page_hr_inbox(user):
                     st.rerun()
                 except Exception as e:
                     st.error(f"Failed to close message: {e}")
-        else:
             reply_text = st.text_area("✍️ Write reply here:", value="", key=f"reply_{idx}", height=120)
             col1, col2, col3 = st.columns([2, 2, 1])
             with col1:
