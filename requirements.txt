@@ -5,3 +5,4 @@ requests
 plotly
 bcrypt
 cryptography
+altair==5.2.0
