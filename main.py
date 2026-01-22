@@ -2369,7 +2369,7 @@ if "external_password_page" not in st.session_state:
     st.session_state["external_password_page"] = False
 with st.sidebar:
     if LOGO_PATH and os.path.exists(LOGO_PATH):
-        st.image(LOGO_PATH, use_container_width=True)
+       # st.image(LOGO_PATH, use_container_width=True)
     else:
         st.markdown('<div class="sidebar-title">HRAS — Averroes Admin</div>', unsafe_allow_html=True)
     st.markdown("<hr style='border: 1px solid #0b72b9; margin: 10px 0;'>", unsafe_allow_html=True)
