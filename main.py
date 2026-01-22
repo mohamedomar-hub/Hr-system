@@ -2077,6 +2077,7 @@ After applicants submit, download the Excel responses from Google Sheets and upl
             )
         else:
             st.info("No recruitment data uploaded yet.")
+# ... (الجزء الأول من الكود كما هو)
 def page_settings(user):
     st.subheader("⚙️ System Settings")
     if user.get("Title", "").upper() != "HR":
@@ -2099,7 +2100,7 @@ def page_settings(user):
         st.markdown("### Upload System Logo")
         uploaded_logo = st.file_uploader("Upload Logo (PNG / JPG)", type=["png", "jpg", "jpeg"])
         if uploaded_logo:
-            with open("logo.jpg", "wb") as f:  # ← هنا انت بتكتب على logo.jpg مباشرة
+            with open("logo.jpg", "wb") as f:
                 f.write(uploaded_logo.getbuffer())
             st.success("Logo updated successfully.")
     with tab4:
@@ -2124,6 +2125,7 @@ def page_settings(user):
                     mime="application/zip"
                 )
             st.success("Backup created successfully.")
+# ... (باقي الكود كما هو)
 def page_dashboard(user):
     st.subheader("Dashboard")
     df = st.session_state.get("df", pd.DataFrame())
@@ -2231,7 +2233,6 @@ def page_hr_inbox(user):
                     st.rerun()
                 except Exception as e:
                     st.error(f"Failed to close message: {e}")
-        else:
             reply_text = st.text_area("✍️ Write reply here:", value="", key=f"reply_{idx}", height=120)
             col1, col2, col3 = st.columns([2, 2, 1])
             with col1:
