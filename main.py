@@ -1,4 +1,4 @@
-# hr_system_with_config_json.py — FULLY CONVERTED TO JSON (NO LINE DELETED) + AVS DESIGN
+# hr_system_with_config_json.py — FULLY CONVERTED TO JSON (NO LINE DELETED) + NEW AVS DESIGN
 import streamlit as st
 import pandas as pd
 import requests
@@ -211,11 +211,10 @@ def save_json_file(df, filepath):
         return False
 
 # ============================
-# Styling - NEW AVS DESIGN CSS (MATCHES SCREENSHOT)
+# Styling - NEW AVS DESIGN CSS
 # ============================
 st.set_page_config(page_title="HRAS — Averroes Admin", page_icon="👥", layout="wide")
 
-# Hide Streamlit default elements
 hide_streamlit_style = """
 <style>
 #MainMenu {visibility: hidden;}
@@ -225,7 +224,6 @@ div[data-testid="stDeployButton"] { display: none; }
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
-# Define new CSS for AVS design
 avs_design_css = """
 <style>
 /* Global Styles */
@@ -249,6 +247,11 @@ body {
     display: flex;
     gap: 15px;
     align-items: center;
+}
+
+.header-logo img {
+    height: 30px;
+    width: auto;
 }
 
 .header-user {
@@ -277,6 +280,73 @@ body {
     box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 }
 
+/* Announcement Card */
+.announcement-card {
+    background-color: #FFFFFF;
+    border-radius: 10px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.announcement-logo {
+    width: 250px;
+    height: auto;
+}
+
+.announcement-title {
+    font-size: 2rem;
+    font-weight: 600;
+    color: #003D5C;
+    margin: 0;
+}
+
+/* Button Grid */
+.button-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.button-card {
+    background-color: #003D5C;
+    color: white;
+    border-radius: 15px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.button-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+}
+
+.button-card h3 {
+    margin: 0 0 10px 0;
+    font-size: 1.2rem;
+    font-weight: 500;
+}
+
+.button-card .views {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.button-card .views i {
+    font-size: 0.8rem;
+}
+
 /* Notification Bell */
 .notification-bell {
     position: absolute;
@@ -301,6 +371,17 @@ body {
         flex-direction: column;
         gap: 10px;
     }
+    .announcement-card {
+        flex-direction: column;
+        text-align: center;
+    }
+    .announcement-logo {
+        width: 200px;
+        margin-bottom: 10px;
+    }
+    .button-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
 }
 </style>
 """
@@ -308,14 +389,15 @@ body {
 st.markdown(avs_design_css, unsafe_allow_html=True)
 
 # ============================
-# Render the New AVS Header
+# Render New AVS Header
 # ============================
 def render_avs_header(user_name="User"):
     st.markdown(f"""
 <div class="header-container">
     <div class="header-logo">
-        <span>AVS AVERROES PHARMA</span>
-        <span>PROUD WE BELONG</span>
+        <!-- Replace with actual image paths if available -->
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='30'%3E%3Ctext x='0' y='20' fill='%23ffffff' font-family='Arial' font-size='12'%3EAVS AVERROES PHARMA%3C/text%3E%3C/svg%3E" alt="AVS Averroes Pharma">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='30'%3E%3Ctext x='0' y='20' fill='%23ffffff' font-family='Arial' font-size='12'%3EPROUD WE BELONG%3C/text%3E%3C/svg%3E" alt="Proud We Belong">
     </div>
     <div style="font-size: 1.1rem; font-weight: 500;">Hello {user_name}</div>
     <div class="header-user">
@@ -323,6 +405,47 @@ def render_avs_header(user_name="User"):
         <div class="header-icon">⭐</div>
         <div class="header-icon">👤</div>
         <div class="header-icon">⋮</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ============================
+# Render Main Content (Announcement + Buttons)
+# ============================
+def render_avs_main_content():
+    st.markdown(f"""
+<div class="main-content">
+    <div class="announcement-card">
+        <img class="announcement-logo" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='100'%3E%3Ctext x='0' y='50' fill='%23003D5C' font-family='Arial' font-size='24' font-weight='bold'%3EPROUD WE BELONG%3C/text%3E%3C/svg%3E" alt="Proud We Belong">
+        <h2 class="announcement-title">AVS Announcements</h2>
+    </div>
+
+    <!-- Button Grid -->
+    <div class="button-grid">
+        <div class="button-card" onclick="window.location.href='#hr'">
+            <h3>HR</h3>
+            <div class="views"><i>👁️</i> Views 393</div>
+        </div>
+        <div class="button-card" onclick="window.location.href='#marketing'">
+            <h3>Marketing</h3>
+            <div class="views"><i>👁️</i> Views 66</div>
+        </div>
+        <div class="button-card" onclick="window.location.href='#sales'">
+            <h3>Sales</h3>
+            <div class="views"><i>👁️</i> Views 92</div>
+        </div>
+        <div class="button-card" onclick="window.location.href='#compliance'">
+            <h3>Compliance & ROI</h3>
+            <div class="views"><i>👁️</i> Views 862</div>
+        </div>
+        <div class="button-card" onclick="window.location.href='#sfe'">
+            <h3>SFE</h3>
+            <div class="views"><i>👁️</i> Views 2742</div>
+        </div>
+        <div class="button-card" onclick="window.location.href='#training'">
+            <h3>Training</h3>
+            <div class="views"><i>👁️</i> Views 204</div>
+        </div>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -742,7 +865,6 @@ def page_manager_leaves(user):
         st.dataframe(all_leaves[[
             "Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"
         ]], use_container_width=True)
-        # ✅ Add Download Button for Full History
         buf = BytesIO()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
             all_leaves[["Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"]].to_excel(writer, index=False)
@@ -2262,6 +2384,7 @@ def page_hr_inbox(user):
                     st.rerun()
                 except Exception as e:
                     st.error(f"Failed to close message: {e}")
+        else:
             reply_text = st.text_area("✍️ Write reply here:", value="", key=f"reply_{idx}", height=120)
             col1, col2, col3 = st.columns([2, 2, 1])
             with col1:
@@ -2426,7 +2549,7 @@ else:
             st.rerun()
 
 # ============================
-# Sidebar Navigation (now inside main content)
+# Render Main Content (Announcement + Buttons)
 # ============================
 if st.session_state["logged_in_user"] and not st.session_state["external_password_page"]:
     user = st.session_state["logged_in_user"]
