@@ -1,8 +1,8 @@
-openpyxl
+streamlit==1.32.2
+altair==5.2.0
 pandas
-streamlit
+openpyxl
 requests
 plotly
 bcrypt
 cryptography
-altair==5.2.0
