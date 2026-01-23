@@ -1,4 +1,4 @@
-# hr_system_with_config_json.py — FULLY CONVERTED TO JSON (NO LINE DELETED) + NEW AVS DESIGN (FULL BUTTON GRID)
+# hr_system_avs_final.py — FULLY CONVERTED TO JSON + NEW AVS DESIGN WITH ACTIVE BUTTONS & LIGHT BACKGROUND
 import streamlit as st
 import pandas as pd
 import requests
@@ -357,8 +357,8 @@ def render_avs_header(user_name="User"):
     <div class="header-container">
         <div class="header-logo">
             <!-- Replace with actual image paths if available -->
-            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='30'%3E%3Ctext x='0' y='20' fill='%23ffffff' font-family='Arial' font-size='12'%3EAVS AVERROES PHARMA%3C/text%3E%3C/svg%3E" alt="AVS Averroes Pharma">
-            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='30'%3E%3Ctext x='0' y='20' fill='%23ffffff' font-family='Arial' font-size='12'%3EPROUD WE BELONG%3C/text%3E%3C/svg%3E" alt="Proud We Belong">
+            <img src="image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='30'%3E%3Ctext x='0' y='20' fill='%23ffffff' font-family='Arial' font-size='12'%3EAVS AVERROES PHARMA%3C/text%3E%3C/svg%3E" alt="AVS Averroes Pharma">
+            <img src="image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='30'%3E%3Ctext x='0' y='20' fill='%23ffffff' font-family='Arial' font-size='12'%3EPROUD WE BELONG%3C/text%3E%3C/svg%3E" alt="Proud We Belong">
         </div>
         <div style="font-size: 1.1rem; font-weight: 500;">Hello {user_name}</div>
         <div class="header-user">
@@ -384,18 +384,24 @@ def render_avs_main_content(pages, unread_count=0):
         <div class="button-grid">
     """, unsafe_allow_html=True)
 
-    for p in pages:
-        if p == "Notifications":
-            label = f"Notifications ({unread_count})" if unread_count > 0 else "Notifications"
-        else:
-            label = p
-        safe_id = p.lower().replace(" ", "_").replace("&", "and")
-        st.markdown(f"""
-            <div class="button-card" onclick="window.parent.location.hash='{safe_id}'; window.parent.location.reload();">
-                <h3>{label}</h3>
-                <div class="views"><i>👁️</i> Views —</div>
-            </div>
-        """, unsafe_allow_html=True)
+    # حساب عدد الأعمدة (نستخدم 3 أعمدة كحد أقصى)
+    num_cols = min(3, len(pages))
+    # تقسيم الصفحات إلى صفوف
+    rows = [pages[i:i + num_cols] for i in range(0, len(pages), num_cols)]
+
+    for row in rows:
+        cols = st.columns(num_cols)
+        for i, p in enumerate(row):
+            with cols[i]:
+                if p == "Notifications":
+                    label = f"Notifications ({unread_count})" if unread_count > 0 else "Notifications"
+                else:
+                    label = p
+
+                # استخدام زر Streamlit العادي ولكن بتنسيق CSS مخصص
+                if st.button(label, key=f"nav_{p}", use_container_width=True):
+                    st.session_state["current_page"] = p
+                    st.rerun()
 
     st.markdown("""
         </div>
@@ -908,7 +914,7 @@ def page_salary_monthly(user):
                     del st.session_state[details_key]
                     st.rerun()
     except Exception as e:
-        st.error(f"❌ Error loading salary data: {e}")
+        st.error(f"❌ Error loading salary  {e}")
 # ============================
 # Salary Report Page — Encrypt on Upload
 # ============================
