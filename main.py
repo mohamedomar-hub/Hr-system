@@ -1920,6 +1920,9 @@ def page_directory(user):
     else:
         st.error("No columns could be mapped for display. Please check your Excel sheet headers.")
 
+# ============================
+# Notifications System
+# ============================
 def load_hr_queries():
     return load_json_file(HR_QUERIES_FILE_PATH, default_columns=[
         "ID", "Employee Code", "Employee Name", "Subject", "Message",
@@ -2549,13 +2552,8 @@ if st.session_state["logged_in_user"]:
     render_avs_header(user_name)
 else:
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    # ✅ Custom Login UI from Edit.txt - NOW CORRECTLY REPLACING THE OLD ONE
+    # ✅ Custom Login UI from Edit.txt — NOW CORRECTLY IMPLEMENTED WITHOUT DUPLICATING set_page_config
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    st.set_page_config(
-        page_title="HR System",
-        page_icon="🔐",
-        layout="centered"
-    )
     st.markdown("""
     <style>
     /* Page Background */
