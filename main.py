@@ -2549,7 +2549,7 @@ if st.session_state["logged_in_user"]:
     render_avs_header(user_name)
 else:
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    # ✅ Custom Login UI from Edit.txt
+    # ✅ Custom Login UI from Edit.txt - NOW CORRECTLY REPLACING THE OLD ONE
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     st.set_page_config(
         page_title="HR System",
