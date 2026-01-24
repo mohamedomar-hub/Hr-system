@@ -212,62 +212,62 @@ modern_light_css = """
 .sidebar-title {
     font-size: 1.4rem;
     font-weight: bold;
-    color: #0c4a6e; /* sky-800 */
+    color: #38bdf8; /* sky-400 */
     text-align: center;
     margin-bottom: 10px;
 }
 .hr-message-card {
-    background-color: white;
-    border-left: 4px solid #0c4a6e;
+    background-color: #1e293b
+    border-left: 4px solid #38bdf8;
     padding: 12px;
     margin: 10px 0;
     border-radius: 8px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.03);
 }
 .hr-message-title {
-    color: #0c4a6e;
+    color: #38bdf8;
     font-weight: bold;
     font-size: 1.1rem;
 }
 .hr-message-meta {
-    color: #64748b; /* slate-500 */
+    color: #94a3b8; /* slate-400 */
     font-size: 0.9rem;
     margin: 4px 0;
 }
 .hr-message-body {
-    color: #1e293b; /* slate-800 */
+    color: #f1f5f9 !important; /* slate-100 */
     margin-top: 6px;
 }
 .leave-balance-card,
 .team-structure-card {
-    background-color: white;
+    background-color: #1e293b !important;
     border-radius: 8px;
     padding: 12px;
     text-align: center;
-    border: 1px solid #cbd5e1; /* slate-300 */
+    border: 1px solid #334155; /* slate-700 */
     box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 .leave-balance-title,
 .team-structure-title {
-    color: #64748b; /* slate-500 */
+    color: #94a3b8; /* slate-400 */
     font-size: 0.9rem;
 }
 .leave-balance-value,
 .team-structure-value {
-    color: #0c4a6e; /* sky-800 */
+    color: #38bdf8; /* sky-400 */
     font-size: 1.4rem;
     font-weight: bold;
     margin-top: 4px;
 }
 .leave-balance-value.used {
-    color: #dc2626; /* red-600 */
+    color: #f87171; /* red-400 */
 }
 .leave-balance-value.remaining {
-    color: #059669; /* emerald-600 */
+    color: #34d399; /* emerald-400 */
 }
-.team-structure-value.am { color: #0c4a6e; } /* sky-800 */
+.team-structure-value.am { color: #38bdf8; } /* sky-800 */
 .team-structure-value.dm { color: #0d9488; } /* teal-600 */
-.team-structure-value.mr { color: #dc2626; } /* red-600 */
+.team-structure-value.mr { color: #f87171; } /* red-600 */
 .notification-bell {
     position: absolute;
     top: 20px;
@@ -299,7 +299,7 @@ modern_light_css = """
 }
 /* الخلفية العامة */
 [data-testid="stAppViewContainer"] {
-    background-color: #f8fafc !important; /* slate-50 */
+    background-color: #0f172a !important; /* slate-900 */
 }
 /* إخفاء عناصر Streamlit */
 #MainMenu {visibility: hidden;}
