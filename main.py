@@ -194,7 +194,7 @@ def save_json_file(df, filepath):
     except Exception:
         return False
 # ============================
-# Styling - Enhanced Dark Mode CSS
+# Styling - Modern Light Mode CSS (Updated per your request)
 # ============================
 st.set_page_config(page_title="HRAS — Averroes Admin", page_icon="👥", layout="wide")
 hide_streamlit_style = """
@@ -205,98 +205,110 @@ div[data-testid="stDeployButton"] { display: none; }
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-enhanced_dark_css = """
+
+# ✅ تم استبدال enhanced_dark_css بالتصميم الفاتح الجديد
+modern_light_css = """
 <style>
 .sidebar-title {
-font-size: 1.4rem;
-font-weight: bold;
-color: #ffd166;
-text-align: center;
-margin-bottom: 10px;
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: #0c4a6e; /* sky-800 */
+    text-align: center;
+    margin-bottom: 10px;
 }
 .hr-message-card {
-background-color: #0b1220;
-border-left: 4px solid #0b72b9;
-padding: 12px;
-margin: 10px 0;
-border-radius: 8px;
+    background-color: white;
+    border-left: 4px solid #0c4a6e;
+    padding: 12px;
+    margin: 10px 0;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 .hr-message-title {
-color: #ffd166;
-font-weight: bold;
-font-size: 1.1rem;
+    color: #0c4a6e;
+    font-weight: bold;
+    font-size: 1.1rem;
 }
 .hr-message-meta {
-color: #9fb0c8;
-font-size: 0.9rem;
-margin: 4px 0;
+    color: #64748b; /* slate-500 */
+    font-size: 0.9rem;
+    margin: 4px 0;
 }
 .hr-message-body {
-color: #e6eef8;
-margin-top: 6px;
+    color: #1e293b; /* slate-800 */
+    margin-top: 6px;
 }
-.leave-balance-card {
-background-color: #0b1220;
-border-radius: 8px;
-padding: 12px;
-text-align: center;
-border: 1px solid #0b72b9;
+.leave-balance-card,
+.team-structure-card {
+    background-color: white;
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+    border: 1px solid #cbd5e1; /* slate-300 */
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
-.leave-balance-title {
-color: #9fb0c8;
-font-size: 0.9rem;
+.leave-balance-title,
+.team-structure-title {
+    color: #64748b; /* slate-500 */
+    font-size: 0.9rem;
 }
-.leave-balance-value {
-color: #ffd166;
-font-size: 1.4rem;
-font-weight: bold;
-margin-top: 4px;
+.leave-balance-value,
+.team-structure-value {
+    color: #0c4a6e; /* sky-800 */
+    font-size: 1.4rem;
+    font-weight: bold;
+    margin-top: 4px;
 }
 .leave-balance-value.used {
-color: #ff6b6b;
+    color: #dc2626; /* red-600 */
 }
 .leave-balance-value.remaining {
-color: #4ecdc4;
+    color: #059669; /* emerald-600 */
 }
-.team-structure-card {
-background-color: #0b1220;
-border-radius: 8px;
-padding: 12px;
-text-align: center;
-border: 1px solid #0b72b9;
-}
-.team-structure-title {
-color: #9fb0c8;
-font-size: 0.9rem;
-}
-.team-structure-value {
-color: #ffd166;
-font-size: 1.4rem;
-font-weight: bold;
-margin-top: 4px;
-}
-.team-structure-value.am { color: #0b72b9; }
-.team-structure-value.dm { color: #4ecdc4; }
-.team-structure-value.mr { color: #ff6b6b; }
+.team-structure-value.am { color: #0c4a6e; } /* sky-800 */
+.team-structure-value.dm { color: #0d9488; } /* teal-600 */
+.team-structure-value.mr { color: #dc2626; } /* red-600 */
 .notification-bell {
-position: absolute;
-top: 20px;
-right: 20px;
-background-color: #ff6b6b;
-color: white;
-width: 24px;
-height: 24px;
-border-radius: 50%;
-display: flex;
-justify-content: center;
-align-items: center;
-font-weight: bold;
-font-size: 0.8rem;
-z-index: 100;
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background-color: #ef4444;
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    font-size: 0.8rem;
+    z-index: 100;
 }
+/* الأزرار */
+.stButton > button {
+    background-color: #0c4a6e !important; /* sky-800 */
+    color: white !important;
+    border: none !important;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+}
+.stButton > button:hover {
+    background-color: #0e7490 !important; /* sky-700 */
+    color: white !important;
+}
+/* الخلفية العامة */
+[data-testid="stAppViewContainer"] {
+    background-color: #f8fafc !important; /* slate-50 */
+}
+/* إخفاء عناصر Streamlit */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+div[data-testid="stDeployButton"] { display: none; }
 </style>
 """
-st.markdown(enhanced_dark_css, unsafe_allow_html=True)
+st.markdown(modern_light_css, unsafe_allow_html=True)
+
 # ============================
 # ✅ MODIFIED: External Password Change Page (No Login Required)
 # ============================
@@ -336,6 +348,7 @@ def page_forgot_password():
                 st.success("✅ Your password has been set successfully. You can now log in.")
                 add_notification("", "HR", f"Employee {emp_code_clean} set a new password after reset.")
                 st.rerun()
+
 # ============================
 # Photo & Recruitment Helpers
 # ============================
@@ -350,6 +363,7 @@ def save_employee_photo(employee_code, uploaded_file):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
 def save_recruitment_cv(uploaded_file):
     os.makedirs(RECRUITMENT_CV_DIR, exist_ok=True)
     ext = uploaded_file.name.split(".")[-1].lower()
@@ -361,6 +375,7 @@ def save_recruitment_cv(uploaded_file):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
 # ============================
 # GitHub helpers (JSON version) — ✅ MODIFIED TO SANITIZE + ENCRYPT BEFORE UPLOAD
 # ============================
@@ -369,6 +384,7 @@ def github_headers():
     if GITHUB_TOKEN:
         headers["Authorization"] = f"token {GITHUB_TOKEN}"
     return headers
+
 def load_employee_data_from_github():
     try:
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}?ref={BRANCH}"
@@ -384,6 +400,7 @@ def load_employee_data_from_github():
             return pd.DataFrame()
     except Exception:
         return pd.DataFrame()
+
 def get_file_sha(filepath):
     try:
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{filepath}"
@@ -395,6 +412,7 @@ def get_file_sha(filepath):
             return None
     except Exception:
         return None
+
 def upload_json_to_github(filepath, data_list, commit_message):
     if not GITHUB_TOKEN:
         return False
@@ -428,6 +446,7 @@ def upload_json_to_github(filepath, data_list, commit_message):
         return put_resp.status_code in (200, 201)
     except Exception:
         return False
+
 # ============================
 # Helpers
 # ============================
@@ -438,6 +457,7 @@ def ensure_session_df():
             st.session_state["df"] = df_loaded
         else:
             st.session_state["df"] = load_json_file(FILE_PATH)
+
 # ============================
 # Login & Save Helpers
 # ============================
@@ -459,17 +479,20 @@ def login(df, code, password):
     if stored_hash and verify_password(password, stored_hash):
         return matched.iloc[0].to_dict()
     return None
+
 def save_df_to_local(df):
     return save_json_file(df, FILE_PATH)
+
 def save_and_maybe_push(df, actor="HR"):
     saved = save_json_file(df, FILE_PATH)
     pushed = False
     if GITHUB_TOKEN:
         data_list = df.where(pd.notnull(df), None).to_dict(orient='records')
         pushed = upload_json_to_github(FILE_PATH, data_list, f"Update {FILE_PATH} via Streamlit by {actor}")
-        if pushed:
-            saved = True
+    if pushed:
+        saved = True
     return saved, pushed
+
 def load_leaves_data():
     df = load_json_file(LEAVES_FILE_PATH, default_columns=[
         "Employee Code", "Manager Code", "Start Date", "End Date",
@@ -480,6 +503,7 @@ def load_leaves_data():
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors="coerce")
     return df
+
 def save_leaves_data(df):
     df = df.copy()
     date_cols = ["Start Date", "End Date", "Decision Date"]
@@ -487,6 +511,7 @@ def save_leaves_data(df):
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors="coerce").dt.strftime("%Y-%m-%d")
     return save_json_file(df, LEAVES_FILE_PATH)
+
 # ============================
 # Notifications System
 # ============================
@@ -494,11 +519,13 @@ def load_notifications():
     return load_json_file(NOTIFICATIONS_FILE_PATH, default_columns=[
         "Recipient Code", "Recipient Title", "Message", "Timestamp", "Is Read"
     ])
+
 def save_notifications(df):
     df = df.copy()
     if "Timestamp" in df.columns:
         df["Timestamp"] = pd.to_datetime(df["Timestamp"], errors="coerce").astype(str)
     return save_json_file(df, NOTIFICATIONS_FILE_PATH)
+
 def add_notification(recipient_code, recipient_title, message):
     notifications = load_notifications()
     new_row = pd.DataFrame([{
@@ -510,6 +537,7 @@ def add_notification(recipient_code, recipient_title, message):
     }])
     notifications = pd.concat([notifications, new_row], ignore_index=True)
     save_notifications(notifications)
+
 def get_unread_count(user):
     notifications = load_notifications()
     if notifications.empty:
@@ -529,6 +557,7 @@ def get_unread_count(user):
     )
     unread = notifications[mask & (~notifications["Is Read"])]
     return len(unread)
+
 def mark_all_as_read(user):
     notifications = load_notifications()
     if notifications.empty:
@@ -546,6 +575,7 @@ def mark_all_as_read(user):
     )
     notifications.loc[mask, "Is Read"] = True
     save_notifications(notifications)
+
 def format_relative_time(ts):
     if not ts or pd.isna(ts):
         return "N/A"
@@ -564,6 +594,7 @@ def format_relative_time(ts):
             return dt.strftime("%d-%m-%Y")
     except Exception:
         return str(ts)
+
 # ============================
 # page_notifications
 # ============================
@@ -616,43 +647,44 @@ def page_notifications(user):
     for idx, row in filtered_notifs.iterrows():
         if "approved" in str(row["Message"]).lower():
             icon = "✅"
-            color = "#4ecdc4"
-            bg_color = "#0c1525"
+            color = "#059669"
+            bg_color = "#f0fdf4"
         elif "rejected" in str(row["Message"]).lower():
             icon = "❌"
-            color = "#ff6b6b"
-            bg_color = "#1e1520"
+            color = "#dc2626"
+            bg_color = "#fef2f2"
         else:
             icon = "📝"
-            color = "#ffd166"
-            bg_color = "#0b1220"
+            color = "#0c4a6e"
+            bg_color = "#f8fafc"
         status_badge = "✅" if row["Is Read"] else "🆕"
         time_formatted = format_relative_time(row["Timestamp"])
         st.markdown(f"""
-<div style="
-background-color: {bg_color};
-border-left: 4px solid {color};
-padding: 12px;
-margin: 10px 0;
-border-radius: 8px;
-box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-">
-<div style="display: flex; justify-content: space-between; align-items: flex-start;">
-<div style="display: flex; align-items: center; gap: 10px; flex: 1;">
-<span style="font-size: 1.3rem; color: {color};">{icon}</span>
-<div>
-<div style="color: {color}; font-weight: bold; font-size: 1.05rem;">
-{status_badge} {row['Message']}
-</div>
-<div style="color: #9fb0c8; font-size: 0.9rem; margin-top: 4px;">
-• {time_formatted}
-</div>
-</div>
-</div>
-</div>
-</div>
-""", unsafe_allow_html=True)
+        <div style="
+        background-color: {bg_color};
+        border-left: 4px solid {color};
+        padding: 12px;
+        margin: 10px 0;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        ">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+        <span style="font-size: 1.3rem; color: {color};">{icon}</span>
+        <div>
+        <div style="color: {color}; font-weight: bold; font-size: 1.05rem;">
+        {status_badge} {row['Message']}
+        </div>
+        <div style="color: #64748b; font-size: 0.9rem; margin-top: 4px;">
+        • {time_formatted}
+        </div>
+        </div>
+        </div>
+        </div>
+        </div>
+        """, unsafe_allow_html=True)
     st.markdown("---")
+
 # ============================
 # 🆕 ADDITION: page_manager_leaves — Fully Implemented & FIXED
 # ============================
@@ -745,6 +777,7 @@ def page_manager_leaves(user):
         )
     else:
         st.info("No leave history for your team.")
+
 # ============================
 # Salary Monthly Page — **REPLACED WITH IMPROVED VERSION FROM edit.txt**
 # ============================
@@ -811,20 +844,20 @@ def page_salary_monthly(user):
             if st.session_state.get(details_key):
                 details = st.session_state[details_key]
                 card = f"""
-<div style="background-color:#0c1525; padding:14px; border-radius:10px;
-margin-bottom:10px; box-shadow:0 4px 8px rgba(0,0,0,0.25)">
-<h4 style="color:#ffd166;">Salary Details – {details['Month']}</h4>
-<p style="color:#9fb0c8;">💰 Basic Salary:
-<b style="color:#ffd166;">{details['Basic Salary']:.2f}</b></p>
-<p style="color:#9fb0c8;">🎯 KPI Bonus:
-<b style="color:#ffd166;">{details['KPI Bonus']:.2f}</b></p>
-<p style="color:#9fb0c8;">📉 Deductions:
-<b style="color:#ff6b6b;">{details['Deductions']:.2f}</b></p>
-<hr style="border-color:#1e293b;">
-<p style="color:#9fb0c8;">🧮 Net Salary:
-<b style="color:#4ecdc4;">{details['Net Salary']:.2f}</b></p>
-</div>
-"""
+                <div style="background-color:#f0fdf4; padding:14px; border-radius:10px;
+                margin-bottom:10px; box-shadow:0 4px 8px rgba(0,0,0,0.05);">
+                <h4 style="color:#0c4a6e;">Salary Details – {details['Month']}</h4>
+                <p style="color:#64748b;">💰 Basic Salary:
+                <b style="color:#0c4a6e;">{details['Basic Salary']:.2f}</b></p>
+                <p style="color:#64748b;">🎯 KPI Bonus:
+                <b style="color:#0c4a6e;">{details['KPI Bonus']:.2f}</b></p>
+                <p style="color:#64748b;">📉 Deductions:
+                <b style="color:#dc2626;">{details['Deductions']:.2f}</b></p>
+                <hr style="border-color:#cbd5e1;">
+                <p style="color:#64748b;">🧮 Net Salary:
+                <b style="color:#059669;">{details['Net Salary']:.2f}</b></p>
+                </div>
+                """
                 st.markdown(card, unsafe_allow_html=True)
                 # 📥 Download salary slip
                 output = BytesIO()
@@ -844,6 +877,7 @@ margin-bottom:10px; box-shadow:0 4px 8px rgba(0,0,0,0.25)">
                     st.rerun()
     except Exception as e:
         st.error(f"❌ Error loading salary data: {e}")
+
 # ============================
 # Salary Report Page — Encrypt on Upload
 # ============================
@@ -922,6 +956,7 @@ def page_salary_report(user):
         )
     else:
         st.info("No salary data available.")
+
 # ============================
 # HR Manager — UPDATED with Password Reset Feature
 # ============================
@@ -1167,6 +1202,7 @@ def page_hr_manager(user):
             st.rerun()
         except Exception as e:
             st.error(f"❌ Failed to clear: {e}")
+
 # ============================
 # Remaining Page Functions (unchanged)
 # ============================
@@ -1224,6 +1260,7 @@ def page_employee_photos(user):
                 mime="application/zip"
             )
         st.success("✅ ZIP file created. Click the button to download.")
+
 def page_my_profile(user):
     st.subheader("My Profile")
     st.markdown(f"### 👋 Welcome, {user.get('Employee Name', 'User')}")
@@ -1314,6 +1351,7 @@ def page_my_profile(user):
                     add_notification("", "HR", f"Employee {user_code_clean} changed their password.")
                 else:
                     st.error("❌ Current password is incorrect.")
+
 def calculate_leave_balance(user_code, leaves_df):
     annual_balance = DEFAULT_ANNUAL_LEAVE
     user_approved_leaves = leaves_df[
@@ -1330,6 +1368,7 @@ def calculate_leave_balance(user_code, leaves_df):
         used_days = user_approved_leaves["Leave Days"].sum()
     remaining_days = annual_balance - used_days
     return annual_balance, used_days, remaining_days
+
 def page_leave_request(user):
     st.subheader("Request Leave")
     df_emp = st.session_state.get("df", pd.DataFrame())
@@ -1352,25 +1391,25 @@ def page_leave_request(user):
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(f"""
-<div class="leave-balance-card">
-<div class="leave-balance-title">Annual Leave Balance</div>
-<div class="leave-balance-value">{annual_balance} Days</div>
-</div>
-""", unsafe_allow_html=True)
+        <div class="leave-balance-card">
+        <div class="leave-balance-title">Annual Leave Balance</div>
+        <div class="leave-balance-value">{annual_balance} Days</div>
+        </div>
+        """, unsafe_allow_html=True)
     with col2:
         st.markdown(f"""
-<div class="leave-balance-card">
-<div class="leave-balance-title">Used Leave Balance</div>
-<div class="leave-balance-value used">{used_days} Days</div>
-</div>
-""", unsafe_allow_html=True)
+        <div class="leave-balance-card">
+        <div class="leave-balance-title">Used Leave Balance</div>
+        <div class="leave-balance-value used">{used_days} Days</div>
+        </div>
+        """, unsafe_allow_html=True)
     with col3:
         st.markdown(f"""
-<div class="leave-balance-card">
-<div class="leave-balance-title">Remaining Days</div>
-<div class="leave-balance-value remaining">{remaining_days} Days</div>
-</div>
-""", unsafe_allow_html=True)
+        <div class="leave-balance-card">
+        <div class="leave-balance-title">Remaining Days</div>
+        <div class="leave-balance-value remaining">{remaining_days} Days</div>
+        </div>
+        """, unsafe_allow_html=True)
     col_map = {c.lower().strip(): c for c in df_emp.columns}
     emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
     mgr_code_col = col_map.get("manager_code") or col_map.get("manager code")
@@ -1429,6 +1468,7 @@ def page_leave_request(user):
             st.info("You haven't submitted any leave requests yet.")
     else:
         st.info("No leave requests found.")
+
 def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
     emp_code_col = "Employee Code"
     emp_name_col = "Employee Name"
@@ -1511,6 +1551,7 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
     else:
         node["Summary"] = {"AM":0, "DM":0, "MR":0, "Total":0}
     return node
+
 def send_full_leaves_report_to_hr(leaves_df, df_emp, out_path="HR_Leaves_Report.xlsx"):
     try:
         df_emp_local = df_emp.copy()
@@ -1554,6 +1595,7 @@ def send_full_leaves_report_to_hr(leaves_df, df_emp, out_path="HR_Leaves_Report.
         return True, out_path
     except Exception as e:
         return False, str(e)
+
 def page_my_team(user, role="AM"):
     st.subheader("My Team Structure")
     user_code = None
@@ -1579,94 +1621,95 @@ def page_my_team(user, role="AM"):
         "MR": "🧑‍⚕️"
     }
     ROLE_COLORS = {
-        "BUM": "#ffd166",
-        "AM": "#0b72b9",
-        "DM": "#4ecdc4",
-        "MR": "#9fb0c8"
+        "BUM": "#0c4a6e",
+        "AM": "#0c4a6e",
+        "DM": "#0d9488",
+        "MR": "#dc2626"
     }
     st.markdown("""
-<style>
-.team-node {
-background-color: #0b1220;
-border-left: 4px solid #0b72b9;
-padding: 12px;
-margin: 8px 0;
-border-radius: 6px;
-}
-.team-node-header {
-display: flex;
-justify-content: space-between;
-align-items: center;
-font-weight: 600;
-color: #ffd166;
-margin-bottom: 8px;
-}
-.team-node-summary {
-font-size: 0.9rem;
-color: #9fb0c8;
-margin-top: 4px;
-}
-.team-node-children {
-margin-left: 20px;
-margin-top: 8px;
-}
-.team-member {
-display: flex;
-align-items: center;
-padding: 6px 12px;
-background-color: #111827;
-border-radius: 4px;
-margin: 4px 0;
-font-size: 0.95rem;
-}
-.team-member-icon {
-margin-right: 8px;
-font-size: 1.1rem;
-}
-</style>
-""", unsafe_allow_html=True)
+    <style>
+    .team-node {
+        background-color: white;
+        border-left: 4px solid #0c4a6e;
+        padding: 12px;
+        margin: 8px 0;
+        border-radius: 6px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    .team-node-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 600;
+        color: #0c4a6e;
+        margin-bottom: 8px;
+    }
+    .team-node-summary {
+        font-size: 0.9rem;
+        color: #64748b;
+        margin-top: 4px;
+    }
+    .team-node-children {
+        margin-left: 20px;
+        margin-top: 8px;
+    }
+    .team-member {
+        display: flex;
+        align-items: center;
+        padding: 6px 12px;
+        background-color: #f8fafc;
+        border-radius: 4px;
+        margin: 4px 0;
+        font-size: 0.95rem;
+    }
+    .team-member-icon {
+        margin-right: 8px;
+        font-size: 1.1rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     user_title = role.upper()
     if user_title == "BUM":
         st.markdown("### Team Structure Summary")
         col1, col2, col3 = st.columns(3)
         with col1:
             st.markdown(f"""
-<div class="team-structure-card">
-<div class="team-structure-title">AM Count</div>
-<div class="team-structure-value am">{hierarchy['Summary']['AM']}</div>
-</div>
-""", unsafe_allow_html=True)
+            <div class="team-structure-card">
+            <div class="team-structure-title">AM Count</div>
+            <div class="team-structure-value am">{hierarchy['Summary']['AM']}</div>
+            </div>
+            """, unsafe_allow_html=True)
         with col2:
             st.markdown(f"""
-<div class="team-structure-card">
-<div class="team-structure-title">DM Count</div>
-<div class="team-structure-value dm">{hierarchy['Summary']['DM']}</div>
-</div>
-""", unsafe_allow_html=True)
+            <div class="team-structure-card">
+            <div class="team-structure-title">DM Count</div>
+            <div class="team-structure-value dm">{hierarchy['Summary']['DM']}</div>
+            </div>
+            """, unsafe_allow_html=True)
         with col3:
             st.markdown(f"""
-<div class="team-structure-card">
-<div class="team-structure-title">MR Count</div>
-<div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
-</div>
-""", unsafe_allow_html=True)
+            <div class="team-structure-card">
+            <div class="team-structure-title">MR Count</div>
+            <div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
+            </div>
+            """, unsafe_allow_html=True)
     elif user_title == "AM":
         st.markdown("### Team Structure Summary")
         col1, col2 = st.columns(2)
         with col1:
             st.markdown(f"""
-<div class="team-structure-card">
-<div class="team-structure-title">DM Count</div>
-<div class="team-structure-value dm">{hierarchy['Summary']['DM']}</div>
-</div>
-""", unsafe_allow_html=True)
+            <div class="team-structure-card">
+            <div class="team-structure-title">DM Count</div>
+            <div class="team-structure-value dm">{hierarchy['Summary']['DM']}</div>
+            </div>
+            """, unsafe_allow_html=True)
         with col2:
             st.markdown(f"""
-<div class="team-structure-card">
-<div class="team-structure-title">MR Count</div>
-<div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
-</div>
-""", unsafe_allow_html=True)
+            <div class="team-structure-card">
+            <div class="team-structure-title">MR Count</div>
+            <div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
+            </div>
+            """, unsafe_allow_html=True)
     def render_tree(node, level=0, is_last_child=False):
         if not node:
             return
@@ -1692,7 +1735,7 @@ font-size: 1.1rem;
             if role_part in ROLE_ICONS:
                 role = role_part
         icon = ROLE_ICONS.get(role, "👤")
-        color = ROLE_COLORS.get(role, "#e6eef8")
+        color = ROLE_COLORS.get(role, "#1e293b")
         prefix = ""
         if level > 0:
             for i in range(level - 1):
@@ -1702,12 +1745,12 @@ font-size: 1.1rem;
             else:
                 prefix += "├── "
         st.markdown(f"""
-<div class="team-node">
-<div class="team-node-header">
-<span style="color: {color};">{prefix}{icon} <strong>{manager_info}</strong> (Code: {manager_code})</span>
-<span class="team-node-summary">{summary_str}</span>
-</div>
-""", unsafe_allow_html=True)
+        <div class="team-node">
+        <div class="team-node-header">
+        <span style="color: {color};">{prefix}{icon} <strong>{manager_info}</strong> (Code: {manager_code})</span>
+        <span class="team-node-summary">{summary_str}</span>
+        </div>
+        """, unsafe_allow_html=True)
         if node.get("Team"):
             st.markdown('<div class="team-node-children">', unsafe_allow_html=True)
             team_count = len(node.get("Team", []))
@@ -1726,9 +1769,10 @@ font-size: 1.1rem;
             if role_part in ROLE_ICONS:
                 role = role_part
         icon = ROLE_ICONS.get(role, "👤")
-        color = ROLE_COLORS.get(role, "#e6eef8")
+        color = ROLE_COLORS.get(role, "#1e293b")
         st.markdown(f'<span style="color: {color};">{icon} <strong>{root_manager_info}</strong> (Code: {root_manager_code})</span>', unsafe_allow_html=True)
         st.info("No direct subordinates found under your supervision.")
+
 def page_directory(user):
     st.subheader("Company Structure")
     df = st.session_state.get("df", pd.DataFrame())
@@ -1796,11 +1840,13 @@ def page_directory(user):
         st.info(f"Showing {len(display_df)} of {len(df)} employees.")
     else:
         st.error("No columns could be mapped for display. Please check your Excel sheet headers.")
+
 def load_hr_queries():
     return load_json_file(HR_QUERIES_FILE_PATH, default_columns=[
         "ID", "Employee Code", "Employee Name", "Subject", "Message",
         "Reply", "Status", "Date Sent", "Date Replied"
     ])
+
 def save_hr_queries(df):
     df = df.copy()
     if "Date Sent" in df.columns:
@@ -1815,12 +1861,14 @@ def save_hr_queries(df):
             for idx in df[df["ID"].isna()].index:
                 existing_max += 1
                 df.at[idx, "ID"] = existing_max
-            df["ID"] = df["ID"].astype(int)
+        df["ID"] = df["ID"].astype(int)
     return save_json_file(df, HR_QUERIES_FILE_PATH)
+
 def load_hr_requests():
     return load_json_file(HR_REQUESTS_FILE_PATH, default_columns=[
         "ID", "HR Code", "Employee Code", "Employee Name", "Request", "File Attached", "Status", "Response", "Response File", "Date Sent", "Date Responded"
     ])
+
 def save_hr_requests(df):
     df = df.copy()
     for col in ["Date Sent", "Date Responded"]:
@@ -1834,8 +1882,9 @@ def save_hr_requests(df):
             for idx in df[df["ID"].isna()].index:
                 existing_max += 1
                 df.at[idx, "ID"] = existing_max
-            df["ID"] = df["ID"].astype(int)
+        df["ID"] = df["ID"].astype(int)
     return save_json_file(df, HR_REQUESTS_FILE_PATH)
+
 def save_request_file(uploaded_file, employee_code, request_id):
     os.makedirs("hr_request_files", exist_ok=True)
     ext = uploaded_file.name.split(".")[-1].lower()
@@ -1844,6 +1893,7 @@ def save_request_file(uploaded_file, employee_code, request_id):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
 def save_response_file(uploaded_file, employee_code, request_id):
     os.makedirs("hr_response_files", exist_ok=True)
     ext = uploaded_file.name.split(".")[-1].lower()
@@ -1852,6 +1902,7 @@ def save_response_file(uploaded_file, employee_code, request_id):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
 def page_ask_employees(user):
     st.subheader("📤 Ask Employees")
     st.info("🔍 Type employee name or code to search. HR can send requests with file attachments.")
@@ -1895,46 +1946,47 @@ def page_ask_employees(user):
             return
         else:
             filtered_options = emp_options.copy()
-        if len(filtered_options) == 1:
-            selected_row = filtered_options.iloc[0]
-        elif len(filtered_options) > 1:
-            selected_display = st.selectbox("Select Employee", filtered_options["Display"].tolist())
-            selected_row = filtered_options[filtered_options["Display"] == selected_display].iloc[0]
-        else:
+    if len(filtered_options) == 1:
+        selected_row = filtered_options.iloc[0]
+    elif len(filtered_options) > 1:
+        selected_display = st.selectbox("Select Employee", filtered_options["Display"].tolist())
+        selected_row = filtered_options[filtered_options["Display"] == selected_display].iloc[0]
+    else:
+        return
+    selected_code = selected_row[code_col]
+    selected_name = selected_row[name_col]
+    st.success(f"✅ Selected: {selected_name} (Code: {selected_code})")
+    request_text = st.text_area("Request Details", height=100)
+    uploaded_file = st.file_uploader("Attach File (Optional)", type=["pdf", "docx", "xlsx", "jpg", "png"])
+    if st.button("Send Request"):
+        if not request_text.strip():
+            st.warning("Please enter a request message.")
             return
-        selected_code = selected_row[code_col]
-        selected_name = selected_row[name_col]
-        st.success(f"✅ Selected: {selected_name} (Code: {selected_code})")
-        request_text = st.text_area("Request Details", height=100)
-        uploaded_file = st.file_uploader("Attach File (Optional)", type=["pdf", "docx", "xlsx", "jpg", "png"])
-        if st.button("Send Request"):
-            if not request_text.strip():
-                st.warning("Please enter a request message.")
-                return
-            hr_code = str(user.get("Employee Code", "N/A")).strip().replace(".0", "")
-            requests_df = load_hr_requests()
-            new_id = int(requests_df["ID"].max()) + 1 if "ID" in requests_df.columns and not requests_df.empty else 1
-            file_attached = ""
-            if uploaded_file:
-                file_attached = save_request_file(uploaded_file, selected_code, new_id)
-            new_row = pd.DataFrame([{
-                "ID": new_id,
-                "HR Code": hr_code,
-                "Employee Code": selected_code,
-                "Employee Name": selected_name,
-                "Request": request_text.strip(),
-                "File Attached": file_attached,
-                "Status": "Pending",
-                "Response": "",
-                "Response File": "",
-                "Date Sent": pd.Timestamp.now(),
-                "Date Responded": pd.NaT
-            }])
-            requests_df = pd.concat([requests_df, new_row], ignore_index=True)
-            save_hr_requests(requests_df)
-            add_notification(selected_code, "", f"HR has sent you a new request (ID: {new_id}). Check 'Request HR' page.")
-            st.success(f"Request sent to {selected_name} (Code: {selected_code}) successfully.")
-            st.rerun()
+        hr_code = str(user.get("Employee Code", "N/A")).strip().replace(".0", "")
+        requests_df = load_hr_requests()
+        new_id = int(requests_df["ID"].max()) + 1 if "ID" in requests_df.columns and not requests_df.empty else 1
+        file_attached = ""
+        if uploaded_file:
+            file_attached = save_request_file(uploaded_file, selected_code, new_id)
+        new_row = pd.DataFrame([{
+            "ID": new_id,
+            "HR Code": hr_code,
+            "Employee Code": selected_code,
+            "Employee Name": selected_name,
+            "Request": request_text.strip(),
+            "File Attached": file_attached,
+            "Status": "Pending",
+            "Response": "",
+            "Response File": "",
+            "Date Sent": pd.Timestamp.now(),
+            "Date Responded": pd.NaT
+        }])
+        requests_df = pd.concat([requests_df, new_row], ignore_index=True)
+        save_hr_requests(requests_df)
+        add_notification(selected_code, "", f"HR has sent you a new request (ID: {new_id}). Check 'Request HR' page.")
+        st.success(f"Request sent to {selected_name} (Code: {selected_code}) successfully.")
+        st.rerun()
+
 def page_request_hr(user):
     st.subheader("📥 Request HR")
     st.info("Here you can respond to requests sent by HR. You can upload files as response.")
@@ -1992,23 +2044,24 @@ def page_request_hr(user):
             add_notification("", "HR", f"Employee {user_code} responded to request ID {row['ID']}.")
             st.success("Response submitted successfully.")
             st.rerun()
+
 def page_recruitment(user):
     st.subheader("👥 Recruitment Management")
     if user.get("Title", "").upper() != "HR":
         st.error("Access denied. HR only.")
         return
     st.markdown(f"""
-<div style="background-color:#0b1220; padding:12px; border-radius:8px; border:1px solid #0b72b9; margin-bottom:20px;">
-<h4>📝 Candidate Application Form</h4>
-<p>Share this link with job applicants:</p>
-<a href="{GOOGLE_FORM_RECRUITMENT_LINK}" target="_blank" style="color:#0b72b9; text-decoration:underline;">
-👉 Apply via Google Form
-</a>
-<p style="font-size:0.9rem; color:#9fb0c8; margin-top:8px;">
-After applicants submit, download the Excel responses from Google Sheets and upload them below.
-</p>
-</div>
-""", unsafe_allow_html=True)
+    <div style="background-color:white; padding:12px; border-radius:8px; border:1px solid #0c4a6e; margin-bottom:20px;">
+    <h4>📝 Candidate Application Form</h4>
+    <p>Share this link with job applicants:</p>
+    <a href="{GOOGLE_FORM_RECRUITMENT_LINK}" target="_blank" style="color:#0c4a6e; text-decoration:underline;">
+    👉 Apply via Google Form
+    </a>
+    <p style="font-size:0.9rem; color:#64748b; margin-top:8px;">
+    After applicants submit, download the Excel responses from Google Sheets and upload them below.
+    </p>
+    </div>
+    """, unsafe_allow_html=True)
     tab_cv, tab_db = st.tabs(["📄 CV Candidates", "📊 Recruitment Database"])
     with tab_cv:
         st.markdown("### Upload New Candidate CV")
@@ -2038,13 +2091,13 @@ After applicants submit, download the Excel responses from Google Sheets and upl
                 with col2:
                     with open(os.path.join(RECRUITMENT_CV_DIR, cv), "rb") as f:
                         st.download_button("📥", f, file_name=cv, key=f"dl_cv_{cv}")
-            if st.button("📦 Download All CVs (ZIP)"):
-                zip_path = "all_cvs.zip"
-                with zipfile.ZipFile(zip_path, 'w') as zipf:
-                    for cv in cv_files:
-                        zipf.write(os.path.join(RECRUITMENT_CV_DIR, cv), cv)
-                with open(zip_path, "rb") as f:
-                    st.download_button("Download ZIP", f, file_name="Recruitment_CVs.zip", mime="application/zip")
+        if st.button("📦 Download All CVs (ZIP)"):
+            zip_path = "all_cvs.zip"
+            with zipfile.ZipFile(zip_path, 'w') as zipf:
+                for cv in cv_files:
+                    zipf.write(os.path.join(RECRUITMENT_CV_DIR, cv), cv)
+            with open(zip_path, "rb") as f:
+                st.download_button("Download ZIP", f, file_name="Recruitment_CVs.zip", mime="application/zip")
     with tab_db:
         st.markdown("### Upload Recruitment Data from Google Forms")
         uploaded_db = st.file_uploader("Upload Excel from Google Forms", type=["xlsx"])
@@ -2077,6 +2130,7 @@ After applicants submit, download the Excel responses from Google Sheets and upl
             )
         else:
             st.info("No recruitment data uploaded yet.")
+
 # ... (الجزء الأول من الكود كما هو)
 def page_settings(user):
     st.subheader("⚙️ System Settings")
@@ -2125,6 +2179,7 @@ def page_settings(user):
                     mime="application/zip"
                 )
             st.success("Backup created successfully.")
+
 # ... (باقي الكود كما هو)
 def page_dashboard(user):
     st.subheader("Dashboard")
@@ -2174,6 +2229,7 @@ def page_dashboard(user):
                     st.info("Saved locally. GitHub token not configured.")
         else:
             st.error("Failed to save dataset locally.")
+
 def page_reports(user):
     st.subheader("Reports (Placeholder)")
     st.info("Reports section - ready to be expanded.")
@@ -2188,6 +2244,7 @@ def page_reports(user):
         df.to_excel(writer, index=False, sheet_name="Employees")
     buf.seek(0)
     st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
 def page_hr_inbox(user):
     st.subheader("📬 HR Inbox")
     st.markdown("View employee queries and reply to them here.")
@@ -2213,11 +2270,11 @@ def page_hr_inbox(user):
         except Exception:
             sent_time = str(date_sent)
         card_html = f"""
-<div class="hr-message-card">
-<div class="hr-message-title">📌 {subj if subj else 'No Subject'}</div>
-<div class="hr-message-meta">👤 {emp_name} — {emp_code} &nbsp;|&nbsp; 🕒 {sent_time} &nbsp;|&nbsp; 🏷️ {status}</div>
-<div class="hr-message-body">{msg if msg else ''}</div>
-"""
+        <div class="hr-message-card">
+        <div class="hr-message-title">📌 {subj if subj else 'No Subject'}</div>
+        <div class="hr-message-meta">👤 {emp_name} — {emp_code} &nbsp;|&nbsp; 🕒 {sent_time} &nbsp;|&nbsp; 🏷️ {status}</div>
+        <div class="hr-message-body">{msg if msg else ''}</div>
+        """
         st.markdown(card_html, unsafe_allow_html=True)
         if reply_existing:
             st.markdown("**🟢 Existing reply:**")
@@ -2233,38 +2290,39 @@ def page_hr_inbox(user):
                     st.rerun()
                 except Exception as e:
                     st.error(f"Failed to close message: {e}")
-            reply_text = st.text_area("✍️ Write reply here:", value="", key=f"reply_{idx}", height=120)
-            col1, col2, col3 = st.columns([2, 2, 1])
-            with col1:
-                if st.button("✅ Send Reply", key=f"send_reply_{idx}"):
-                    try:
-                        hr_df.at[idx, "Reply"] = reply_text
-                        hr_df.at[idx, "Status"] = "Replied"
-                        hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
-                        save_hr_queries(hr_df)
-                        add_notification(emp_code, "", f"HR replied to your message: {subj}")
-                        st.success("✅ Reply sent and employee notified.")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Failed to send reply: {e}")
-            with col2:
-                if st.button("🗑️ Mark as Closed", key=f"close_{idx}"):
-                    try:
-                        hr_df.at[idx, "Status"] = "Closed"
-                        hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
-                        save_hr_queries(hr_df)
-                        st.success("✅ Message marked as closed.")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Failed to close message: {e}")
-            with col3:
-                if st.button("🗑️ Delete", key=f"del_inbox_{idx}"):
-                    hr_df = hr_df.drop(idx).reset_index(drop=True)
+        reply_text = st.text_area("✍️ Write reply here:", value="", key=f"reply_{idx}", height=120)
+        col1, col2, col3 = st.columns([2, 2, 1])
+        with col1:
+            if st.button("✅ Send Reply", key=f"send_reply_{idx}"):
+                try:
+                    hr_df.at[idx, "Reply"] = reply_text
+                    hr_df.at[idx, "Status"] = "Replied"
+                    hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
                     save_hr_queries(hr_df)
-                    st.success("Message deleted!")
+                    add_notification(emp_code, "", f"HR replied to your message: {subj}")
+                    st.success("✅ Reply sent and employee notified.")
                     st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Failed to send reply: {e}")
+        with col2:
+            if st.button("🗑️ Mark as Closed", key=f"close_{idx}"):
+                try:
+                    hr_df.at[idx, "Status"] = "Closed"
+                    hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
+                    save_hr_queries(hr_df)
+                    st.success("✅ Message marked as closed.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Failed to close message: {e}")
+        with col3:
+            if st.button("🗑️ Delete", key=f"del_inbox_{idx}"):
+                hr_df = hr_df.drop(idx).reset_index(drop=True)
+                save_hr_queries(hr_df)
+                st.success("Message deleted!")
+                st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
     st.markdown("---")
+
 def page_ask_hr(user):
     st.subheader("💬 Ask HR")
     if user is None:
@@ -2341,6 +2399,7 @@ def page_ask_hr(user):
             st.markdown("**🕒 HR Reply:** Pending")
         st.markdown("</div>")
     st.markdown("---")
+
 # ============================
 # Main App Flow
 # ============================
@@ -2359,10 +2418,10 @@ if "external_password_page" not in st.session_state:
 with st.sidebar:
     # تم حذف كل الكود الخاص باللوجو من هنا
     st.markdown('<div class="sidebar-title">HRAS — Averroes Admin</div>', unsafe_allow_html=True)
-    st.markdown("<hr style='border: 1px solid #0b72b9; margin: 10px 0;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border: 1px solid #0c4a6e; margin: 10px 0;'>", unsafe_allow_html=True)
     if not st.session_state["logged_in_user"] and not st.session_state["external_password_page"]:
         with st.container():
-            st.markdown("<div style='background-color:#0b1220; padding: 10px; border-radius: 8px; border: 1px solid #0b72b9;'>", unsafe_allow_html=True)
+            st.markdown("<div style='background-color:white; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1;'>", unsafe_allow_html=True)
             st.markdown("### 🔐 Login Required")
             with st.form("login_form"):
                 uid = st.text_input("Employee Code")
@@ -2384,10 +2443,10 @@ with st.sidebar:
                             st.success("Login successful!")
                             st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("🔐 Change Password (No Login)", use_container_width=True):
-                st.session_state["external_password_page"] = True
-                st.rerun()
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🔐 Change Password (No Login)", use_container_width=True):
+            st.session_state["external_password_page"] = True
+            st.rerun()
     else:
         if st.session_state["external_password_page"]:
             if st.button("← Back to Login", use_container_width=True):
@@ -2550,5 +2609,5 @@ else:
                 page_settings(user)
             else:
                 st.error("Access denied. HR only.")
-        else:
-            st.info("Please log in to access the system.")
+    else:
+        st.info("Please log in to access the system.")
