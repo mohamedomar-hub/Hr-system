@@ -205,13 +205,14 @@ div[data-testid="stDeployButton"] { display: none; }
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-# ✅ تم استبدال enhanced_dark_css بالتصميم الفاتح الجديد وفقًا لـ Colors.txt
+
+# ✅ تم تحديث كتلة CSS لتتوافق تمامًا مع Colors.txt وتحسين وضوح النصوص
 modern_light_css = """
 <style>
 .sidebar-title {
     font-size: 1.4rem;
     font-weight: bold;
-    color: #05445E; /* Primary color */
+    color: #05445E; /* Primary */
     text-align: center;
     margin-bottom: 10px;
 }
@@ -259,10 +260,10 @@ modern_light_css = """
     margin-top: 4px;
 }
 .leave-balance-value.used {
-    color: #dc2626; /* red for used */
+    color: #dc2626;
 }
 .leave-balance-value.remaining {
-    color: #059669; /* green for remaining */
+    color: #059669;
 }
 .team-structure-value.am { color: #05445E; }
 .team-structure-value.dm { color: #0A5C73; }
@@ -300,6 +301,29 @@ modern_light_css = """
 [data-testid="stAppViewContainer"] {
     background-color: #F2F2F2 !important;
 }
+/* ✅ ضمان وضوح جميع النصوص */
+body, .stApp, .stMarkdown, .stText, .stDataFrame, .stTable, .stSelectbox, .stTextInput, .stDateInput, .stTextArea {
+    color: #2E2E2E !important;
+}
+/* تحسين الجداول */
+table, td, th {
+    color: #2E2E2E !important;
+    background-color: #FFFFFF !important;
+}
+/* حقول الإدخال */
+input[type="text"], input[type="password"], input[type="number"], textarea {
+    color: #2E2E2E !important;
+    background-color: #FFFFFF !important;
+    border: 1px solid #E6E6E6 !important;
+}
+/* علامات التبويب */
+.stTabs [data-baseweb="tab-list"] button {
+    color: #2E2E2E !important;
+}
+.stTabs [data-baseweb="tab-panel"] {
+    color: #2E2E2E !important;
+    background-color: #FFFFFF !important;
+}
 /* إخفاء عناصر Streamlit */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
@@ -307,6 +331,7 @@ div[data-testid="stDeployButton"] { display: none; }
 </style>
 """
 st.markdown(modern_light_css, unsafe_allow_html=True)
+
 # ============================
 # ✅ MODIFIED: External Password Change Page (No Login Required)
 # ============================
@@ -346,6 +371,7 @@ def page_forgot_password():
                 st.success("✅ Your password has been set successfully. You can now log in.")
                 add_notification("", "HR", f"Employee {emp_code_clean} set a new password after reset.")
                 st.rerun()
+
 # ============================
 # Photo & Recruitment Helpers
 # ============================
