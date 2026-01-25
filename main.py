@@ -205,26 +205,80 @@ div[data-testid="stDeployButton"] { display: none; }
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-# ✅ تم تحديث كتلة CSS لتتوافق تمامًا مع Colors.txt وتحسين وضوح النصوص + تغيير لون الهوفر للأزرار إلى الأحمر
-modern_light_css = """
+
+# ✅ تم دمج Colors.txt بالكامل + تعديل Hover إلى الأحمر + الحفاظ على الأنماط الإضافية
+updated_css = """
 <style>
+/* ========== COLORS SYSTEM ========== */
+:root {
+--primary: #05445E;
+--secondary: #0A5C73;
+--text-main: #2E2E2E;
+--text-muted: #6B7280;
+--card-bg: #FFFFFF;
+--soft-bg: #F2F6F8;
+--border-soft: #E5E7EB;
+}
+/* ========== GENERAL TEXT ========== */
+html, body, p, span, label {
+color: var(--text-main) !important;
+}
+/* ========== HEADERS ========== */
+h1, h2, h3, h4, h5 {
+color: var(--primary) !important;
+font-weight: 600;
+}
+/* ========== SIDEBAR USER NAME ========== */
+section[data-testid="stSidebar"] h4,
+section[data-testid="stSidebar"] h5,
+section[data-testid="stSidebar"] p {
+color: #FFFFFF !important;
+font-weight: 600;
+}
+/* ========== INPUT LABELS ========== */
+label {
+color: var(--primary) !important;
+font-weight: 500;
+}
+/* ========== CARDS ========== */
+.card {
+background-color: var(--card-bg);
+border-radius: 16px;
+padding: 18px;
+box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+border: 1px solid var(--border-soft);
+}
+/* ========== INFO TEXT (No data, help text) ========== */
+.info-text {
+color: var(--text-muted) !important;
+font-size: 14px;
+}
+/* ========== SECTION HEADER BOX ========== */
+.section-box {
+background-color: var(--soft-bg);
+padding: 14px 20px;
+border-radius: 14px;
+margin: 25px 0 15px 0;
+}
+
+/* ========== إضافات ضرورية للوظائف ========== */
 .sidebar-title {
 font-size: 1.4rem;
 font-weight: bold;
-color: #05445E; /* Primary */
+color: var(--primary);
 text-align: center;
 margin-bottom: 10px;
 }
 .hr-message-card {
 background-color: #FFFFFF;
-border-left: 4px solid #05445E;
+border-left: 4px solid var(--primary);
 padding: 12px;
 margin: 10px 0;
 border-radius: 8px;
 box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 .hr-message-title {
-color: #05445E;
+color: var(--primary);
 font-weight: bold;
 font-size: 1.1rem;
 }
@@ -234,7 +288,7 @@ font-size: 0.9rem;
 margin: 4px 0;
 }
 .hr-message-body {
-color: #2E2E2E !important;
+color: var(--text-main) !important;
 margin-top: 6px;
 }
 .leave-balance-card,
@@ -253,7 +307,7 @@ font-size: 0.9rem;
 }
 .leave-balance-value,
 .team-structure-value {
-color: #05445E;
+color: var(--primary);
 font-size: 1.4rem;
 font-weight: bold;
 margin-top: 4px;
@@ -264,8 +318,8 @@ color: #dc2626;
 .leave-balance-value.remaining {
 color: #059669;
 }
-.team-structure-value.am { color: #05445E; }
-.team-structure-value.dm { color: #0A5C73; }
+.team-structure-value.am { color: var(--primary); }
+.team-structure-value.dm { color: var(--secondary); }
 .team-structure-value.mr { color: #dc2626; }
 .notification-bell {
 position: absolute;
@@ -285,7 +339,7 @@ z-index: 100;
 }
 /* الأزرار */
 .stButton > button {
-background-color: #05445E !important;
+background-color: var(--primary) !important;
 color: white !important;
 border: none !important;
 font-weight: 600;
@@ -300,27 +354,27 @@ color: white !important;
 [data-testid="stAppViewContainer"] {
 background-color: #F2F2F2 !important;
 }
-/* ✅ ضمان وضوح جميع النصوص */
+/* ضمان وضوح جميع النصوص */
 body, .stApp, .stMarkdown, .stText, .stDataFrame, .stTable, .stSelectbox, .stTextInput, .stDateInput, .stTextArea {
-color: #2E2E2E !important;
+color: var(--text-main) !important;
 }
 /* تحسين الجداول */
 table, td, th {
-color: #2E2E2E !important;
+color: var(--text-main) !important;
 background-color: #FFFFFF !important;
 }
 /* حقول الإدخال */
 input[type="text"], input[type="password"], input[type="number"], textarea {
-color: #2E2E2E !important;
+color: var(--text-main) !important;
 background-color: #FFFFFF !important;
 border: 1px solid #E6E6E6 !important;
 }
 /* علامات التبويب */
 .stTabs [data-baseweb="tab-list"] button {
-color: #2E2E2E !important;
+color: var(--text-main) !important;
 }
 .stTabs [data-baseweb="tab-panel"] {
-color: #2E2E2E !important;
+color: var(--text-main) !important;
 background-color: #FFFFFF !important;
 }
 /* إخفاء عناصر Streamlit */
@@ -329,7 +383,8 @@ footer {visibility: hidden;}
 div[data-testid="stDeployButton"] { display: none; }
 </style>
 """
-st.markdown(modern_light_css, unsafe_allow_html=True)
+st.markdown(updated_css, unsafe_allow_html=True)
+
 # ============================
 # ✅ MODIFIED: External Password Change Page (No Login Required)
 # ============================
@@ -369,6 +424,7 @@ def page_forgot_password():
                 st.success("✅ Your password has been set successfully. You can now log in.")
                 add_notification("", "HR", f"Employee {emp_code_clean} set a new password after reset.")
                 st.rerun()
+
 # ============================
 # Photo & Recruitment Helpers
 # ============================
@@ -383,6 +439,7 @@ def save_employee_photo(employee_code, uploaded_file):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
 def save_recruitment_cv(uploaded_file):
     os.makedirs(RECRUITMENT_CV_DIR, exist_ok=True)
     ext = uploaded_file.name.split(".")[-1].lower()
@@ -394,6 +451,7 @@ def save_recruitment_cv(uploaded_file):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
 # ============================
 # GitHub helpers (JSON version) — ✅ MODIFIED TO SANITIZE + ENCRYPT BEFORE UPLOAD
 # ============================
@@ -402,6 +460,7 @@ def github_headers():
     if GITHUB_TOKEN:
         headers["Authorization"] = f"token {GITHUB_TOKEN}"
     return headers
+
 def load_employee_data_from_github():
     try:
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}?ref={BRANCH}"
@@ -417,6 +476,7 @@ def load_employee_data_from_github():
             return pd.DataFrame()
     except Exception:
         return pd.DataFrame()
+
 def get_file_sha(filepath):
     try:
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{filepath}"
@@ -428,6 +488,7 @@ def get_file_sha(filepath):
             return None
     except Exception:
         return None
+
 def upload_json_to_github(filepath, data_list, commit_message):
     if not GITHUB_TOKEN:
         return False
@@ -461,6 +522,7 @@ def upload_json_to_github(filepath, data_list, commit_message):
         return put_resp.status_code in (200, 201)
     except Exception:
         return False
+
 # ============================
 # Helpers
 # ============================
@@ -471,6 +533,7 @@ def ensure_session_df():
             st.session_state["df"] = df_loaded
         else:
             st.session_state["df"] = load_json_file(FILE_PATH)
+
 # ============================
 # Login & Save Helpers
 # ============================
@@ -492,8 +555,10 @@ def login(df, code, password):
     if stored_hash and verify_password(password, stored_hash):
         return matched.iloc[0].to_dict()
     return None
+
 def save_df_to_local(df):
     return save_json_file(df, FILE_PATH)
+
 def save_and_maybe_push(df, actor="HR"):
     saved = save_json_file(df, FILE_PATH)
     pushed = False
@@ -503,6 +568,7 @@ def save_and_maybe_push(df, actor="HR"):
     if pushed:
         saved = True
     return saved, pushed
+
 def load_leaves_data():
     df = load_json_file(LEAVES_FILE_PATH, default_columns=[
         "Employee Code", "Manager Code", "Start Date", "End Date",
@@ -513,6 +579,7 @@ def load_leaves_data():
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors="coerce")
     return df
+
 def save_leaves_data(df):
     df = df.copy()
     date_cols = ["Start Date", "End Date", "Decision Date"]
@@ -520,6 +587,7 @@ def save_leaves_data(df):
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors="coerce").dt.strftime("%Y-%m-%d")
     return save_json_file(df, LEAVES_FILE_PATH)
+
 # ============================
 # Notifications System
 # ============================
@@ -527,11 +595,13 @@ def load_notifications():
     return load_json_file(NOTIFICATIONS_FILE_PATH, default_columns=[
         "Recipient Code", "Recipient Title", "Message", "Timestamp", "Is Read"
     ])
+
 def save_notifications(df):
     df = df.copy()
     if "Timestamp" in df.columns:
         df["Timestamp"] = pd.to_datetime(df["Timestamp"], errors="coerce").astype(str)
     return save_json_file(df, NOTIFICATIONS_FILE_PATH)
+
 def add_notification(recipient_code, recipient_title, message):
     notifications = load_notifications()
     new_row = pd.DataFrame([{
@@ -543,6 +613,7 @@ def add_notification(recipient_code, recipient_title, message):
     }])
     notifications = pd.concat([notifications, new_row], ignore_index=True)
     save_notifications(notifications)
+
 def get_unread_count(user):
     notifications = load_notifications()
     if notifications.empty:
@@ -562,6 +633,7 @@ def get_unread_count(user):
     )
     unread = notifications[mask & (~notifications["Is Read"])]
     return len(unread)
+
 def mark_all_as_read(user):
     notifications = load_notifications()
     if notifications.empty:
@@ -579,6 +651,7 @@ def mark_all_as_read(user):
     )
     notifications.loc[mask, "Is Read"] = True
     save_notifications(notifications)
+
 def format_relative_time(ts):
     if not ts or pd.isna(ts):
         return "N/A"
@@ -597,6 +670,7 @@ def format_relative_time(ts):
             return dt.strftime("%d-%m-%Y")
     except Exception:
         return str(ts)
+
 # ============================
 # page_notifications
 # ============================
@@ -686,6 +760,7 @@ box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 </div>
 """, unsafe_allow_html=True)
     st.markdown("---")
+
 # ============================
 # 🆕 ADDITION: page_manager_leaves — Fully Implemented & FIXED
 # ============================
@@ -778,6 +853,7 @@ def page_manager_leaves(user):
         )
     else:
         st.info("No leave history for your team.")
+
 # ============================
 # Salary Monthly Page — **REPLACED WITH IMPROVED VERSION FROM edit.txt**
 # ============================
@@ -877,6 +953,7 @@ margin-bottom:10px; box-shadow:0 4px 8px rgba(0,0,0,0.05);">
                     st.rerun()
     except Exception as e:
         st.error(f"❌ Error loading salary data: {e}")
+
 # ============================
 # Salary Report Page — Encrypt on Upload
 # ============================
@@ -955,6 +1032,7 @@ def page_salary_report(user):
         )
     else:
         st.info("No salary data available.")
+
 # ============================
 # HR Manager — UPDATED with Password Reset Feature
 # ============================
@@ -1200,11 +1278,13 @@ def page_hr_manager(user):
             st.rerun()
         except Exception as e:
             st.error(f"❌ Failed to clear: {e}")
+
 # ============================
 # Remaining Page Functions (unchanged)
 # ============================
 def render_logo_and_title():
     pass  # لا تفعل شيء
+
 def page_employee_photos(user):
     st.subheader("📸 Employee Photos (HR Only)")
     os.makedirs("employee_photos", exist_ok=True)
@@ -1256,6 +1336,7 @@ def page_employee_photos(user):
                 mime="application/zip"
             )
         st.success("✅ ZIP file created. Click the button to download.")
+
 def page_my_profile(user):
     st.subheader("My Profile")
     st.markdown(f"### 👋 Welcome, {user.get('Employee Name', 'User')}")
@@ -1346,6 +1427,7 @@ def page_my_profile(user):
                     add_notification("", "HR", f"Employee {user_code_clean} changed their password.")
                 else:
                     st.error("❌ Current password is incorrect.")
+
 def calculate_leave_balance(user_code, leaves_df):
     annual_balance = DEFAULT_ANNUAL_LEAVE
     user_approved_leaves = leaves_df[
@@ -1362,6 +1444,7 @@ def calculate_leave_balance(user_code, leaves_df):
         used_days = user_approved_leaves["Leave Days"].sum()
     remaining_days = annual_balance - used_days
     return annual_balance, used_days, remaining_days
+
 def page_leave_request(user):
     st.subheader("Request Leave")
     df_emp = st.session_state.get("df", pd.DataFrame())
@@ -1461,6 +1544,7 @@ def page_leave_request(user):
             st.info("You haven't submitted any leave requests yet.")
     else:
         st.info("No leave requests found.")
+
 def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
     emp_code_col = "Employee Code"
     emp_name_col = "Employee Name"
@@ -1543,6 +1627,7 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
     else:
         node["Summary"] = {"AM":0, "DM":0, "MR":0, "Total":0}
     return node
+
 def send_full_leaves_report_to_hr(leaves_df, df_emp, out_path="HR_Leaves_Report.xlsx"):
     try:
         df_emp_local = df_emp.copy()
@@ -1586,6 +1671,7 @@ def send_full_leaves_report_to_hr(leaves_df, df_emp, out_path="HR_Leaves_Report.
         return True, out_path
     except Exception as e:
         return False, str(e)
+
 def page_my_team(user, role="AM"):
     st.subheader("My Team Structure")
     user_code = None
@@ -1762,6 +1848,7 @@ font-size: 1.1rem;
         color = ROLE_COLORS.get(role, "#2E2E2E")
         st.markdown(f'<span style="color: {color};">{icon} <strong>{root_manager_info}</strong> (Code: {root_manager_code})</span>', unsafe_allow_html=True)
         st.info("No direct subordinates found under your supervision.")
+
 def page_directory(user):
     st.subheader("Company Structure")
     df = st.session_state.get("df", pd.DataFrame())
@@ -1829,11 +1916,13 @@ def page_directory(user):
         st.info(f"Showing {len(display_df)} of {len(df)} employees.")
     else:
         st.error("No columns could be mapped for display. Please check your Excel sheet headers.")
+
 def load_hr_queries():
     return load_json_file(HR_QUERIES_FILE_PATH, default_columns=[
         "ID", "Employee Code", "Employee Name", "Subject", "Message",
         "Reply", "Status", "Date Sent", "Date Replied"
     ])
+
 def save_hr_queries(df):
     df = df.copy()
     if "Date Sent" in df.columns:
@@ -1850,10 +1939,12 @@ def save_hr_queries(df):
                 df.at[idx, "ID"] = existing_max
             df["ID"] = df["ID"].astype(int)
     return save_json_file(df, HR_QUERIES_FILE_PATH)
+
 def load_hr_requests():
     return load_json_file(HR_REQUESTS_FILE_PATH, default_columns=[
         "ID", "HR Code", "Employee Code", "Employee Name", "Request", "File Attached", "Status", "Response", "Response File", "Date Sent", "Date Responded"
     ])
+
 def save_hr_requests(df):
     df = df.copy()
     for col in ["Date Sent", "Date Responded"]:
@@ -1869,6 +1960,7 @@ def save_hr_requests(df):
                 df.at[idx, "ID"] = existing_max
             df["ID"] = df["ID"].astype(int)
     return save_json_file(df, HR_REQUESTS_FILE_PATH)
+
 def save_request_file(uploaded_file, employee_code, request_id):
     os.makedirs("hr_request_files", exist_ok=True)
     ext = uploaded_file.name.split(".")[-1].lower()
@@ -1877,6 +1969,7 @@ def save_request_file(uploaded_file, employee_code, request_id):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
 def save_response_file(uploaded_file, employee_code, request_id):
     os.makedirs("hr_response_files", exist_ok=True)
     ext = uploaded_file.name.split(".")[-1].lower()
@@ -1885,6 +1978,7 @@ def save_response_file(uploaded_file, employee_code, request_id):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
 def page_ask_employees(user):
     st.subheader("📤 Ask Employees")
     st.info("🔍 Type employee name or code to search. HR can send requests with file attachments.")
@@ -1968,6 +2062,7 @@ def page_ask_employees(user):
         add_notification(selected_code, "", f"HR has sent you a new request (ID: {new_id}). Check 'Request HR' page.")
         st.success(f"Request sent to {selected_name} (Code: {selected_code}) successfully.")
         st.rerun()
+
 # ============================
 # ✅ تم إصلاح صفحة Request HR هنا
 # ============================
@@ -2036,6 +2131,7 @@ def page_request_hr(user):
             add_notification("", "HR", f"Employee {user_code} responded to request ID {row['ID']}.")
             st.success("Response submitted successfully.")
             st.rerun()
+
 def page_recruitment(user):
     st.subheader("👥 Recruitment Management")
     if user.get("Title", "").upper() != "HR":
@@ -2121,6 +2217,7 @@ After applicants submit, download the Excel responses from Google Sheets and upl
             )
         else:
             st.info("No recruitment data uploaded yet.")
+
 # ... (الجزء الأول من الكود كما هو)
 def page_settings(user):
     st.subheader("⚙️ System Settings")
@@ -2169,6 +2266,7 @@ def page_settings(user):
                     mime="application/zip"
                 )
             st.success("Backup created successfully.")
+
 # ... (باقي الكود كما هو)
 def page_dashboard(user):
     st.subheader("Dashboard")
@@ -2218,6 +2316,7 @@ def page_dashboard(user):
                     st.info("Saved locally. GitHub token not configured.")
         else:
             st.error("Failed to save dataset locally.")
+
 def page_reports(user):
     st.subheader("Reports (Placeholder)")
     st.info("Reports section - ready to be expanded.")
@@ -2232,6 +2331,7 @@ def page_reports(user):
         df.to_excel(writer, index=False, sheet_name="Employees")
     buf.seek(0)
     st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
 def page_hr_inbox(user):
     st.subheader("📬 HR Inbox")
     st.markdown("View employee queries and reply to them here.")
@@ -2309,6 +2409,7 @@ def page_hr_inbox(user):
                 st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("---")
+
 def page_ask_hr(user):
     st.subheader("💬 Ask HR")
     if user is None:
@@ -2385,6 +2486,7 @@ def page_ask_hr(user):
             st.markdown("**🕒 HR Reply:** Pending")
         st.markdown("</div>")
         st.markdown("---")
+
 # ============================
 # Main App Flow
 # ============================
@@ -2393,13 +2495,16 @@ if not os.path.exists(SECURE_PASSWORDS_FILE):
     df_init = st.session_state.get("df", pd.DataFrame())
     if not df_init.empty:
         initialize_passwords_from_data(df_init.to_dict(orient='records'))
+
 # render_logo_and_title()  # ← تم حذف هذا السطر
+
 if "logged_in_user" not in st.session_state:
     st.session_state["logged_in_user"] = None
 if "current_page" not in st.session_state:
     st.session_state["current_page"] = "My Profile"
 if "external_password_page" not in st.session_state:
     st.session_state["external_password_page"] = False
+
 with st.sidebar:
     # تم حذف كل الكود الخاص باللوجو من هنا
     st.markdown('<div class="sidebar-title">HRAS — Averroes Admin</div>', unsafe_allow_html=True)
@@ -2502,6 +2607,7 @@ with st.sidebar:
                 st.session_state["current_page"] = "My Profile"
                 st.success("You have been logged out.")
                 st.rerun()
+
 if st.session_state["external_password_page"]:
     page_forgot_password()
 else:
