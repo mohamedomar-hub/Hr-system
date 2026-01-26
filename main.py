@@ -1331,25 +1331,20 @@ def page_notify_compliance(user):
     st.subheader("📨 Notify Compliance Team")
     st.info("Use this form to notify the Compliance team about delays, absences, or other operational issues.")
     
-    # 1. جلب بيانات الموظفين
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.error("Employee data not loaded.")
         return
 
-    # 2. تحديد مدير الـ MR (لعرضه كمرجع فقط)
     user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
-    # ✅ استخدم الأسماء الحرفية كما في ملف JSON
     emp_code_col = "Employee Code"
     mgr_code_col = "Manager Code"
     emp_name_col = "Employee Name"
 
-    # ✅ تحقق من وجود الأعمدة
     if not all(col in df.columns for col in [emp_code_col, mgr_code_col, emp_name_col]):
         st.error(f"❌ Required columns missing: {emp_code_col}, {mgr_code_col}, {emp_name_col}")
         return
 
-    # ✅ تنظيف أعمدة Employee Code و Manager Code
     df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     df[mgr_code_col] = df[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
 
@@ -1367,7 +1362,7 @@ def page_notify_compliance(user):
 
     st.markdown(f"**Your Manager**: {manager_name} (Code: {manager_code})")
 
-    # 3. جلب أسماء فريق Compliance (العناوين الثلاثة)
+    # جلب فريق Compliance (العناوين الثلاثة)
     compliance_titles = {
         "ASSOCIATE COMPLIANCE",
         "FIELD COMPLIANCE SPECIALIST",
@@ -1392,7 +1387,6 @@ def page_notify_compliance(user):
     recipient_name = recipient_data["name"]
     recipient_code = recipient_data["code"]
 
-    # 4. نموذج الإرسال
     message = st.text_area("Your Message", height=120, placeholder="Example: I was delayed today due to traffic...")
     if st.button("📤 Send to Compliance"):
         if not message.strip():
@@ -1400,7 +1394,9 @@ def page_notify_compliance(user):
         else:
             messages_df = load_compliance_messages()
             new_id = int(messages_df["ID"].max()) + 1 if not messages_df.empty else 1
-            new_row = pd.DataFrame([{
+
+            # ✅ الرسالة الأصلية للـ Compliance
+            original_row = pd.DataFrame([{
                 "ID": new_id,
                 "MR Code": user_code,
                 "MR Name": user.get("Employee Name", user_code),
@@ -1410,16 +1406,32 @@ def page_notify_compliance(user):
                 "Timestamp": pd.Timestamp.now(),
                 "Status": "Pending"
             }])
-            messages_df = pd.concat([messages_df, new_row], ignore_index=True)
+            messages_df = pd.concat([messages_df, original_row], ignore_index=True)
+
+            # ✅ نسخة للمدير المباشر
+            if manager_code != "N/A" and manager_code != user_code:
+                copy_for_manager = pd.DataFrame([{
+                    "ID": new_id + 100000,  # ID فريد
+                    "MR Code": user_code,
+                    "MR Name": user.get("Employee Name", user_code),
+                    "Compliance Recipient": manager_name,
+                    "Compliance Code": manager_code,
+                    "Message": message.strip(),
+                    "Timestamp": pd.Timestamp.now(),
+                    "Status": "Pending"
+                }])
+                messages_df = pd.concat([messages_df, copy_for_manager], ignore_index=True)
+                add_notification(manager_code, "", f"New compliance message from your team member {user_code}")
+
+            # ✅ إشعارات لفريق الـ Compliance
+            for title in compliance_titles:
+                add_notification("", title, f"New message from MR {user_code}")
+
             if save_compliance_messages(messages_df):
-                # إشعار لكل عناوين الـ Compliance
-                for title in compliance_titles:
-                    add_notification("", title, f"New message from MR {user_code}")
-                st.success("✅ Your message has been sent to Compliance.")
+                st.success("✅ Your message has been sent to Compliance and your manager.")
                 st.rerun()
             else:
                 st.error("❌ Failed to send message.")
-
 # ============================
 # 🆕 PAGE: Report Compliance (for Compliance team only)
 # ============================
