@@ -1340,14 +1340,14 @@ def page_notify_compliance(user):
     # 2. تحديد مدير الـ MR (لعرضه كمرجع فقط)
     user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
     col_map = {c.lower().strip(): c for c in df.columns}
-    emp_code_col = col_map.get("employee_code") or col_map.get("Employee Code")
-    mgr_code_col = col_map.get("manager_code") or col_map.get("Manager Code")
-    emp_name_col = col_map.get("employee_name") or col_map.get("Employee Name")
+    emp_code_col = "Employee Code"
+    mgr_code_col = "Manager Code"
+    emp_name_col = "Employee Name"
 
-    if not all([emp_code_col, mgr_code_col, emp_name_col]):
-        st.error("Required columns missing in employee data.")
-        return
-
+    if not all(col in df.columns for col in [emp_code_col, mgr_code_col, emp_name_col]):
+    st.error(f"❌ Required columns missing: {emp_code_col}, {mgr_code_col}, {emp_name_col}")
+    return
+    
     df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     user_row = df[df[emp_code_col] == user_code]
     if user_row.empty:
