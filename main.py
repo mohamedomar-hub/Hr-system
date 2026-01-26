@@ -1339,16 +1339,20 @@ def page_notify_compliance(user):
 
     # 2. تحديد مدير الـ MR (لعرضه كمرجع فقط)
     user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
-    col_map = {c.lower().strip(): c for c in df.columns}
+    # ✅ تعديل: استخدم الأسماء الحرفية كما في ملف JSON
     emp_code_col = "Employee Code"
     mgr_code_col = "Manager Code"
     emp_name_col = "Employee Name"
 
+    # ✅ تحقق من وجود الأعمدة
     if not all(col in df.columns for col in [emp_code_col, mgr_code_col, emp_name_col]):
-    st.error(f"❌ Required columns missing: {emp_code_col}, {mgr_code_col}, {emp_name_col}")
+        st.error(f"❌ Required columns missing: {emp_code_col}, {mgr_code_col}, {emp_name_col}")
         return
-    
+
+    # ✅ تنظيف أعمدة Employee Code و Manager Code
     df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    df[mgr_code_col] = df[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+
     user_row = df[df[emp_code_col] == user_code]
     if user_row.empty:
         st.error("Your record not found.")
@@ -1357,14 +1361,14 @@ def page_notify_compliance(user):
     manager_code = user_row.iloc[0].get(mgr_code_col, "N/A")
     manager_name = "N/A"
     if manager_code != "N/A":
-        mgr_row = df[df[emp_code_col] == str(Manager Code).strip()]
+        mgr_row = df[df[emp_code_col] == str(manager_code).strip()]
         if not mgr_row.empty:
             manager_name = mgr_row.iloc[0].get(emp_name_col, "N/A")
 
     st.markdown(f"**Your Manager**: {manager_name} (Code: {manager_code})")
 
     # 3. جلب أسماء فريق Compliance
-    compliance_title = "COMPLIANCE"  # ← عدل حسب الحاجة
+    compliance_title = "FIELD COMPLIANCE SPECIALIST"  # ← عدل حسب الحاجة
     compliance_df = df[df["Title"].astype(str).str.upper() == compliance_title.upper()].copy()
     if compliance_df.empty:
         st.warning("No Compliance officers found in the system.")
@@ -1406,7 +1410,6 @@ def page_notify_compliance(user):
                 st.rerun()
             else:
                 st.error("❌ Failed to send message.")
-
 # ============================
 # 🆕 PAGE: Compliance Inbox (for HR or Compliance)
 # ============================
