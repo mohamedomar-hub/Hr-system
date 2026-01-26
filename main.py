@@ -1331,20 +1331,25 @@ def page_notify_compliance(user):
     st.subheader("📨 Notify Compliance Team")
     st.info("Use this form to notify the Compliance team about delays, absences, or other operational issues.")
     
+    # 1. جلب بيانات الموظفين
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.error("Employee data not loaded.")
         return
 
+    # 2. تحديد مدير الـ MR (لعرضه كمرجع فقط)
     user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
+    # ✅ استخدم الأسماء الحرفية كما في ملف JSON
     emp_code_col = "Employee Code"
     mgr_code_col = "Manager Code"
     emp_name_col = "Employee Name"
 
+    # ✅ تحقق من وجود الأعمدة
     if not all(col in df.columns for col in [emp_code_col, mgr_code_col, emp_name_col]):
         st.error(f"❌ Required columns missing: {emp_code_col}, {mgr_code_col}, {emp_name_col}")
         return
 
+    # ✅ تنظيف أعمدة Employee Code و Manager Code
     df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     df[mgr_code_col] = df[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
 
@@ -1362,7 +1367,7 @@ def page_notify_compliance(user):
 
     st.markdown(f"**Your Manager**: {manager_name} (Code: {manager_code})")
 
-    # جلب فريق Compliance (العناوين الثلاثة)
+    # 3. جلب أسماء فريق Compliance (العناوين الثلاثة)
     compliance_titles = {
         "ASSOCIATE COMPLIANCE",
         "FIELD COMPLIANCE SPECIALIST",
@@ -1387,6 +1392,7 @@ def page_notify_compliance(user):
     recipient_name = recipient_data["name"]
     recipient_code = recipient_data["code"]
 
+    # 4. نموذج الإرسال
     message = st.text_area("Your Message", height=120, placeholder="Example: I was delayed today due to traffic...")
     if st.button("📤 Send to Compliance"):
         if not message.strip():
@@ -1408,7 +1414,7 @@ def page_notify_compliance(user):
             }])
             messages_df = pd.concat([messages_df, original_row], ignore_index=True)
 
-            # ✅ نسخة للمدير المباشر
+            # ✅ نسخة للمدير المباشر (حتى لو كان Compliance أيضًا)
             if manager_code != "N/A" and manager_code != user_code:
                 copy_for_manager = pd.DataFrame([{
                     "ID": new_id + 100000,  # ID فريد
@@ -1432,8 +1438,9 @@ def page_notify_compliance(user):
                 st.rerun()
             else:
                 st.error("❌ Failed to send message.")
+
 # ============================
-# 🆕 PAGE: Report Compliance (for Compliance team only)
+# 🆕 PAGE: Report Compliance (for Compliance team + Managers)
 # ============================
 def page_report_compliance(user):
     st.subheader("📋 Report Compliance")
@@ -2815,11 +2822,15 @@ with st.sidebar:
                 # Default fallback (e.g., unknown titles): allow basic access
                 pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             
-            # ✅ إضافة صفحة Report Compliance لفريق الـ Compliance
-            compliance_titles_set = {"ASSOCIATE COMPLIANCE", "FIELD COMPLIANCE SPECIALIST", "COMPLIANCE MANAGER"}
-            manager_titles = {"AM", "DM", "BUM"}
-            
-            if title_val in compliance_titles_set:
+            # ✅ إضافة صفحة Report Compliance لفريق الـ Compliance + المدراء (AM, DM)
+            compliance_and_managers = {
+                "ASSOCIATE COMPLIANCE",
+                "FIELD COMPLIANCE SPECIALIST",
+                "COMPLIANCE MANAGER",
+                "AM",
+                "DM"
+            }
+            if title_val in compliance_and_managers:
                 pages.insert(1, "Report Compliance")  # بعد My Profile مباشرة
             
             unread_count = get_unread_count(user)
@@ -2874,7 +2885,13 @@ else:
         is_special = title_val in SPECIAL_TITLES
         
         # ✅ إضافة شرط صفحة Report Compliance
-        compliance_titles_set = {"ASSOCIATE COMPLIANCE", "FIELD COMPLIANCE SPECIALIST", "COMPLIANCE MANAGER"}
+        compliance_and_managers_set = {
+            "ASSOCIATE COMPLIANCE",
+            "FIELD COMPLIANCE SPECIALIST",
+            "COMPLIANCE MANAGER",
+            "AM",
+            "DM"
+        }
         
         if current_page == "My Profile":
             page_my_profile(user)
@@ -2945,7 +2962,7 @@ else:
             else:
                 st.error("Access denied. MR only.")
         elif current_page == "Report Compliance":
-            if title_val in compliance_titles_set or title_val in manager_titles:
+            if title_val in compliance_and_managers_set:
                 page_report_compliance(user)
             else:
                 st.error("Access denied. Compliance or Managers only.")
