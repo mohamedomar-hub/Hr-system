@@ -1339,7 +1339,7 @@ def page_notify_compliance(user):
 
     # 2. تحديد مدير الـ MR (لعرضه كمرجع فقط)
     user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
-    # ✅ تعديل: استخدم الأسماء الحرفية كما في ملف JSON
+    # ✅ استخدم الأسماء الحرفية كما في ملف JSON
     emp_code_col = "Employee Code"
     mgr_code_col = "Manager Code"
     emp_name_col = "Employee Name"
@@ -1367,9 +1367,16 @@ def page_notify_compliance(user):
 
     st.markdown(f"**Your Manager**: {manager_name} (Code: {manager_code})")
 
-    # 3. جلب أسماء فريق Compliance
-    compliance_title = "FIELD COMPLIANCE SPECIALIST"  # ← عدل حسب الحاجة
-    compliance_df = df[df["Title"].astype(str).str.upper() == compliance_title.upper()].copy()
+    # 3. جلب أسماء فريق Compliance (العناوين الثلاثة)
+    compliance_titles = {
+        "ASSOCIATE COMPLIANCE",
+        "FIELD COMPLIANCE SPECIALIST",
+        "COMPLIANCE MANAGER"
+    }
+    df["Title_upper"] = df["Title"].astype(str).str.upper()
+    compliance_df = df[df["Title_upper"].isin(compliance_titles)].copy()
+    df.drop(columns=["Title_upper"], inplace=True, errors="ignore")
+
     if compliance_df.empty:
         st.warning("No Compliance officers found in the system.")
         return
@@ -1378,11 +1385,12 @@ def page_notify_compliance(user):
     for _, row in compliance_df.iterrows():
         name = row.get(emp_name_col, "Unknown")
         code = row.get(emp_code_col, "N/A")
-        compliance_options[f"{name} (Code: {code})"] = code
+        compliance_options[f"{name} (Code: {code})"] = {"name": name, "code": code}
 
     selected_option = st.selectbox("Select Compliance Officer", list(compliance_options.keys()))
-    recipient_code = compliance_options[selected_option]
-    recipient_name = selected_option.split(" (Code:")[0]
+    recipient_data = compliance_options[selected_option]
+    recipient_name = recipient_data["name"]
+    recipient_code = recipient_data["code"]
 
     # 4. نموذج الإرسال
     message = st.text_area("Your Message", height=120, placeholder="Example: I was delayed today due to traffic...")
@@ -1404,35 +1412,87 @@ def page_notify_compliance(user):
             }])
             messages_df = pd.concat([messages_df, new_row], ignore_index=True)
             if save_compliance_messages(messages_df):
-                # إشعار للـ Compliance (عن طريق Title)
-                add_notification("", "FIELD COMPLIANCE SPECIALIST", f"New message from MR {user_code}")
+                # إشعار لكل عناوين الـ Compliance
+                for title in compliance_titles:
+                    add_notification("", title, f"New message from MR {user_code}")
                 st.success("✅ Your message has been sent to Compliance.")
                 st.rerun()
             else:
                 st.error("❌ Failed to send message.")
+
 # ============================
-# 🆕 PAGE: Compliance Inbox (for HR or Compliance)
+# 🆕 PAGE: Report Compliance (for Compliance team only)
 # ============================
-def page_compliance_inbox(user):
-    st.subheader("📬 Compliance Inbox")
-    st.info("Messages from MRs regarding delays, absences, or compliance issues.")
+def page_report_compliance(user):
+    st.subheader("📋 Report Compliance")
+    st.info("Messages sent by MRs regarding delays, absences, or compliance issues.")
     
     messages_df = load_compliance_messages()
     if messages_df.empty:
-        st.info("No messages yet.")
+        st.info("No compliance messages yet.")
         return
 
+    # عرض الكل
     messages_df = messages_df.sort_values("Timestamp", ascending=False).reset_index(drop=True)
-    for idx, row in messages_df.iterrows():
-        st.markdown(f"""
-        <div style="background-color:#f8fafc; padding:12px; border-radius:8px; margin:10px 0; border-left:4px solid #05445E;">
-        <strong>From:</strong> {row['MR Name']} ({row['MR Code']})<br>
-        <strong>To:</strong> {row['Compliance Recipient']}<br>
-        <strong>Time:</strong> {format_relative_time(row['Timestamp'])}<br>
-        <strong>Message:</strong><br>{row['Message']}
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown("---")
+    
+    # تحويل Timestamp إلى تاريخ مقروء
+    messages_df["Date"] = pd.to_datetime(messages_df["Timestamp"]).dt.strftime("%d-%m-%Y %H:%M")
+    
+    # جلب بيانات الموظفين لإضافة اسم المدير
+    df = st.session_state.get("df", pd.DataFrame())
+    if not df.empty:
+        emp_code_col = "Employee Code"
+        mgr_code_col = "Manager Code"
+        emp_name_col = "Employee Name"
+        if all(col in df.columns for col in [emp_code_col, mgr_code_col, emp_name_col]):
+            df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+            df[mgr_code_col] = df[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+            # إنشاء خريطة من كود الموظف إلى كود المدير
+            code_to_mgr_code = dict(zip(df[emp_code_col], df[mgr_code_col]))
+            code_to_mgr_name = {}
+            for _, row in df.iterrows():
+                mgr_code = row[mgr_code_col]
+                if mgr_code != "N/A":
+                    mgr_row = df[df[emp_code_col] == str(mgr_code).strip()]
+                    if not mgr_row.empty:
+                        code_to_mgr_name[row[emp_code_col]] = mgr_row.iloc[0].get(emp_name_col, mgr_code)
+                    else:
+                        code_to_mgr_name[row[emp_code_col]] = mgr_code
+                else:
+                    code_to_mgr_name[row[emp_code_col]] = "N/A"
+            messages_df["Manager Code"] = messages_df["MR Code"].map(code_to_mgr_code).fillna("N/A")
+            messages_df["Manager Name"] = messages_df["MR Code"].map(code_to_mgr_name).fillna("N/A")
+        else:
+            messages_df["Manager Code"] = "N/A"
+            messages_df["Manager Name"] = "N/A"
+    else:
+        messages_df["Manager Code"] = "N/A"
+        messages_df["Manager Name"] = "N/A"
+
+    display_df = messages_df[[
+        "Date", "MR Name", "MR Code", "Message", "Manager Name", "Manager Code"
+    ]].rename(columns={
+        "Date": "Date & Time",
+        "MR Name": "Employee Name",
+        "MR Code": "Employee Code",
+        "Message": "Reason",
+        "Manager Name": "Manager Name",
+        "Manager Code": "Manager Code"
+    })
+    
+    st.dataframe(display_df, use_container_width=True)
+    
+    # زر تحميل Excel
+    buf = BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        display_df.to_excel(writer, index=False)
+    buf.seek(0)
+    st.download_button(
+        "📥 Download Report (Excel)",
+        data=buf,
+        file_name="Compliance_Report.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 # ============================
 # Remaining Page Functions (unchanged)
@@ -2734,7 +2794,7 @@ with st.sidebar:
                 # ✅ AM/DM get Team Structure (but NOT Team Leaves)
                 pages = ["My Profile", "Team Structure", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             elif is_mr:
-                # ❌ MR gets NO Team Structure and NO Team Leaves
+                # ✅ MR gets Notify Compliance
                 pages = ["My Profile", "Notify Compliance", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             elif is_special:
                 # ❌ Special titles: ONLY Leave Request (no Team Leaves)
@@ -2742,6 +2802,12 @@ with st.sidebar:
             else:
                 # Default fallback (e.g., unknown titles): allow basic access
                 pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+            
+            # ✅ إضافة صفحة Report Compliance لفريق الـ Compliance
+            compliance_titles_set = {"ASSOCIATE COMPLIANCE", "FIELD COMPLIANCE SPECIALIST", "COMPLIANCE MANAGER"}
+            if title_val in compliance_titles_set:
+                pages.insert(1, "Report Compliance")  # بعد My Profile مباشرة
+            
             unread_count = get_unread_count(user)
             for p in pages:
                 if p == "Notifications":
@@ -2792,6 +2858,10 @@ else:
             "OFFICE BOY"
         }
         is_special = title_val in SPECIAL_TITLES
+        
+        # ✅ إضافة شرط صفحة Report Compliance
+        compliance_titles_set = {"ASSOCIATE COMPLIANCE", "FIELD COMPLIANCE SPECIALIST", "COMPLIANCE MANAGER"}
+        
         if current_page == "My Profile":
             page_my_profile(user)
         elif current_page == "Notifications":
@@ -2860,10 +2930,10 @@ else:
                 page_notify_compliance(user)
             else:
                 st.error("Access denied. MR only.")
-        elif current_page == "Compliance Inbox":
-            if is_hr or title_val == "FIELD COMPLIANCE SPECIALIST":
-                page_compliance_inbox(user)
+        elif current_page == "Report Compliance":
+            if title_val in compliance_titles_set:
+                page_report_compliance(user)
             else:
-                st.error("Access denied. HR or Compliance only.")
+                st.error("Access denied. Compliance team only.")
         else:
             st.info("Please log in to access the system.")
