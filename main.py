@@ -2817,6 +2817,8 @@ with st.sidebar:
             
             # ✅ إضافة صفحة Report Compliance لفريق الـ Compliance
             compliance_titles_set = {"ASSOCIATE COMPLIANCE", "FIELD COMPLIANCE SPECIALIST", "COMPLIANCE MANAGER"}
+            manager_titles = {"AM", "DM", "BUM"}
+            
             if title_val in compliance_titles_set:
                 pages.insert(1, "Report Compliance")  # بعد My Profile مباشرة
             
@@ -2943,9 +2945,9 @@ else:
             else:
                 st.error("Access denied. MR only.")
         elif current_page == "Report Compliance":
-            if title_val in compliance_titles_set:
+            if title_val in compliance_titles_set or title_val in manager_titles:
                 page_report_compliance(user)
             else:
-                st.error("Access denied. Compliance team only.")
+                st.error("Access denied. Compliance or Managers only.")
         else:
             st.info("Please log in to access the system.")
