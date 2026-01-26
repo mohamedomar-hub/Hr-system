@@ -1346,7 +1346,7 @@ def page_notify_compliance(user):
 
     if not all(col in df.columns for col in [emp_code_col, mgr_code_col, emp_name_col]):
     st.error(f"❌ Required columns missing: {emp_code_col}, {mgr_code_col}, {emp_name_col}")
-    return
+        return
     
     df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     user_row = df[df[emp_code_col] == user_code]
