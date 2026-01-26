@@ -1340,9 +1340,9 @@ def page_notify_compliance(user):
     # 2. تحديد مدير الـ MR (لعرضه كمرجع فقط)
     user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
     col_map = {c.lower().strip(): c for c in df.columns}
-    emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
-    mgr_code_col = col_map.get("manager_code") or col_map.get("manager code")
-    emp_name_col = col_map.get("employee_name") or col_map.get("name")
+    emp_code_col = col_map.get("employee_code") or col_map.get("Employee Code")
+    mgr_code_col = col_map.get("manager_code") or col_map.get("Manager Code")
+    emp_name_col = col_map.get("employee_name") or col_map.get("Employee Name")
 
     if not all([emp_code_col, mgr_code_col, emp_name_col]):
         st.error("Required columns missing in employee data.")
@@ -1357,14 +1357,14 @@ def page_notify_compliance(user):
     manager_code = user_row.iloc[0].get(mgr_code_col, "N/A")
     manager_name = "N/A"
     if manager_code != "N/A":
-        mgr_row = df[df[emp_code_col] == str(manager_code).strip()]
+        mgr_row = df[df[emp_code_col] == str(Manager Code).strip()]
         if not mgr_row.empty:
             manager_name = mgr_row.iloc[0].get(emp_name_col, "N/A")
 
     st.markdown(f"**Your Manager**: {manager_name} (Code: {manager_code})")
 
     # 3. جلب أسماء فريق Compliance
-    compliance_title = "FIELD COMPLIANCE SPECIALIST"  # ← عدل حسب الحاجة
+    compliance_title = "COMPLIANCE"  # ← عدل حسب الحاجة
     compliance_df = df[df["Title"].astype(str).str.upper() == compliance_title.upper()].copy()
     if compliance_df.empty:
         st.warning("No Compliance officers found in the system.")
