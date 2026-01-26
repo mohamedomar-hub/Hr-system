@@ -1331,25 +1331,20 @@ def page_notify_compliance(user):
     st.subheader("📨 Notify Compliance Team")
     st.info("Use this form to notify the Compliance team about delays, absences, or other operational issues.")
     
-    # 1. جلب بيانات الموظفين
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.error("Employee data not loaded.")
         return
 
-    # 2. تحديد مدير الـ MR (لعرضه كمرجع فقط)
     user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
-    # ✅ استخدم الأسماء الحرفية كما في ملف JSON
     emp_code_col = "Employee Code"
     mgr_code_col = "Manager Code"
     emp_name_col = "Employee Name"
 
-    # ✅ تحقق من وجود الأعمدة
     if not all(col in df.columns for col in [emp_code_col, mgr_code_col, emp_name_col]):
         st.error(f"❌ Required columns missing: {emp_code_col}, {mgr_code_col}, {emp_name_col}")
         return
 
-    # ✅ تنظيف أعمدة Employee Code و Manager Code
     df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     df[mgr_code_col] = df[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
 
@@ -1367,7 +1362,6 @@ def page_notify_compliance(user):
 
     st.markdown(f"**Your Manager**: {manager_name} (Code: {manager_code})")
 
-    # 3. جلب أسماء فريق Compliance (العناوين الثلاثة)
     compliance_titles = {
         "ASSOCIATE COMPLIANCE",
         "FIELD COMPLIANCE SPECIALIST",
@@ -1392,7 +1386,6 @@ def page_notify_compliance(user):
     recipient_name = recipient_data["name"]
     recipient_code = recipient_data["code"]
 
-    # 4. نموذج الإرسال
     message = st.text_area("Your Message", height=120, placeholder="Example: I was delayed today due to traffic...")
     if st.button("📤 Send to Compliance"):
         if not message.strip():
@@ -1414,7 +1407,7 @@ def page_notify_compliance(user):
             }])
             messages_df = pd.concat([messages_df, original_row], ignore_index=True)
 
-            # ✅ نسخة للمدير المباشر (حتى لو كان Compliance أيضًا)
+            # ✅ نسخة للمدير المباشر
             if manager_code != "N/A" and manager_code != user_code:
                 copy_for_manager = pd.DataFrame([{
                     "ID": new_id + 100000,  # ID فريد
@@ -1434,31 +1427,75 @@ def page_notify_compliance(user):
                 add_notification("", title, f"New message from MR {user_code}")
 
             if save_compliance_messages(messages_df):
+                # ✅ عرض رسالة نجاح مباشرة (بدون rerun)
                 st.success("✅ Your message has been sent to Compliance and your manager.")
-                st.rerun()
+                # st.rerun() ← تم حذف هذا السطر
             else:
                 st.error("❌ Failed to send message.")
-
 # ============================
 # 🆕 PAGE: Report Compliance (for Compliance team + Managers)
 # ============================
 def page_report_compliance(user):
     st.subheader("📋 Report Compliance")
     st.info("Messages sent by MRs regarding delays, absences, or compliance issues.")
-    
     messages_df = load_compliance_messages()
     if messages_df.empty:
         st.info("No compliance messages yet.")
         return
 
-    # عرض الكل
-    messages_df = messages_df.sort_values("Timestamp", ascending=False).reset_index(drop=True)
-    
-    # تحويل Timestamp إلى تاريخ مقروء
-    messages_df["Date"] = pd.to_datetime(messages_df["Timestamp"]).dt.strftime("%d-%m-%Y %H:%M")
-    
-    # جلب بيانات الموظفين لإضافة اسم المدير
+    # جلب بيانات الموظفين
     df = st.session_state.get("df", pd.DataFrame())
+    if df.empty:
+        st.error("Employee data not loaded.")
+        return
+
+    # تحديد صلاحيات المستخدم
+    title_val = str(user.get("Title", "")).strip().upper()
+    is_compliance = title_val in {"ASSOCIATE COMPLIANCE", "FIELD COMPLIANCE SPECIALIST", "COMPLIANCE MANAGER"}
+    is_am = title_val == "AM"
+    is_dm = title_val == "DM"
+
+    # إذا كان المستخدم ليس من فريق Compliance، نطبق التصفية
+    if not is_compliance:
+        user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
+        # بناء شجرة الفريق
+        hierarchy = build_team_hierarchy_recursive(df, user_code, title_val)
+        if not hierarchy:
+            st.warning("Could not determine your team structure. Showing all messages.")
+        else:
+            # جمع كود جميع أعضاء الفريق (بما فيهم MRs)
+            def collect_all_team_codes(node, codes_set):
+                if node:
+                    codes_set.add(node.get("Manager Code", ""))
+                    for child in node.get("Team", []):
+                        collect_all_team_codes(child, codes_set)
+                return codes_set
+
+            team_codes = set()
+            collect_all_team_codes(hierarchy, team_codes)
+            # إضافة كود المستخدم نفسه
+            team_codes.add(user_code)
+            # إضافة كود المدراء في الفريق
+            for code in list(team_codes):
+                # إذا كان الكود ينتمي لـ DM أو AM، نضيف موظفيه
+                emp_row = df[df["Employee Code"].astype(str) == str(code)]
+                if not emp_row.empty:
+                    title = emp_row.iloc[0]["Title"]
+                    if title in ["DM", "AM"]:
+                        # إضافة جميع MRs تحته
+                        sub_mrs = df[df["Manager Code"].astype(str) == str(code)]
+                        for mr_code in sub_mrs["Employee Code"].astype(str).tolist():
+                            team_codes.add(mr_code)
+            # تصفية الرسائل
+            messages_df = messages_df[
+                messages_df["MR Code"].astype(str).isin(team_codes)
+            ].copy()
+
+    # عرض الرسائل
+    messages_df = messages_df.sort_values("Timestamp", ascending=False).reset_index(drop=True)
+    messages_df["Date"] = pd.to_datetime(messages_df["Timestamp"]).dt.strftime("%d-%m-%Y %H:%M")
+
+    # إضافة اسم المدير
     if not df.empty:
         emp_code_col = "Employee Code"
         mgr_code_col = "Manager Code"
@@ -1466,7 +1503,6 @@ def page_report_compliance(user):
         if all(col in df.columns for col in [emp_code_col, mgr_code_col, emp_name_col]):
             df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
             df[mgr_code_col] = df[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-            # إنشاء خريطة من كود الموظف إلى كود المدير
             code_to_mgr_code = dict(zip(df[emp_code_col], df[mgr_code_col]))
             code_to_mgr_name = {}
             for _, row in df.iterrows():
@@ -1498,10 +1534,9 @@ def page_report_compliance(user):
         "Manager Name": "Manager Name",
         "Manager Code": "Manager Code"
     })
-    
+
     st.dataframe(display_df, use_container_width=True)
-    
-    # زر تحميل Excel
+
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         display_df.to_excel(writer, index=False)
