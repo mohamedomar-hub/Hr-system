@@ -18,6 +18,7 @@ import hashlib
 # COMPLIANCE MESSAGES FILE PATH
 # ============================
 COMPLIANCE_MESSAGES_FILE = "compliance_messages.json"
+IDB_REPORTS_FILE = "idb_reports.json"
 
 # ============================
 # SALARY ENCRYPTION SETUP (Secure: from Streamlit Secrets)
@@ -1789,35 +1790,32 @@ def page_my_profile(user):
     st.markdown("---")
     st.markdown("### 📧 Private Email (Visible only to you and HR)")
     user_code_clean = str(user.get("Employee Code", "")).strip().replace(".0", "")
-    df = st.session_state.get("df", pd.DataFrame())
-
-# احصل على صف المستخدم
-col_map = {c.lower().strip(): c for c in df.columns}
-code_col = col_map.get("employee_code") or col_map.get("employee code")
-if not code_col:
-    st.error("Employee code column not found.")
-else:
-    df[code_col] = df[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-    user_row = df[df[code_col] == user_code_clean]
-    if not user_row.empty:
-        current_private_email = user_row.iloc[0].get("Private Email", "") or ""
-        with st.form("private_email_form"):
-            new_private_email = st.text_input("Your Personal Email", value=str(current_private_email))
-            email_submitted = st.form_submit_button("💾 Save Private Email")
-            if email_submitted:
-                # تحديث القيمة في DataFrame
-                df.loc[df[code_col] == user_code_clean, "Private Email"] = new_private_email
-                st.session_state["df"] = df
-                saved, pushed = save_and_maybe_push(df, actor=user.get("Employee Name","HR"))
-                if saved:
-                    st.success("✅ Private email saved.")
-                    if pushed:
-                        st.success("Pushed to GitHub.")
-                else:
-                    st.error("❌ Failed to save.")
-                st.rerun()
+    df_email = st.session_state.get("df", pd.DataFrame())
+    col_map_email = {c.lower().strip(): c for c in df_email.columns}
+    code_col_email = col_map_email.get("employee_code") or col_map_email.get("employee code")
+    if not code_col_email:
+        st.error("Employee code column not found.")
     else:
-        st.error("Your record not found.")
+        df_email[code_col_email] = df_email[code_col_email].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+        user_row = df_email[df_email[code_col_email] == user_code_clean]
+        if not user_row.empty:
+            current_private_email = user_row.iloc[0].get("Private Email", "") or ""
+            with st.form("private_email_form"):
+                new_private_email = st.text_input("Your Personal Email", value=str(current_private_email))
+                email_submitted = st.form_submit_button("💾 Save Private Email")
+                if email_submitted:
+                    df_email.loc[df_email[code_col_email] == user_code_clean, "Private Email"] = new_private_email
+                    st.session_state["df"] = df_email
+                    saved, pushed = save_and_maybe_push(df_email, actor=user.get("Employee Name","HR"))
+                    if saved:
+                        st.success("✅ Private email saved.")
+                        if pushed:
+                            st.success("Pushed to GitHub.")
+                    else:
+                        st.error("❌ Failed to save.")
+                    st.rerun()
+        else:
+            st.error("Your record not found.")
     st.markdown("### 🔐 Change Your Password")
     with st.form("change_password_form"):
         current_pwd = st.text_input("Current Password", type="password")
@@ -1831,13 +1829,13 @@ else:
                 st.error("New password and confirmation do not match.")
             else:
                 hashes = load_password_hashes()
-                user_code_clean = str(user.get("Employee Code", "")).strip().replace(".0", "")
-                stored_hash = hashes.get(user_code_clean)
+                user_code_clean_pwd = str(user.get("Employee Code", "")).strip().replace(".0", "")
+                stored_hash = hashes.get(user_code_clean_pwd)
                 if stored_hash and verify_password(current_pwd, stored_hash):
-                    hashes[user_code_clean] = hash_password(new_pwd)
+                    hashes[user_code_clean_pwd] = hash_password(new_pwd)
                     save_password_hashes(hashes)
                     st.success("✅ Your password has been updated successfully.")
-                    add_notification("", "HR", f"Employee {user_code_clean} changed their password.")
+                    add_notification("", "HR", f"Employee {user_code_clean_pwd} changed their password.")
                 else:
                     st.error("❌ Current password is incorrect.")
 
@@ -2052,30 +2050,6 @@ def page_self_development(user):
         add_notification("", "HR", f"MR {user_code} uploaded a new certification.")
         st.success("✅ Certification submitted to HR!")
         st.rerun()
-    def collect_descendants_codes(start_code):
-        descendants = set()
-        stack = [str(start_code)]
-        while stack:
-            cur = stack.pop()
-            direct = df[df[mgr_code_col] == str(cur)]
-            for _, r in direct.iterrows():
-                code = r[emp_code_col]
-                title = r[title_col]
-                if code not in descendants:
-                    descendants.add(code)
-                    if title in ["AM", "DM", "BUM"]:
-                        stack.append(code)
-        return list(descendants)
-    all_desc = collect_descendants_codes(manager_code)
-    if all_desc:
-        desc_df = df[df[emp_code_col].isin(all_desc)]
-        node["Summary"]["AM"] = int((desc_df[title_col] == "AM").sum())
-        node["Summary"]["DM"] = int((desc_df[title_col] == "DM").sum())
-        node["Summary"]["MR"] = int((desc_df[title_col] == "MR").sum())
-        node["Summary"]["Total"] = node["Summary"]["AM"] + node["Summary"]["DM"] + node["Summary"]["MR"]
-    else:
-        node["Summary"] = {"AM":0, "DM":0, "MR":0, "Total":0}
-    return node
 
 def send_full_leaves_report_to_hr(leaves_df, df_emp, out_path="HR_Leaves_Report.xlsx"):
     try:
@@ -3108,93 +3082,93 @@ else:
             "DM"
         }
         
-        if current_page == "My Profile":
-            page_my_profile(user)
-        elif current_page == "Notifications":
-            page_notifications(user)
-        elif current_page == "Leave Request":
-            if is_special:
-                page_leave_request(user)
-            else:
-                st.error("Access denied. Only specific roles can request leave.")
-        elif current_page == "Team Leaves":
-            if is_bum:
-                page_manager_leaves(user)
-            else:
-                st.error("Access denied. Only BUM can view team leaves.")
-        elif current_page == "Development":
-            if is_hr:
-                page_hr_development(user)
-            else:
-                st.error("Access denied. HR only.")
-        elif current_page == "Dashboard":
-            page_dashboard(user)
-        elif current_page == "Reports":
-            page_reports(user)
-        elif current_page == "HR Manager":
-            page_hr_manager(user)
-        elif current_page == "Team Structure":
-            if is_bum or is_am or is_dm:
-                page_my_team(user, role=title_val)
-            else:
-                st.error("Access denied. BUM, AM, or DM only.")
-        elif current_page == "HR Inbox":
-            if is_hr:
-                page_hr_inbox(user)
-            else:
-                st.error("Access denied. HR only.")
-        elif current_page == "Employee Photos":
-            if is_hr:
-                page_employee_photos(user)
-            else:
-                st.error("Access denied. HR only.")
-        elif current_page == "Ask HR":
-            page_ask_hr(user)
-        elif current_page == "Ask Employees":
-            if is_hr:
-                page_ask_employees(user)
-            else:
-                st.error("Access denied. HR only.")
-        elif current_page == "Request HR":
-            page_request_hr(user)
-        elif current_page == "Structure":
-            page_directory(user)
-        elif current_page == "Salary Monthly":
-            page_salary_monthly(user)
-        elif current_page == "Salary Report":
-            if is_hr:
-                page_salary_report(user)
-            else:
-                st.error("Access denied. HR only.")
-        elif current_page == "Recruitment":
-            if is_hr:
-                page_recruitment(user)
-            else:
-                st.error("Access denied. HR only.")
-        elif current_page == "Settings":
-            if is_hr:
-                page_settings(user)
-            else:
-                st.error("Access denied. HR only.")
-        elif current_page == "IDB":
-            if is_mr:
-                page_idb_mr(user)
-        elif current_page == "Self Development":
-            if is_mr:
-                page_self_development(user)
-            else:
-                st.error("Access denied. MR only.")        
-            else:
-                st.error("Access denied. MR only.")       
-        elif current_page == "Notify Compliance":
-            if is_mr:
-                page_notify_compliance(user)
-            else:
-                st.error("Access denied. MR only.")
-        elif current_page == "Report Compliance":
-            if title_val in compliance_and_managers_set:
-                page_report_compliance(user)
-            else:
-                st.error("Access denied. Compliance or Managers only.")
-        else:
-            st.info("Please log in to access the system.")
+if current_page == "My Profile":
+    page_my_profile(user)
+elif current_page == "Notifications":
+    page_notifications(user)
+elif current_page == "Leave Request":
+    if is_special:
+        page_leave_request(user)
+    else:
+        st.error("Access denied. Only specific roles can request leave.")
+elif current_page == "Team Leaves":
+    if is_bum:
+        page_manager_leaves(user)
+    else:
+        st.error("Access denied. Only BUM can view team leaves.")
+elif current_page == "Development":
+    if is_hr:
+        page_hr_development(user)
+    else:
+        st.error("Access denied. HR only.")
+elif current_page == "Dashboard":
+    page_dashboard(user)
+elif current_page == "Reports":
+    page_reports(user)
+elif current_page == "HR Manager":
+    page_hr_manager(user)
+elif current_page == "Team Structure":
+    if is_bum or is_am or is_dm:
+        page_my_team(user, role=title_val)
+    else:
+        st.error("Access denied. BUM, AM, or DM only.")
+elif current_page == "HR Inbox":
+    if is_hr:
+        page_hr_inbox(user)
+    else:
+        st.error("Access denied. HR only.")
+elif current_page == "Employee Photos":
+    if is_hr:
+        page_employee_photos(user)
+    else:
+        st.error("Access denied. HR only.")
+elif current_page == "Ask HR":
+    page_ask_hr(user)
+elif current_page == "Ask Employees":
+    if is_hr:
+        page_ask_employees(user)
+    else:
+        st.error("Access denied. HR only.")
+elif current_page == "Request HR":
+    page_request_hr(user)
+elif current_page == "Structure":
+    page_directory(user)
+elif current_page == "Salary Monthly":
+    page_salary_monthly(user)
+elif current_page == "Salary Report":
+    if is_hr:
+        page_salary_report(user)
+    else:
+        st.error("Access denied. HR only.")
+elif current_page == "Recruitment":
+    if is_hr:
+        page_recruitment(user)
+    else:
+        st.error("Access denied. HR only.")
+elif current_page == "Settings":
+    if is_hr:
+        page_settings(user)
+    else:
+        st.error("Access denied. HR only.")
+elif current_page == "IDB":
+    if is_mr:
+        page_idb_mr(user)
+    else:
+        st.error("Access denied. MR only.")
+elif current_page == "Self Development":
+    if is_mr:
+        page_self_development(user)
+    else:
+        st.error("Access denied. MR only.")
+elif current_page == "Notify Compliance":
+    if is_mr:
+        page_notify_compliance(user)
+    else:
+        st.error("Access denied. MR only.")
+elif current_page == "Report Compliance":
+    if title_val in compliance_and_managers_set:
+        page_report_compliance(user)
+    else:
+        st.error("Access denied. Compliance or Managers only.")
+else:
+    st.info("Please log in to access the system.")
