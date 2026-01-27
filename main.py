@@ -18,7 +18,6 @@ import hashlib
 # COMPLIANCE MESSAGES FILE PATH
 # ============================
 COMPLIANCE_MESSAGES_FILE = "compliance_messages.json"
-IDB_REPORTS_FILE = "idb_reports.json"
 
 # ============================
 # SALARY ENCRYPTION SETUP (Secure: from Streamlit Secrets)
@@ -87,22 +86,23 @@ def save_compliance_messages(df):
 # 🆕 FUNCTION: Sanitize employee data (APPLY YOUR 3 RULES)
 # ============================
 def sanitize_employee_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Applies the following rules:
+    1. Drop 'annual_leave_balance' column if exists.
+    2. Drop 'monthly_salary' column if exists.
+    3. Hide 'E-Mail' for anyone NOT in ['BUM', 'AM', 'DM'].
+    """
     df = df.copy()
     # Rule 1 & 2: drop sensitive columns if present
     sensitive_columns_to_drop = ['annual_leave_balance', 'monthly_salary']
     for col in sensitive_columns_to_drop:
         if col in df.columns:
             df = df.drop(columns=[col])
-    
-    # Rule 3: hide 'E-Mail' for anyone NOT in ['BUM', 'AM', 'DM']
+    # Rule 3: hide email except for BUM, AM, DM
     if 'E-Mail' in df.columns and 'Title' in df.columns:
         allowed_titles = {'BUM', 'AM', 'DM'}
         mask = ~df['Title'].astype(str).str.upper().isin(allowed_titles)
-        df.loc[mask, 'E-Mail'] = ""
-    
-    # Rule 4: لا تُظهر 'Private Email' لأحد (سيتم عرضه لاحقًا في My Profile فقط)
-    # نترك العمود موجودًا في البيانات الداخلية، لكن لا نُخفيه هنا لأننا سنتحكم في العرض يدويًا
-    
+        df.loc[mask, 'E-Mail'] = ""  # blank out, not delete column
     return df
 
 # ============================
@@ -633,26 +633,7 @@ def save_leaves_data(df):
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors="coerce").dt.strftime("%Y-%m-%d")
     return save_json_file(df, LEAVES_FILE_PATH)
-def load_idb_reports():
-    return load_json_file(IDB_REPORTS_FILE, default_columns=[
-        "Employee Code", "Selected Departments", "Strengths", "Development Areas", "Action Plan", "Updated At"
-    ])
 
-def save_idb_report(employee_code, selected_deps, strengths, development, action):
-    reports = load_idb_reports()
-    now = pd.Timestamp.now().isoformat()
-    new_row = {
-        "Employee Code": employee_code,
-        "Selected Departments": selected_deps,
-        "Strengths": strengths,
-        "Development Areas": development,
-        "Action Plan": action,
-        "Updated At": now
-    }
-    # إذا كان التقرير موجودًا، نستبدله
-    reports = reports[reports["Employee Code"] != employee_code]
-    reports = pd.concat([reports, pd.DataFrame([new_row])], ignore_index=True)
-    return save_json_file(reports, IDB_REPORTS_FILE)
 # ============================
 # Notifications System
 # ============================
@@ -1108,45 +1089,6 @@ def page_hr_manager(user):
     if df.empty:
         st.error("Employee data not loaded.")
         return
-
-def page_hr_development(user):
-    st.subheader("🎓 Employee Development (HR View)")
-    tab_idb, tab_certs = st.tabs(["📋 IDB Reports", "📜 Certifications"])
-
-    with tab_idb:
-        idb_df = load_idb_reports()
-        if not idb_df.empty:
-            # تحويل القوائم النصية إلى سلاسل
-            idb_df["Selected Departments"] = idb_df["Selected Departments"].apply(
-                lambda x: ", ".join(eval(x)) if isinstance(x, str) else ", ".join(x)
-            )
-            idb_df["Strengths"] = idb_df["Strengths"].apply(
-                lambda x: "; ".join(eval(x)) if isinstance(x, str) else "; ".join(x)
-            )
-            idb_df["Development Areas"] = idb_df["Development Areas"].apply(
-                lambda x: "; ".join(eval(x)) if isinstance(x, str) else "; ".join(x)
-            )
-            st.dataframe(idb_df, use_container_width=True)
-            buf = BytesIO()
-            with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-                idb_df.to_excel(writer, index=False)
-            buf.seek(0)
-            st.download_button("📥 Download IDB Reports", data=buf, file_name="HR_IDB_Reports.xlsx")
-        else:
-            st.info("No IDB reports yet.")
-
-    with tab_certs:
-        cert_log = load_json_file("certifications_log.json")
-        if not cert_log.empty:
-            st.dataframe(cert_log, use_container_width=True)
-            for idx, row in cert_log.iterrows():
-                filepath = os.path.join("certifications", row["File"])
-                if os.path.exists(filepath):
-                    with open(filepath, "rb") as f:
-                        st.download_button(f"📥 {row['File']}", f, key=f"dl_cert_{idx}")
-        else:
-            st.info("No certifications uploaded.")
-
     # ============================
     # 🔑 NEW: Reset Employee Password Section
     # ============================
@@ -1486,107 +1428,7 @@ def page_notify_compliance(user):
                 st.success("✅ Your message has been sent to Compliance and your manager.")
             else:
                 st.error("❌ Failed to send message.")
-def page_idb_mr(user):
-    st.subheader("🚀 IDB – Individual Development Blueprint")
-    st.markdown("""
-    <div style="background-color:#f0fdf4; padding:12px; border-radius:8px; border-left:4px solid #059669;">
-    <p style="color:#05445E; font-weight:bold;">We want you to always aim higher — your success matters to us.</p>
-    </div>
-    """, unsafe_allow_html=True)
 
-    user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
-    departments = ["Sales", "Marketing", "HR", "SFE", "Distribution", "Market Access"]
-
-    reports = load_idb_reports()
-    existing = reports[reports["Employee Code"] == user_code]
-    if not existing.empty:
-        row = existing.iloc[0]
-        selected_deps = eval(row["Selected Departments"]) if isinstance(row["Selected Departments"], str) else row["Selected Departments"]
-        strengths = eval(row["Strengths"]) if isinstance(row["Strengths"], str) else row["Strengths"]
-        development = eval(row["Development Areas"]) if isinstance(row["Development Areas"], str) else row["Development Areas"]
-        action = row["Action Plan"]
-    else:
-        selected_deps = []
-        strengths = ["", "", ""]
-        development = ["", "", ""]
-        action = ""
-
-    with st.form("idb_form"):
-        st.markdown("### 🔍 Select Target Departments (Max 2)")
-        selected = st.multiselect(
-            "Choose up to 2 departments you're interested in:",
-            options=departments,
-            default=selected_deps
-        )
-        if len(selected) > 2:
-            st.warning("⚠️ You can select a maximum of 2 departments.")
-
-        st.markdown("### 💪 Area of Strength (3 points)")
-        strength_inputs = []
-        for i in range(3):
-            val = strengths[i] if i < len(strengths) else ""
-            strength_inputs.append(st.text_input(f"Strength {i+1}", value=val, key=f"str_{i}"))
-
-        st.markdown("### 📈 Area of Development (3 points)")
-        dev_inputs = []
-        for i in range(3):
-            val = development[i] if i < len(development) else ""
-            dev_inputs.append(st.text_input(f"Development {i+1}", value=val, key=f"dev_{i}"))
-
-        st.markdown("### 🤝 Action Plan (Agreed with your manager)")
-        action_input = st.text_area("Action", value=action, height=100)
-
-        submitted = st.form_submit_button("💾 Save IDB Report")
-        if submitted:
-            if len(selected) > 2:
-                st.error("You cannot select more than 2 departments.")
-            else:
-                success = save_idb_report(
-                    user_code,
-                    selected,
-                    [s.strip() for s in strength_inputs if s.strip()],
-                    [d.strip() for d in dev_inputs if d.strip()],
-                    action_input.strip()
-                )
-                if success:
-                    st.success("✅ IDB Report saved successfully!")
-                    add_notification("", "HR", f"MR {user_code} updated their IDB report.")
-                    st.rerun()
-                else:
-                    st.error("❌ Failed to save report.")
-
-    # عرض التقرير الحالي كجدول قابل للتنزيل
-    if not existing.empty:
-        st.markdown("### 📊 Your Current IDB Report")
-        display_data = {
-            "Field": [
-                "Selected Departments",
-                "Strength 1", "Strength 2", "Strength 3",
-                "Development 1", "Development 2", "Development 3",
-                "Action Plan",
-                "Updated At"
-            ],
-            "Value": [
-                ", ".join(selected_deps),
-                *(strengths + [""] * (3 - len(strengths))),
-                *(development + [""] * (3 - len(development))),
-                action,
-                existing.iloc[0]["Updated At"]
-            ]
-        }
-        display_df = pd.DataFrame(display_data)
-        st.table(display_df)
-
-        buf = BytesIO()
-        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-            display_df.to_excel(writer, index=False, sheet_name="IDB_Report")
-        buf.seek(0)
-        st.download_button(
-            "📥 Download IDB Report (Excel)",
-            data=buf,
-            file_name=f"IDB_{user_code}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
 # ============================
 # 🆕 PAGE: Report Compliance (for Compliance team + Managers)
 # ============================
@@ -1788,34 +1630,6 @@ def page_my_profile(user):
                     except Exception as e:
                         st.error(f"Failed to save photo: {e}")
     st.markdown("---")
-    st.markdown("### 📧 Private Email (Visible only to you and HR)")
-    user_code_clean = str(user.get("Employee Code", "")).strip().replace(".0", "")
-    df_email = st.session_state.get("df", pd.DataFrame())
-    col_map_email = {c.lower().strip(): c for c in df_email.columns}
-    code_col_email = col_map_email.get("employee_code") or col_map_email.get("employee code")
-    if not code_col_email:
-        st.error("Employee code column not found.")
-    else:
-        df_email[code_col_email] = df_email[code_col_email].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-        user_row = df_email[df_email[code_col_email] == user_code_clean]
-        if not user_row.empty:
-            current_private_email = user_row.iloc[0].get("Private Email", "") or ""
-            with st.form("private_email_form"):
-                new_private_email = st.text_input("Your Personal Email", value=str(current_private_email))
-                email_submitted = st.form_submit_button("💾 Save Private Email")
-                if email_submitted:
-                    df_email.loc[df_email[code_col_email] == user_code_clean, "Private Email"] = new_private_email
-                    st.session_state["df"] = df_email
-                    saved, pushed = save_and_maybe_push(df_email, actor=user.get("Employee Name","HR"))
-                    if saved:
-                        st.success("✅ Private email saved.")
-                        if pushed:
-                            st.success("Pushed to GitHub.")
-                    else:
-                        st.error("❌ Failed to save.")
-                    st.rerun()
-        else:
-            st.error("Your record not found.")
     st.markdown("### 🔐 Change Your Password")
     with st.form("change_password_form"):
         current_pwd = st.text_input("Current Password", type="password")
@@ -1829,13 +1643,13 @@ def page_my_profile(user):
                 st.error("New password and confirmation do not match.")
             else:
                 hashes = load_password_hashes()
-                user_code_clean_pwd = str(user.get("Employee Code", "")).strip().replace(".0", "")
-                stored_hash = hashes.get(user_code_clean_pwd)
+                user_code_clean = str(user.get("Employee Code", "")).strip().replace(".0", "")
+                stored_hash = hashes.get(user_code_clean)
                 if stored_hash and verify_password(current_pwd, stored_hash):
-                    hashes[user_code_clean_pwd] = hash_password(new_pwd)
+                    hashes[user_code_clean] = hash_password(new_pwd)
                     save_password_hashes(hashes)
                     st.success("✅ Your password has been updated successfully.")
-                    add_notification("", "HR", f"Employee {user_code_clean_pwd} changed their password.")
+                    add_notification("", "HR", f"Employee {user_code_clean} changed their password.")
                 else:
                     st.error("❌ Current password is incorrect.")
 
@@ -2014,42 +1828,30 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title="AM"):
             node["Team"].append(leaf_node)
         else:
             node["Team"].append(child_node)
-def page_self_development(user):
-    st.subheader("🌱 Self Development")
-    st.markdown("""
-    <div style="background-color:#e0f2fe; padding:16px; border-radius:10px; text-align:center; margin-bottom:20px;">
-    <h3 style="color:#05445E;">We always want you at your best — your success matters to us.<br>
-    Share your journey to success with us.</h3>
-    </div>
-    """, unsafe_allow_html=True)
-
-    user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
-    uploaded_cert = st.file_uploader("Upload your certification (PDF, JPG, PNG)", type=["pdf", "jpg", "jpeg", "png"])
-    cert_desc = st.text_input("Brief description (optional)", placeholder="e.g., Leadership Course, Excel Advanced...")
-
-    if uploaded_cert and st.button("📤 Submit Certification"):
-        os.makedirs("certifications", exist_ok=True)
-        ext = uploaded_cert.name.split(".")[-1].lower()
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"cert_{user_code}_{timestamp}.{ext}"
-        filepath = os.path.join("certifications", filename)
-        with open(filepath, "wb") as f:
-            f.write(uploaded_cert.getbuffer())
-        
-        # حفظ ميتا بيانات في JSON
-        cert_log = load_json_file("certifications_log.json", default_columns=["Employee Code", "File", "Description", "Uploaded At"])
-        new_log = pd.DataFrame([{
-            "Employee Code": user_code,
-            "File": filename,
-            "Description": cert_desc,
-            "Uploaded At": pd.Timestamp.now().isoformat()
-        }])
-        cert_log = pd.concat([cert_log, new_log], ignore_index=True)
-        save_json_file(cert_log, "certifications_log.json")
-
-        add_notification("", "HR", f"MR {user_code} uploaded a new certification.")
-        st.success("✅ Certification submitted to HR!")
-        st.rerun()
+    def collect_descendants_codes(start_code):
+        descendants = set()
+        stack = [str(start_code)]
+        while stack:
+            cur = stack.pop()
+            direct = df[df[mgr_code_col] == str(cur)]
+            for _, r in direct.iterrows():
+                code = r[emp_code_col]
+                title = r[title_col]
+                if code not in descendants:
+                    descendants.add(code)
+                    if title in ["AM", "DM", "BUM"]:
+                        stack.append(code)
+        return list(descendants)
+    all_desc = collect_descendants_codes(manager_code)
+    if all_desc:
+        desc_df = df[df[emp_code_col].isin(all_desc)]
+        node["Summary"]["AM"] = int((desc_df[title_col] == "AM").sum())
+        node["Summary"]["DM"] = int((desc_df[title_col] == "DM").sum())
+        node["Summary"]["MR"] = int((desc_df[title_col] == "MR").sum())
+        node["Summary"]["Total"] = node["Summary"]["AM"] + node["Summary"]["DM"] + node["Summary"]["MR"]
+    else:
+        node["Summary"] = {"AM":0, "DM":0, "MR":0, "Total":0}
+    return node
 
 def send_full_leaves_report_to_hr(leaves_df, df_emp, out_path="HR_Leaves_Report.xlsx"):
     try:
@@ -2994,7 +2796,7 @@ with st.sidebar:
             st.write(f"👋 **Welcome, {user.get('Employee Name') or 'User'}**")
             st.markdown("---")
             if is_hr:
-                pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Recruitment","Development","Notifications", "Structure", "Salary Monthly", "Salary Report", "Settings"]
+                pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Recruitment", "Notifications", "Structure", "Salary Monthly", "Salary Report", "Settings"]
             elif is_bum:
                 # ✅ BUM gets Team Leaves + Team Structure
                 pages = ["My Profile", "Team Leaves", "Team Structure", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
@@ -3003,7 +2805,7 @@ with st.sidebar:
                 pages = ["My Profile", "Team Structure", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             elif is_mr:
                 # ✅ MR gets Notify Compliance
-                pages = ["My Profile", "Notify Compliance", "IDB", "Ask HR","IDB","Request HR", "Notifications", "Structure", "Salary Monthly"]
+                pages = ["My Profile", "Notify Compliance", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             elif is_special:
                 # ❌ Special titles: ONLY Leave Request (no Team Leaves)
                 pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
@@ -3082,93 +2884,78 @@ else:
             "DM"
         }
         
-if current_page == "My Profile":
-    page_my_profile(user)
-elif current_page == "Notifications":
-    page_notifications(user)
-elif current_page == "Leave Request":
-    if is_special:
-        page_leave_request(user)
-    else:
-        st.error("Access denied. Only specific roles can request leave.")
-elif current_page == "Team Leaves":
-    if is_bum:
-        page_manager_leaves(user)
-    else:
-        st.error("Access denied. Only BUM can view team leaves.")
-elif current_page == "Development":
-    if is_hr:
-        page_hr_development(user)
-    else:
-        st.error("Access denied. HR only.")
-elif current_page == "Dashboard":
-    page_dashboard(user)
-elif current_page == "Reports":
-    page_reports(user)
-elif current_page == "HR Manager":
-    page_hr_manager(user)
-elif current_page == "Team Structure":
-    if is_bum or is_am or is_dm:
-        page_my_team(user, role=title_val)
-    else:
-        st.error("Access denied. BUM, AM, or DM only.")
-elif current_page == "HR Inbox":
-    if is_hr:
-        page_hr_inbox(user)
-    else:
-        st.error("Access denied. HR only.")
-elif current_page == "Employee Photos":
-    if is_hr:
-        page_employee_photos(user)
-    else:
-        st.error("Access denied. HR only.")
-elif current_page == "Ask HR":
-    page_ask_hr(user)
-elif current_page == "Ask Employees":
-    if is_hr:
-        page_ask_employees(user)
-    else:
-        st.error("Access denied. HR only.")
-elif current_page == "Request HR":
-    page_request_hr(user)
-elif current_page == "Structure":
-    page_directory(user)
-elif current_page == "Salary Monthly":
-    page_salary_monthly(user)
-elif current_page == "Salary Report":
-    if is_hr:
-        page_salary_report(user)
-    else:
-        st.error("Access denied. HR only.")
-elif current_page == "Recruitment":
-    if is_hr:
-        page_recruitment(user)
-    else:
-        st.error("Access denied. HR only.")
-elif current_page == "Settings":
-    if is_hr:
-        page_settings(user)
-    else:
-        st.error("Access denied. HR only.")
-elif current_page == "IDB":
-    if is_mr:
-        page_idb_mr(user)
-    else:
-        st.error("Access denied. MR only.")
-elif current_page == "Self Development":
-    if is_mr:
-        page_self_development(user)
-    else:
-        st.error("Access denied. MR only.")
-elif current_page == "Notify Compliance":
-    if is_mr:
-        page_notify_compliance(user)
-    else:
-        st.error("Access denied. MR only.")
-elif current_page == "Report Compliance":
-    if title_val in compliance_and_managers_set:
-        page_report_compliance(user)
-    else:
-        st.error("Access denied. Compliance or Managers only.")
-else:
-    st.info("Please log in to access the system.")
+        if current_page == "My Profile":
+            page_my_profile(user)
+        elif current_page == "Notifications":
+            page_notifications(user)
+        elif current_page == "Leave Request":
+            if is_special:
+                page_leave_request(user)
+            else:
+                st.error("Access denied. Only specific roles can request leave.")
+        elif current_page == "Team Leaves":
+            if is_bum:
+                page_manager_leaves(user)
+            else:
+                st.error("Access denied. Only BUM can view team leaves.")
+        elif current_page == "Dashboard":
+            page_dashboard(user)
+        elif current_page == "Reports":
+            page_reports(user)
+        elif current_page == "HR Manager":
+            page_hr_manager(user)
+        elif current_page == "Team Structure":
+            if is_bum or is_am or is_dm:
+                page_my_team(user, role=title_val)
+            else:
+                st.error("Access denied. BUM, AM, or DM only.")
+        elif current_page == "HR Inbox":
+            if is_hr:
+                page_hr_inbox(user)
+            else:
+                st.error("Access denied. HR only.")
+        elif current_page == "Employee Photos":
+            if is_hr:
+                page_employee_photos(user)
+            else:
+                st.error("Access denied. HR only.")
+        elif current_page == "Ask HR":
+            page_ask_hr(user)
+        elif current_page == "Ask Employees":
+            if is_hr:
+                page_ask_employees(user)
+            else:
+                st.error("Access denied. HR only.")
+        elif current_page == "Request HR":
+            page_request_hr(user)
+        elif current_page == "Structure":
+            page_directory(user)
+        elif current_page == "Salary Monthly":
+            page_salary_monthly(user)
+        elif current_page == "Salary Report":
+            if is_hr:
+                page_salary_report(user)
+            else:
+                st.error("Access denied. HR only.")
+        elif current_page == "Recruitment":
+            if is_hr:
+                page_recruitment(user)
+            else:
+                st.error("Access denied. HR only.")
+        elif current_page == "Settings":
+            if is_hr:
+                page_settings(user)
+            else:
+                st.error("Access denied. HR only.")
+        elif current_page == "Notify Compliance":
+            if is_mr:
+                page_notify_compliance(user)
+            else:
+                st.error("Access denied. MR only.")
+        elif current_page == "Report Compliance":
+            if title_val in compliance_and_managers_set:
+                page_report_compliance(user)
+            else:
+                st.error("Access denied. Compliance or Managers only.")
+        else:
+            st.info("Please log in to access the system.")
