@@ -1,4 +1,4 @@
-# hr_system_with_config_json.py — FULLY CONVERTED TO JSON (NO LINE DELETED) + IDB & SELF DEVELOPMENT
+\# hr_system_with_config_json.py — FULLY CONVERTED TO JSON (NO LINE DELETED) + IDB & SELF DEVELOPMENT + FIXES
 import streamlit as st
 import pandas as pd
 import requests
@@ -103,18 +103,18 @@ def sanitize_employee_data(df: pd.DataFrame) -> pd.DataFrame:
     # We do NOT hide it here because we need it accessible for My Profile page
     return df
 # ============================
-# 🆕 FUNCTION: Load & Save IDB Reports
+# 🆕 FUNCTION: Load & Save IDB Reports (FIXED: Added Employee Name)
 # ============================
 def load_idb_reports():
     return load_json_file(IDB_REPORTS_FILE, default_columns=[
-        "Employee Code", "Selected Departments", "Strengths", "Development Areas", "Action Plan", "Updated At"
+        "Employee Code", "Employee Name", "Selected Departments", "Strengths", "Development Areas", "Action Plan", "Updated At"
     ])
 def save_idb_report(employee_code, employee_name, selected_deps, strengths, development, action):
     reports = load_idb_reports()
     now = pd.Timestamp.now().isoformat()
     new_row = {
         "Employee Code": employee_code,
-        "Employee Name": employee_name,  # ✅ إضافة اسم الموظف
+        "Employee Name": employee_name,  # ✅ FIXED: Added Employee Name
         "Selected Departments": selected_deps,
         "Strengths": strengths,
         "Development Areas": development,
@@ -1400,7 +1400,7 @@ def page_notify_compliance(user):
             else:
                 st.error("❌ Failed to send message.")
 # ============================
-# 🆕 PAGE: Report Compliance (for Compliance team + Managers)
+# 🆕 PAGE: Report Compliance (for Compliance team + Managers + DM, AM, BUM)
 # ============================
 def page_report_compliance(user):
     st.subheader("📋 Report Compliance")
@@ -1417,7 +1417,7 @@ def page_report_compliance(user):
     # تحديد صلاحيات المستخدم
     title_val = str(user.get("Title", "")).strip().upper()
     is_compliance = title_val in {"ASSOCIATE COMPLIANCE", "FIELD COMPLIANCE SPECIALIST", "COMPLIANCE MANAGER"}
-    is_manager = title_val in {"AM", "DM"}
+    is_manager = title_val in {"AM", "DM", "BUM"}
     # إذا كان المستخدم ليس من فريق Compliance، نطبق التصفية
     if not is_compliance and is_manager:
         user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
@@ -1464,7 +1464,7 @@ def page_report_compliance(user):
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 # ============================
-# 🆕 PAGE: IDB - Individual Development Blueprint (for MR)
+# 🆕 PAGE: IDB - Individual Development Blueprint (for MR) - FIXED
 # ============================
 def page_idb_mr(user):
     st.subheader("🚀 IDB – Individual Development Blueprint")
@@ -1474,6 +1474,7 @@ def page_idb_mr(user):
 </div>
 """, unsafe_allow_html=True)
     user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
+    user_name = user.get("Employee Name", user_code)
     departments = ["Sales", "Marketing", "HR", "SFE", "Distribution", "Market Access"]
     reports = load_idb_reports()
     existing = reports[reports["Employee Code"] == user_code]
@@ -1516,7 +1517,7 @@ def page_idb_mr(user):
             else:
                 success = save_idb_report(
                     user_code,
-                    user.get("Employee Name", user_code),
+                    user_name,  # ✅ FIXED: Added Employee Name
                     selected,
                     [s.strip() for s in strength_inputs if s.strip()],
                     [d.strip() for d in dev_inputs if d.strip()],
@@ -1524,10 +1525,11 @@ def page_idb_mr(user):
                 )
                 if success:
                     st.success("✅ IDB Report saved successfully!")
-                    add_notification("", "HR", f"MR {user.get('Employee Name', user_code)} ({user_code}) updated their IDB report.")
-                    add_notification("", "DM", f"MR {user.get('Employee Name', user_code)} ({user_code}) updated their IDB report.")
-                    add_notification("", "AM", f"MR {user.get('Employee Name', user_code)} ({user_code}) updated their IDB report.")
-                    add_notification("", "BUM", f"MR {user.get('Employee Name', user_code)} ({user_code}) updated their IDB report.")
+                    # ✅ FIXED: Send notification to HR + ALL managers (DM, AM, BUM)
+                    add_notification("", "HR", f"MR {user_name} ({user_code}) updated their IDB report.")
+                    add_notification("", "DM", f"MR {user_name} ({user_code}) updated their IDB report.")
+                    add_notification("", "AM", f"MR {user_name} ({user_code}) updated their IDB report.")
+                    add_notification("", "BUM", f"MR {user_name} ({user_code}) updated their IDB report.")
                     st.rerun()
                 else:
                     st.error("❌ Failed to save report.")
@@ -1598,70 +1600,71 @@ Share your journey to success with us.</h3>
         st.success("✅ Certification submitted to HR!")
         st.rerun()
 # ============================
-# 🆕 PAGE: HR Development View (for HR)
+# 🆕 PAGE: HR Development View (for HR) - FIXED
 # ============================
 def page_hr_development(user):
     st.subheader("🎓 Employee Development (HR View)")
     tab_idb, tab_certs = st.tabs(["📋 IDB Reports", "📜 Certifications"])
     with tab_idb:
-    idb_df = load_idb_reports()
-    if not idb_df.empty:
-        if "Employee Name" not in idb_df.columns:
-            df = st.session_state.get("df", pd.DataFrame())
-            if not df.empty:
-                col_map = {c.lower().strip(): c for c in df.columns}
-                emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
-                emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
-                if emp_code_col and emp_name_col:
-                    df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-                    idb_df["Employee Code"] = idb_df["Employee Code"].astype(str).str.strip()
-                    idb_df = idb_df.merge(
-                        df[[emp_code_col, emp_name_col]].rename(columns={emp_code_col: "Employee Code", emp_name_col: "Employee Name"}),
-                        on="Employee Code",
-                        how="left"
-                    )
-        
-        # تحويل القوائم النصية إلى سلاسل
-        idb_df["Selected Departments"] = idb_df["Selected Departments"].apply(
-            lambda x: ", ".join(eval(x)) if isinstance(x, str) else ", ".join(x)
-        )
-        idb_df["Strengths"] = idb_df["Strengths"].apply(
-            lambda x: "; ".join(eval(x)) if isinstance(x, str) else "; ".join(x)
-        )
-        idb_df["Development Areas"] = idb_df["Development Areas"].apply(
-            lambda x: "; ".join(eval(x)) if isinstance(x, str) else "; ".join(x)
-        )
-        
-        # عرض الأعمدة المطلوبة
-        display_cols = ["Employee Code", "Employee Name", "Selected Departments", "Strengths", "Development Areas", "Action Plan", "Updated At"]
-        st.dataframe(idb_df[display_cols], use_container_width=True)
-        
-        buf = BytesIO()
-        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-            idb_df.to_excel(writer, index=False)
-        buf.seek(0)
-        st.download_button("📥 Download IDB Reports", data=buf, file_name="HR_IDB_Reports.xlsx")
-    else:
-        st.info("No IDB reports yet.")
+        idb_df = load_idb_reports()
+        if not idb_df.empty:
+            # ✅ FIXED: Add Employee Name if not exists
+            if "Employee Name" not in idb_df.columns:
+                df = st.session_state.get("df", pd.DataFrame())
+                if not df.empty:
+                    col_map = {c.lower().strip(): c for c in df.columns}
+                    emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
+                    emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
+                    if emp_code_col and emp_name_col:
+                        df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+                        idb_df["Employee Code"] = idb_df["Employee Code"].astype(str).str.strip()
+                        idb_df = idb_df.merge(
+                            df[[emp_code_col, emp_name_col]].rename(columns={emp_code_col: "Employee Code", emp_name_col: "Employee Name"}),
+                            on="Employee Code",
+                            how="left"
+                        )
+            
+            # تحويل القوائم النصية إلى سلاسل
+            idb_df["Selected Departments"] = idb_df["Selected Departments"].apply(
+                lambda x: ", ".join(eval(x)) if isinstance(x, str) else ", ".join(x)
+            )
+            idb_df["Strengths"] = idb_df["Strengths"].apply(
+                lambda x: "; ".join(eval(x)) if isinstance(x, str) else "; ".join(x)
+            )
+            idb_df["Development Areas"] = idb_df["Development Areas"].apply(
+                lambda x: "; ".join(eval(x)) if isinstance(x, str) else "; ".join(x)
+            )
+            
+            # عرض الأعمدة المطلوبة
+            display_cols = ["Employee Code", "Employee Name", "Selected Departments", "Strengths", "Development Areas", "Action Plan", "Updated At"]
+            st.dataframe(idb_df[display_cols], use_container_width=True)
+            
+            buf = BytesIO()
+            with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+                idb_df.to_excel(writer, index=False)
+            buf.seek(0)
+            st.download_button("📥 Download IDB Reports", data=buf, file_name="HR_IDB_Reports.xlsx")
+        else:
+            st.info("No IDB reports yet.")
     with tab_certs:
-    cert_log = load_json_file("certifications_log.json")
-    if not cert_log.empty:
-        st.dataframe(cert_log, use_container_width=True)
-        for idx, row in cert_log.iterrows():
-            filepath = os.path.join("certifications", row["File"])
-            if os.path.exists(filepath):
-                # ✅ إصلاح: تحميل الملف بنفس الصيغة الأصلية
-                with open(filepath, "rb") as f:
-                    file_bytes = f.read()
-                    st.download_button(
-                        label=f"📥 Download {row['File']}",
-                        data=file_bytes,
-                        file_name=row["File"],  # نفس اسم الملف الأصلي
-                        mime="application/octet-stream",  # صيغة عامة تحافظ على نوع الملف
-                        key=f"dl_cert_{idx}"
-                    )
-    else:
-        st.info("No certifications uploaded.")
+        cert_log = load_json_file("certifications_log.json")
+        if not cert_log.empty:
+            st.dataframe(cert_log, use_container_width=True)
+            for idx, row in cert_log.iterrows():
+                filepath = os.path.join("certifications", row["File"])
+                if os.path.exists(filepath):
+                    # ✅ FIXED: Download with original file format
+                    with open(filepath, "rb") as f:
+                        file_bytes = f.read()
+                        st.download_button(
+                            label=f"📥 Download {row['File']}",
+                            data=file_bytes,
+                            file_name=row["File"],  # نفس اسم الملف الأصلي
+                            mime="application/octet-stream",  # صيغة عامة تحافظ على نوع الملف
+                            key=f"dl_cert_{idx}"
+                        )
+        else:
+            st.info("No certifications uploaded.")
 # ============================
 # Remaining Page Functions (unchanged)
 # ============================
@@ -1806,14 +1809,41 @@ def page_team_structure(user):
         return
     user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
     title_val = str(user.get("Title", "")).strip().upper()
-    allowed_titles = {"AM", "DM", "HR"}
+    allowed_titles = {"AM", "DM", "HR", "BUM"}
     if title_val not in allowed_titles:
-        st.warning("Only AM, DM, and HR can view team structure.")
+        st.warning("Only AM, DM, HR, and BUM can view team structure.")
         return
     hierarchy = build_team_hierarchy_recursive(df, user_code, title_val)
     if not hierarchy:
         st.info("No team members found under your supervision.")
         return
+    
+    # ✅ FIXED: Show BUM team structure cards (AM, DM, MR counts)
+    if title_val == "BUM":
+        st.markdown("### Team Structure Summary")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown(f"""
+<div class="team-structure-card">
+<div class="team-structure-title">AM Count</div>
+<div class="team-structure-value am">{len([x for x in hierarchy if x.get('Title') == 'AM'])}</div>
+</div>
+""", unsafe_allow_html=True)
+        with col2:
+            st.markdown(f"""
+<div class="team-structure-card">
+<div class="team-structure-title">DM Count</div>
+<div class="team-structure-value dm">{len([x for x in hierarchy if x.get('Title') == 'DM'])}</div>
+</div>
+""", unsafe_allow_html=True)
+        with col3:
+            st.markdown(f"""
+<div class="team-structure-card">
+<div class="team-structure-title">MR Count</div>
+<div class="team-structure-value mr">{sum(len(x.get('Team', [])) for x in hierarchy if x.get('Title') == 'DM')}</div>
+</div>
+""", unsafe_allow_html=True)
+    
     def display_hierarchy(node, level=0):
         indent = "  " * level
         emp_code = node.get("Employee Code", "N/A")
@@ -2102,7 +2132,7 @@ def main():
         # Navigation based on role
         pages = ["👤 My Profile", "🔔 Notifications"]
         if user_title in {"AM", "DM"}:
-            pages.extend(["📅 Team Leave Requests", "👥 Team Structure"])
+            pages.extend(["📅 Team Leave Requests", "👥 Team Structure", "📋 Report Compliance"])
         if user_title == "MR":
             pages.extend(["📅 Request Leave", "🚀 IDB – Individual Development Blueprint", "🌱 Self Development", "📨 Notify Compliance"])
         if user_title in {"ASSOCIATE COMPLIANCE", "FIELD COMPLIANCE SPECIALIST", "COMPLIANCE MANAGER"}:
@@ -2127,6 +2157,8 @@ def main():
             pages.append("🎓 Employee Development (HR View)")
         if user_title in {"HR"}:
             pages.append("⚙️ HR Manager")
+        if user_title == "BUM":
+            pages.extend(["📅 Team Leave Requests", "👥 Team Structure", "📋 Report Compliance"])
         # Always show these for logged-in users
         pages.extend(["🚪 Logout"])
         # Display navigation
