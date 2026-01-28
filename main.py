@@ -1606,7 +1606,6 @@ def page_hr_development(user):
     with tab_idb:
     idb_df = load_idb_reports()
     if not idb_df.empty:
-        # ✅ إضافة اسم الموظف إذا لم يكن موجودًا
         if "Employee Name" not in idb_df.columns:
             df = st.session_state.get("df", pd.DataFrame())
             if not df.empty:
