@@ -470,17 +470,44 @@ font-size: 0.8rem;
 z-index: 100;
 }
 /* الأزرار */
+/* الأزرار - نص أبيض واضح داخل الزر */
 .stButton > button {
-background-color: var(--primary) !important;
-color: white !important;
-border: none !important;
-font-weight: 600;
-padding: 0.5rem 1rem;
-border-radius: 6px;
+  background-color: var(--primary) !important;
+  color: white !important;           /* لون النص الرئيسي */
+  border: none !important;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  /* ضمان وضوح النص حتى لو كان داخل عناصر فرعية */
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
 }
+/* ضمان أن جميع العناصر الداخلية للزر تكون بيضاء */
+.stButton > button *,
+.stButton > button span,
+.stButton > button div,
+.stButton > button p {
+  color: white !important !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+}
+/* عند التمرير بالفأرة */
 .stButton > button:hover {
-background-color: #dc2626 !important; /* 🔴 RED on hover */
-color: white !important;
+  background-color: #dc2626 !important; /* 🔴 RED on hover */
+  color: white !important;
+}
+.stButton > button:hover *,
+.stButton > button:hover span,
+.stButton > button:hover div,
+.stButton > button:hover p {
+  color: white !important !important;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
+}
+/* للزر المُعطَّل (إن وُجد) */
+.stButton > button:disabled {
+  opacity: 0.7 !important;
+  color: #f8f9fa !important;
+}
+.stButton > button:disabled * {
+  color: #f8f9fa !important !important;
 }
 /* الخلفية العامة */
 [data-testid="stAppViewContainer"] {
