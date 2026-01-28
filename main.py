@@ -1,4 +1,4 @@
-# hr_system_with_config_json.py — FULLY CONVERTED TO JSON (NO LINE DELETED) + ALL FIXES + PHOTO UPLOAD + SALARY ACCESS
+# hr_system_with_config_json.py — FULLY CONVERTED TO JSON (ALL FIXES APPLIED)
 import streamlit as st
 import pandas as pd
 import requests
@@ -86,7 +86,7 @@ def save_compliance_messages(df):
         df["ID"] = df["ID"].astype(int)
     return save_json_file(df, COMPLIANCE_MESSAGES_FILE)
 # ============================
-# 🆕 FUNCTION: Load & Save HR Queries (FIXED: No sanitize_employee_data + Detailed Error)
+# 🆕 FUNCTION: Load & Save HR Queries (FIXED: No sanitize_employee_data + Success Flags)
 # ============================
 def load_hr_queries():
     return load_json_file(HR_QUERIES_FILE, default_columns=[
@@ -989,7 +989,7 @@ def page_salary_monthly(user):
         required_columns = ["Employee Code", "Month", "Basic Salary", "KPI Bonus", "Deductions"]
         missing_cols = [c for c in required_columns if c not in salary_df.columns]
         if missing_cols:
-            st.error(f"❌ Missing columns in salary data: {missing_cols}")
+            st.error(f"❌ Missing columns in salary  {missing_cols}")
             st.info("💡 Please contact HR to fix the salary data format.")
             return
         # 🔹 Normalize Employee Code column BEFORE filtering
@@ -1069,7 +1069,7 @@ margin-bottom:10px; box-shadow:0 4px 8px rgba(0,0,0,0.05);">
                     del st.session_state[details_key]
                     st.rerun()
     except Exception as e:
-        st.error(f"❌ Error loading salary data: {str(e)}")
+        st.error(f"❌ Error loading salary  {str(e)}")
         st.info("💡 Please contact HR or system administrator for assistance.")
 # ============================
 # Salary Report Page — Encrypt on Upload (HR ONLY)
@@ -1727,9 +1727,17 @@ def page_hr_development(user):
         else:
             st.info("📭 No certifications uploaded.")
 # ============================
-# 🆕 PAGE: Ask HR (for ALL employees) - FIXED with detailed error
+# 🆕 PAGE: Ask HR (for ALL employees) - FIXED with success messages
 # ============================
 def page_ask_hr(user):
+    # ✅ NEW: Show success message from session state
+    if st.session_state.get("ask_hr_success"):
+        st.success("✅ Your message was sent to HR successfully!")
+        del st.session_state["ask_hr_success"]
+    if st.session_state.get("ask_hr_error"):
+        st.error(st.session_state["ask_hr_error"])
+        del st.session_state["ask_hr_error"]
+    
     st.subheader("💬 Ask HR")
     if user is None:
         st.error("User session not found. Please login.")
@@ -1771,11 +1779,12 @@ def page_ask_hr(user):
                 else:
                     hr_df = pd.concat([hr_df, new_row], ignore_index=True)
                 if save_hr_queries(hr_df):
-                    st.success("✅ Your message was sent to HR successfully!")
+                    st.session_state["ask_hr_success"] = True  # ✅ Set success flag
                     add_notification("", "HR", f"New Ask HR from {user_name} ({user_code})")
                     st.rerun()
                 else:
-                    st.error("❌ Failed to save message. Please try again or contact system administrator.")
+                    st.session_state["ask_hr_error"] = "❌ Failed to save message. Please try again."
+                    st.rerun()
     st.markdown("### 📜 Your Previous Messages")
     if hr_df is None or hr_df.empty:
         st.info("📭 No messages found.")
@@ -1807,9 +1816,17 @@ def page_ask_hr(user):
         st.markdown("</div>")
         st.markdown("---")
 # ============================
-# 🆕 PAGE: HR Inbox (for HR)
+# 🆕 PAGE: HR Inbox (for HR) - FIXED with success messages
 # ============================
 def page_hr_inbox(user):
+    # ✅ NEW: Show success message from session state
+    if st.session_state.get("hr_inbox_success"):
+        st.success(st.session_state["hr_inbox_success"])
+        del st.session_state["hr_inbox_success"]
+    if st.session_state.get("hr_inbox_error"):
+        st.error(st.session_state["hr_inbox_error"])
+        del st.session_state["hr_inbox_error"]
+    
     st.subheader("📬 HR Inbox")
     st.markdown("View employee queries and reply to them here.")
     hr_df = load_hr_queries()
@@ -1851,22 +1868,30 @@ def page_hr_inbox(user):
                     hr_df.at[idx, "Reply"] = reply_text
                     hr_df.at[idx, "Status"] = "Replied"
                     hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
-                    save_hr_queries(hr_df)
-                    add_notification(emp_code, "", f"HR replied to your message: {subj}")
-                    st.success("✅ Reply sent and employee notified.")
-                    st.rerun()
+                    if save_hr_queries(hr_df):  # ✅ Check save result
+                        st.session_state["hr_inbox_success"] = "✅ Reply sent and employee notified."
+                        add_notification(emp_code, "", f"HR replied to your message: {subj}")
+                        st.rerun()
+                    else:
+                        st.session_state["hr_inbox_error"] = "❌ Failed to save reply."
+                        st.rerun()
                 except Exception as e:
-                    st.error(f"❌ Failed to send reply: {e}")
+                    st.session_state["hr_inbox_error"] = f"❌ Failed to send reply: {e}"
+                    st.rerun()
         with col2:
             if st.button("🗑️ Mark as Closed", key=f"close_{idx}"):
                 try:
                     hr_df.at[idx, "Status"] = "Closed"
                     hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
-                    save_hr_queries(hr_df)
-                    st.success("✅ Message marked as closed.")
-                    st.rerun()
+                    if save_hr_queries(hr_df):
+                        st.session_state["hr_inbox_success"] = "✅ Message marked as closed."
+                        st.rerun()
+                    else:
+                        st.session_state["hr_inbox_error"] = "❌ Failed to close message."
+                        st.rerun()
                 except Exception as e:
-                    st.error(f"❌ Failed to close message: {e}")
+                    st.session_state["hr_inbox_error"] = f"❌ Failed to close message: {e}"
+                    st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("---")
 # ============================
@@ -1934,9 +1959,17 @@ def page_ask_employees(user):
         st.success(f"✅ Request sent to {selected_name} (Code: {selected_code}) successfully.")
         st.rerun()
 # ============================
-# 🆕 PAGE: HR Request (for ALL employees)
+# 🆕 PAGE: HR Request (for ALL employees) - FIXED with success messages
 # ============================
 def page_request_hr(user):
+    # ✅ NEW: Show success message from session state
+    if st.session_state.get("request_hr_success"):
+        st.success("✅ Response submitted successfully!")
+        del st.session_state["request_hr_success"]
+    if st.session_state.get("request_hr_error"):
+        st.error(st.session_state["request_hr_error"])
+        del st.session_state["request_hr_error"]
+    
     st.subheader("📥 HR Requests")
     st.info("Here you can respond to requests sent by HR.")
     user_code = str(user.get("Employee Code", "N/A")).strip().replace(".0", "")
@@ -1996,10 +2029,13 @@ def page_request_hr(user):
             if uploaded_resp_file:
                 resp_filename = save_response_file(uploaded_resp_file, user_code, row["ID"])
                 response_file_name = resp_filename
-            save_hr_requests(requests_df)
-            add_notification("", "HR", f"Employee {user_code} responded to request ID {row['ID']}.")
-            st.success("✅ Response submitted successfully!")
-            st.rerun()
+            if save_hr_requests(requests_df):  # ✅ Check save result
+                st.session_state["request_hr_success"] = True
+                add_notification("", "HR", f"Employee {user_code} responded to request ID {row['ID']}.")
+                st.rerun()
+            else:
+                st.session_state["request_hr_error"] = "❌ Failed to save response. Please try again."
+                st.rerun()
 # ============================
 # 🆕 PAGE: Employee Photos (HR View) - NEW PAGE
 # ============================
@@ -2568,7 +2604,7 @@ def page_login():
         st.markdown("---")
         page_forgot_password()
 # ============================
-# Main App
+# Main App - SIDEBAR (FIXED: Remove Team Leaves from DM/AM, Remove Leave Request from MR/DM/AM/BUM, Enhanced Notifications)
 # ============================
 def main():
     # Initialize session state
@@ -2578,25 +2614,43 @@ def main():
         st.session_state["user"] = None
     if "show_photo_upload" not in st.session_state:
         st.session_state["show_photo_upload"] = False
+    # ✅ Initialize success/error flags for messaging pages
+    if "ask_hr_success" not in st.session_state:
+        st.session_state["ask_hr_success"] = False
+    if "ask_hr_error" not in st.session_state:
+        st.session_state["ask_hr_error"] = False
+    if "request_hr_success" not in st.session_state:
+        st.session_state["request_hr_success"] = False
+    if "request_hr_error" not in st.session_state:
+        st.session_state["request_hr_error"] = False
+    if "hr_inbox_success" not in st.session_state:
+        st.session_state["hr_inbox_success"] = False
+    if "hr_inbox_error" not in st.session_state:
+        st.session_state["hr_inbox_error"] = False
+    
     # Load employee data if not loaded
     ensure_session_df()
+    
     # Login page if not logged in
     if not st.session_state["logged_in"]:
         page_login()
         return
+    
     # Get user info
     user = st.session_state["user"]
     user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
     user_name = user.get("Employee Name", user_code)
     user_title = str(user.get("Title", "")).strip().upper()
-    # Sidebar
+    
+    # Sidebar with enhanced notifications
     with st.sidebar:
         st.markdown('<p class="sidebar-title">👥 HRAS</p>', unsafe_allow_html=True)
         st.markdown(f"**{user_name}**")
         st.markdown(f"*{user_title}*")
         st.markdown("---")
-        # Navigation based on role
-        pages = ["👤 My Profile", "🔔 Notifications"]
+        
+        # Compute unread notifications count FIRST
+        unread_count = get_unread_count(user)
         
         # Define special titles
         SPECIAL_TITLES = {
@@ -2607,22 +2661,35 @@ def main():
             "OPERATION AND ANALYTICS SPECIALIST", "OFFICE BOY"
         }
         
-        # Navigation logic - ALL employees get Salary Monthly
+        # Build navigation pages with DYNAMIC notification label
+        pages = ["👤 My Profile"]
+        
+        # ✅ FIXED: Enhanced notification label with badge
+        notif_label = "🔔 Notifications"
+        if unread_count > 0:
+            notif_label = f"🔔 Notifications ({unread_count})"
+        pages.append(notif_label)
+        
+        # ✅ FIXED: Remove Team Leaves from AM/DM, Remove Leave Request from MR/DM/AM/BUM
         if user_title in {"AM", "DM"}:
-            pages.extend(["📅 Team Leave Requests", "👥 Team Structure", "📋 Report Compliance", 
-                         "💬 Ask HR", "📥 HR Request", "📅 Request Leave", 
-                         "💰 Salary Monthly"])
+            # ❌ NO Team Leaves for AM/DM
+            # ❌ NO Request Leave for AM/DM
+            pages.extend(["👥 Team Structure", "📋 Report Compliance", 
+                         "💬 Ask HR", "📥 HR Request", "💰 Salary Monthly"])
         elif user_title == "MR":
-            pages.extend(["📅 Request Leave", "🚀 IDB – Individual Development Blueprint", 
-                         "🌱 Self Development", "📨 Notify Compliance", "💬 Ask HR", 
-                         "📥 HR Request", "💰 Salary Monthly"])
+            # ❌ NO Request Leave for MR
+            pages.extend(["🚀 IDB – Individual Development Blueprint", 
+                         "🌱 Self Development", "📨 Notify Compliance", 
+                         "💬 Ask HR", "📥 HR Request", "💰 Salary Monthly"])
         elif user_title in {"ASSOCIATE COMPLIANCE", "FIELD COMPLIANCE SPECIALIST", "COMPLIANCE MANAGER"}:
             pages.append("📋 Report Compliance")
             pages.append("💰 Salary Monthly")
         elif user_title == "BUM":
+            # ❌ NO Request Leave for BUM (only Team Leaves)
             pages.extend(["📅 Team Leave Requests", "👥 Team Structure", "📋 Report Compliance", 
-                         "📅 Request Leave", "💰 Salary Monthly"])
+                         "💰 Salary Monthly"])
         elif user_title in SPECIAL_TITLES:
+            # ✅ ONLY special titles get "Request Leave"
             pages.extend(["📅 Request Leave", "💬 Ask HR", "📥 HR Request", 
                          "💰 Salary Monthly"])
         elif user_title == "HR":
@@ -2631,77 +2698,87 @@ def main():
                 "📋 HR Requests (HR View)",
                 "📬 HR Inbox",
                 "📤 Ask Employees",
-                "📸 Employee Photos",  # ✅ NEW PAGE for HR
+                "📸 Employee Photos",
                 "👥 Recruitment (HR View)",
                 "🎓 Employee Development (HR View)",
                 "⚙️ HR Manager",
-                "💰 Salary Monthly",  # HR can view their own salary
-                "📤 Salary Report"    # HR can upload salary reports
+                "💰 Salary Monthly",
+                "📤 Salary Report"
             ])
         
-        # Always show these for logged-in users
-        pages.extend(["🚪 Logout"])
-        # Display navigation
+        pages.append("🚪 Logout")
+        
+        # Display navigation with DYNAMIC labels
         selected_page = st.radio("Navigate to:", pages, label_visibility="collapsed")
-    # Page routing
-    if selected_page == "👤 My Profile":
+    
+    # Page routing with ENHANCED notification handling
+    if selected_page.startswith("👤 My Profile"):
         page_my_profile(user)
-    elif selected_page == "🔔 Notifications":
+    elif selected_page.startswith("🔔 Notifications"):
         page_notifications(user)
-    elif selected_page == "📅 Request Leave":
+    elif selected_page.startswith("📅 Request Leave"):
         page_leave_request(user)
-    elif selected_page == "📅 Team Leave Requests":
+    elif selected_page.startswith("📅 Team Leave Requests"):
         page_manager_leaves(user)
-    elif selected_page == "👥 Team Structure":
+    elif selected_page.startswith("👥 Team Structure"):
         page_team_structure(user)
-    elif selected_page == "💬 HR Queries":
-        page_hr_queries(user)
-    elif selected_page == "💬 HR Queries (HR View)":
-        page_hr_view_queries(user)
-    elif selected_page == "📋 HR Requests":
-        page_hr_requests(user)
-    elif selected_page == "📋 HR Requests (HR View)":
-        page_hr_view_requests(user)
-    elif selected_page == "🚀 IDB – Individual Development Blueprint":
+    elif selected_page.startswith("💬 HR Queries"):
+        if "(HR View)" in selected_page:
+            page_hr_view_queries(user)
+        else:
+            page_hr_queries(user)
+    elif selected_page.startswith("📋 HR Requests"):
+        if "(HR View)" in selected_page:
+            page_hr_view_requests(user)
+        else:
+            page_hr_requests(user)
+    elif selected_page.startswith("🚀 IDB"):
         page_idb_mr(user)
-    elif selected_page == "🌱 Self Development":
+    elif selected_page.startswith("🌱 Self Development"):
         page_self_development(user)
-    elif selected_page == "🎓 Employee Development (HR View)":
+    elif selected_page.startswith("🎓 Employee Development"):
         page_hr_development(user)
-    elif selected_page == "📨 Notify Compliance":
+    elif selected_page.startswith("📨 Notify Compliance"):
         page_notify_compliance(user)
-    elif selected_page == "📋 Report Compliance":
+    elif selected_page.startswith("📋 Report Compliance"):
         page_report_compliance(user)
-    elif selected_page == "💰 Salary Monthly":
-        page_salary_monthly(user)  # ✅ FIXED: Works for ALL employees
-    elif selected_page == "📤 Salary Report":
+    elif selected_page.startswith("💰 Salary Monthly"):
+        page_salary_monthly(user)
+    elif selected_page.startswith("📤 Salary Report"):
         if user_title == "HR":
             page_salary_report(user)
         else:
             st.error("❌ Access denied. HR only.")
-    elif selected_page == "👥 Recruitment":
-        page_recruitment(user)
-    elif selected_page == "👥 Recruitment (HR View)":
-        page_hr_recruitment_view(user)
-    elif selected_page == "⚙️ HR Manager":
+    elif selected_page.startswith("👥 Recruitment"):
+        if "(HR View)" in selected_page:
+            page_hr_recruitment_view(user)
+        else:
+            page_recruitment(user)
+    elif selected_page.startswith("⚙️ HR Manager"):
         page_hr_manager(user)
-    elif selected_page == "💬 Ask HR":
-        page_ask_hr(user)  # ✅ FIXED: Works for ALL employees with detailed error
-    elif selected_page == "📬 HR Inbox":
+    elif selected_page.startswith("💬 Ask HR"):
+        page_ask_hr(user)
+    elif selected_page.startswith("📬 HR Inbox"):
         page_hr_inbox(user)
-    elif selected_page == "📤 Ask Employees":
+    elif selected_page.startswith("📤 Ask Employees"):
         page_ask_employees(user)
-    elif selected_page == "📥 HR Request":
+    elif selected_page.startswith("📥 HR Request"):
         page_request_hr(user)
-    elif selected_page == "📸 Employee Photos":  # ✅ NEW PAGE
+    elif selected_page.startswith("📸 Employee Photos"):
         if user_title == "HR":
             page_employee_photos(user)
         else:
             st.error("❌ Access denied. HR only.")
-    elif selected_page == "🚪 Logout":
+    elif selected_page.startswith("🚪 Logout"):
         st.session_state["logged_in"] = False
         st.session_state["user"] = None
         st.session_state["show_photo_upload"] = False
+        st.session_state["ask_hr_success"] = False
+        st.session_state["ask_hr_error"] = False
+        st.session_state["request_hr_success"] = False
+        st.session_state["request_hr_error"] = False
+        st.session_state["hr_inbox_success"] = False
+        st.session_state["hr_inbox_error"] = False
         st.success("✅ Logged out successfully.")
         st.rerun()
 # Run the app
