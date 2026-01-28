@@ -1,4 +1,4 @@
-# hr_system_with_config_json.py — FULLY CONVERTED TO JSON (NO LINE DELETED) + IDB & SELF DEVELOPMENT + PRIVATE EMAIL
+# hr_system_with_config_json.py — FULLY CONVERTED TO JSON (NO LINE DELETED) + IDB & SELF DEVELOPMENT
 import streamlit as st
 import pandas as pd
 import requests
