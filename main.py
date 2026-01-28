@@ -86,14 +86,35 @@ def save_compliance_messages(df):
         df["ID"] = df["ID"].astype(int)
     return save_json_file(df, COMPLIANCE_MESSAGES_FILE)
 # ============================
-# 🆕 FUNCTION: Load & Save HR Queries
+# 🆕 FUNCTION: Load & Save HR Queries (FIXED: No sanitize_employee_data)
 # ============================
 def load_hr_queries():
     return load_json_file(HR_QUERIES_FILE, default_columns=[
         "Employee Code", "Employee Name", "Subject", "Message", "Reply", "Status", "Date Sent", "Date Replied"
     ])
 def save_hr_queries(df):
-    return save_json_file(df, HR_QUERIES_FILE)
+    df = df.copy()
+    if "Date Sent" in df.columns:
+        df["Date Sent"] = pd.to_datetime(df["Date Sent"], errors="coerce").astype(str)
+    if "Date Replied" in df.columns:
+        df["Date Replied"] = pd.to_datetime(df["Date Replied"], errors="coerce").astype(str)
+    if "ID" in df.columns:
+        df["ID"] = pd.to_numeric(df["ID"], errors="coerce")
+        if df["ID"].isna().any():
+            existing_max = int(df["ID"].max(skipna=True)) if not df["ID"].isna().all() else 0
+            for idx in df[df["ID"].isna()].index:
+                existing_max += 1
+                df.at[idx, "ID"] = existing_max
+        df["ID"] = df["ID"].astype(int)
+    # ✅ FIXED: Save directly without applying sanitize_employee_data
+    try:
+        data = df.where(pd.notnull(df), None).to_dict(orient='records')
+        with open(HR_QUERIES_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        st.error(f"Save error details: {str(e)}")
+        return False
 # ============================
 # 🆕 FUNCTION: Load & Save HR Requests
 # ============================
@@ -298,7 +319,6 @@ def save_json_file(df, filepath):
         return True
     except Exception:
         return False
-
 # ============================
 # Styling - Modern Light Mode CSS (Updated per your request)
 # ============================
@@ -678,7 +698,6 @@ def save_leaves_data(df):
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors="coerce").dt.strftime("%Y-%m-%d")
     return save_json_file(df, LEAVES_FILE_PATH)
-
 # ============================
 # Notifications System
 # ============================
@@ -1114,7 +1133,6 @@ def page_salary_report(user):
         )
     else:
         st.info("No salary data available.")
-
 # ============================
 # HR Manager — UPDATED with Password Reset Feature
 # ============================
@@ -2488,19 +2506,19 @@ def main():
         if user_title in {"AM", "DM"}:
             pages.extend(["📅 Team Leave Requests", "👥 Team Structure", "📋 Report Compliance", 
                          "💬 Ask HR", "📥 HR Request", "📅 Request Leave", 
-                         "💰 Salary Report", "💰 Salary Monthly"])
+                         "💰 Salary Report"])
         elif user_title == "MR":
             pages.extend(["📅 Request Leave", "🚀 IDB – Individual Development Blueprint", 
                          "🌱 Self Development", "📨 Notify Compliance", "💬 Ask HR", 
-                         "📥 HR Request", "💰 Salary Monthly"])
+                         "📥 HR Request", "💰 Salary Report"])
         elif user_title in {"ASSOCIATE COMPLIANCE", "FIELD COMPLIANCE SPECIALIST", "COMPLIANCE MANAGER"}:
             pages.append("📋 Report Compliance")
         elif user_title == "BUM":
             pages.extend(["📅 Team Leave Requests", "👥 Team Structure", "📋 Report Compliance", 
-                         "📅 Request Leave", "💰 Salary Report", "💰 Salary Monthly"])
+                         "📅 Request Leave", "💰 Salary Report"])
         elif user_title in SPECIAL_TITLES:
             pages.extend(["📅 Request Leave", "💬 Ask HR", "📥 HR Request", 
-                         "💰 Salary Report", "💰 Salary Monthly"])
+                         "💰 Salary Report"])
         elif user_title == "HR":
             pages.extend([
                 "💬 HR Queries (HR View)",
