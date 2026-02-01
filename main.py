@@ -2319,68 +2319,64 @@ def page_team_structure(user):
         st.warning("⚠️ Only AM, DM, HR, and BUM can view team structure.")
         return
     hierarchy = build_team_hierarchy_recursive(df, user_code, title_val)
-    if not hierarchy:
-        st.info("📭 No team members found under your supervision.")
-        return
+    
     # ✅ FIXED: Show BUM team structure cards (AM, DM, MR counts)
     if title_val == "BUM":
         st.markdown("### Team Structure Summary")
         col1, col2, col3 = st.columns(3)
         with col1:
+            am_count = len([x for x in hierarchy if x.get('Title') == 'AM']) if hierarchy else 0
             st.markdown(f"""
 <div class="team-structure-card">
 <div class="team-structure-title">AM Count</div>
-<div class="team-structure-value am">{len([x for x in hierarchy if x.get('Title') == 'AM'])}</div>
+<div class="team-structure-value am">{am_count}</div>
 </div>
 """, unsafe_allow_html=True)
         with col2:
+            dm_count = len([x for x in hierarchy if x.get('Title') == 'DM']) if hierarchy else 0
             st.markdown(f"""
 <div class="team-structure-card">
 <div class="team-structure-title">DM Count</div>
-<div class="team-structure-value dm">{len([x for x in hierarchy if x.get('Title') == 'DM'])}</div>
+<div class="team-structure-value dm">{dm_count}</div>
 </div>
 """, unsafe_allow_html=True)
         with col3:
+            mr_count = sum(len(x.get('Team', [])) for x in hierarchy if x.get('Title') == 'DM') if hierarchy else 0
             st.markdown(f"""
 <div class="team-structure-card">
 <div class="team-structure-title">MR Count</div>
-<div class="team-structure-value mr">{sum(len(x.get('Team', [])) for x in hierarchy if x.get('Title') == 'DM')}</div>
+<div class="team-structure-value mr">{mr_count}</div>
 </div>
 """, unsafe_allow_html=True)
+
     # ✅ FIXED: Show AM team structure cards (DM, MR counts)
     elif title_val == "AM":
         st.markdown("### Team Structure Summary")
         col1, col2 = st.columns(2)
         with col1:
+            dm_count = len([x for x in hierarchy if x.get('Title') == 'DM']) if hierarchy else 0
             st.markdown(f"""
 <div class="team-structure-card">
 <div class="team-structure-title">DM Count</div>
-<div class="team-structure-value dm">{len([x for x in hierarchy if x.get('Title') == 'DM'])}</div>
+<div class="team-structure-value dm">{dm_count}</div>
 </div>
 """, unsafe_allow_html=True)
         with col2:
+            mr_count = sum(len(x.get('Team', [])) for x in hierarchy if x.get('Title') == 'DM') if hierarchy else 0
             st.markdown(f"""
 <div class="team-structure-card">
 <div class="team-structure-title">MR Count</div>
-<div class="team-structure-value mr">{sum(len(x.get('Team', [])) for x in hierarchy if x.get('Title') == 'DM')}</div>
+<div class="team-structure-value mr">{mr_count}</div>
 </div>
 """, unsafe_allow_html=True)
-def display_hierarchy(node, level=0):
-    indent = "  " * level
-    emp_code = node.get("Employee Code", "N/A")
-    emp_name = node.get("Employee Name", emp_code)
-    emp_title = node.get("Title", "N/A")
-    color_map = {"AM": "#05445E", "DM": "#0A5C73", "MR": "#dc2626"}
-    color = color_map.get(emp_title, "#666666")
-    st.markdown(f"{indent}• <span style='color:{color}; font-weight:bold;'>{emp_name}</span> ({emp_code}) - <span style='color:{color};'>{emp_title}</span>", unsafe_allow_html=True)
-    for child in node.get("Team", []):
-        display_hierarchy(child, level + 1)
-st.markdown("### Your Team")
-if hierarchy:
-    for member in hierarchy:
-        display_hierarchy(member)
-else:
-    st.info("📭 No team members found under your supervision.")
+
+    # 👇 هذا هو التعديل الأساسي لتجنب الخطأ
+    st.markdown("### Your Team")
+    if hierarchy is not None:
+        for member in hierarchy:
+            display_hierarchy(member)
+    else:
+        st.info("📭 No team members found under your supervision.")
 def page_hr_queries(user):
     st.subheader("💬 HR Queries")
     df = st.session_state.get("df", pd.DataFrame())
