@@ -473,7 +473,7 @@ z-index: 100;
 /* الأزرار - نص أبيض واضح داخل الزر */
 .stButton > button {
   background-color: var(--primary) !important;
-  color: white !important;           /* لون النص الرئيسي */
+  color: #FFFFFF !important;           /* لون النص الرئيسي */
   border: none !important;
   font-weight: 600;
   padding: 0.5rem 1rem;
@@ -486,13 +486,13 @@ z-index: 100;
 .stButton > button span,
 .stButton > button div,
 .stButton > button p {
-  color: white !important !important;
+  color: #FFFFFF !important !important;
   text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
 }
 /* عند التمرير بالفأرة */
 .stButton > button:hover {
   background-color: #dc2626 !important; /* 🔴 RED on hover */
-  color: white !important;
+  color: #FFFFFF !important;
 }
 .stButton > button:hover *,
 .stButton > button:hover span,
