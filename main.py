@@ -2376,8 +2376,11 @@ def display_hierarchy(node, level=0):
     for child in node.get("Team", []):
         display_hierarchy(child, level + 1)
 st.markdown("### Your Team")
-for member in hierarchy:
-    display_hierarchy(member)
+if hierarchy:
+    for member in hierarchy:
+        display_hierarchy(member)
+else:
+    st.info("📭 No team members found under your supervision.")
 def page_hr_queries(user):
     st.subheader("💬 HR Queries")
     df = st.session_state.get("df", pd.DataFrame())
