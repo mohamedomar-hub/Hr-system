@@ -686,8 +686,10 @@ def ensure_session_df():
         df_loaded = load_employee_data_from_github()
         if not df_loaded.empty:
             st.session_state["df"] = df_loaded
+            initialize_passwords_from_data(df_loaded.to_dict(orient='records'))
         else:
             st.session_state["df"] = load_json_file(FILE_PATH)
+            initialize_passwords_from_data(st.session_state["df"].to_dict(orient='records'))
 # ============================
 # Login & Save Helpers
 # ============================
