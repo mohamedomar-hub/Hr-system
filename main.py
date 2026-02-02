@@ -2953,3 +2953,13 @@ def main():
         st.session_state["request_hr_error"] = False
         st.session_state["hr_inbox_success"] = False
         st.session_state["hr_inbox_error"] = False
+        st.session_state["selected_page"] = None
+        st.success("✅ You have been logged out.")
+        st.rerun()
+    else:
+        st.info("📭 Page not found.")
+# ============================
+# Run the app
+# ============================
+if __name__ == "__main__":
+    main()
