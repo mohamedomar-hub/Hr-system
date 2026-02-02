@@ -326,7 +326,7 @@ def save_json_file(df, filepath):
         st.error(f"Save error: {str(e)}")
         return False
 # ============================
-# Styling - Modern Light Mode CSS (Updated per your request)
+# Styling - Modern Light Mode CSS (Updated per your request) - STRONGER SELECTORS
 # ============================
 st.set_page_config(page_title="HRAS — Averroes Admin", page_icon="👥", layout="wide")
 hide_streamlit_style = """
@@ -337,7 +337,8 @@ div[data-testid="stDeployButton"] { display: none; }
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-# ✅ تم دمج التعديلات: توحيد لون نصوص الأزرار + تحسين مظهر File Upload
+
+# ✅ CSS معدّل بقوة لضمان التطبيق الفعلي - استخدام تحديدات دقيقة مع !important
 updated_css = """
 <style>
 /* ========== COLORS SYSTEM ========== */
@@ -353,126 +354,17 @@ updated_css = """
     --file-upload-border: #E5E7EB;
     --file-upload-hover: #F9FAFB;
 }
-/* ========== GENERAL TEXT ========== */
-html, body, p, span, label {
+
+/* ========== OVERRIDE STREAMLIT DEFAULTS - CRITICAL ========== */
+/* النصوص العامة */
+*, *::before, *::after {
     color: var(--text-main) !important;
 }
-/* ========== HEADERS ========== */
-h1, h2, h3, h4, h5 {
-    color: var(--primary) !important;
-    font-weight: 600;
-}
-/* ========== SIDEBAR USER NAME ========== */
-section[data-testid="stSidebar"] h4,
-section[data-testid="stSidebar"] h5,
-section[data-testid="stSidebar"] p {
-    color: #FFFFFF !important;
-    font-weight: 600;
-}
-/* ========== INPUT LABELS ========== */
-label {
-    color: var(--primary) !important;
-    font-weight: 500;
-}
-/* ========== CARDS ========== */
-.card {
-    background-color: var(--card-bg);
-    border-radius: 16px;
-    padding: 18px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-    border: 1px solid var(--border-soft);
-}
-/* ========== INFO TEXT (No data, help text) ========== */
-.info-text {
-    color: var(--text-muted) !important;
-    font-size: 14px;
-}
-/* ========== SECTION HEADER BOX ========== */
-.section-box {
-    background-color: var(--soft-bg);
-    padding: 14px 20px;
-    border-radius: 14px;
-    margin: 25px 0 15px 0;
-}
-/* إضافات ضرورية للوظائف */
-.sidebar-title {
-    font-size: 1.4rem;
-    font-weight: bold;
-    color: var(--primary);
-    text-align: center;
-    margin-bottom: 10px;
-}
-.hr-message-card {
-    background-color: #FFFFFF;
-    border-left: 4px solid var(--primary);
-    padding: 12px;
-    margin: 10px 0;
-    border-radius: 8px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-}
-.hr-message-title {
-    color: var(--primary);
-    font-weight: bold;
-    font-size: 1.1rem;
-}
-.hr-message-meta {
-    color: #666666;
-    font-size: 0.9rem;
-    margin: 4px 0;
-}
-.hr-message-body {
-    color: var(--text-main) !important;
-    margin-top: 6px;
-}
-.leave-balance-card,
-.team-structure-card {
-    background-color: #FFFFFF !important;
-    border-radius: 8px;
-    padding: 12px;
-    text-align: center;
-    border: 1px solid #E6E6E6;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-}
-.leave-balance-title,
-.team-structure-title {
-    color: #666666;
-    font-size: 0.9rem;
-}
-.leave-balance-value,
-.team-structure-value {
-    color: var(--primary);
-    font-size: 1.4rem;
-    font-weight: bold;
-    margin-top: 4px;
-}
-.leave-balance-value.used {
-    color: #dc2626;
-}
-.leave-balance-value.remaining {
-    color: #059669;
-}
-.team-structure-value.am { color: var(--primary); }
-.team-structure-value.dm { color: var(--secondary); }
-.team-structure-value.mr { color: #dc2626; }
-.notification-bell {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    background-color: #ef4444;
-    color: white;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-weight: bold;
-    font-size: 0.8rem;
-    z-index: 100;
-}
-/* ========== BUTTONS - ALL TEXT WHITE ========== */
-/* الأزرار الرئيسية - نص أبيض واضح */
-.stButton > button {
+
+/* ========== BUTTONS - ALL TEXT WHITE WITH RED HOVER ========== */
+/* الزر الرئيسي - تحديد دقيق باستخدام data-testid */
+div[data-testid="stButton"] > button,
+div.stButton > button {
     background-color: var(--primary) !important;
     color: white !important;
     border: none !important;
@@ -482,122 +374,107 @@ label {
     text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
     box-shadow: 0 2px 4px rgba(5, 68, 94, 0.2) !important;
     transition: all 0.3s ease !important;
+    /* ضمان أن كل النصوص داخل الزر بيضاء */
+    font-family: inherit !important;
 }
-/* ضمان أن جميع العناصر الداخلية للزر تكون بيضاء - شامل */
-.stButton > button,
-.stButton > button *,
-.stButton > button span,
-.stButton > button div,
-.stButton > button p,
-.stButton > button label,
-.stButton > button .stMarkdown,
-.stButton > button .stText,
-.stButton > button .stButtonLabel,
-.stButton > button .stButtonChild,
-.stButton > button::before,
-.stButton > button::after {
+
+/* جميع العناصر داخل الزر */
+div[data-testid="stButton"] > button *,
+div.stButton > button *,
+div[data-testid="stButton"] > button span,
+div.stButton > button span,
+div[data-testid="stButton"] > button div,
+div.stButton > button div,
+div[data-testid="stButton"] > button p,
+div.stButton > button p,
+div[data-testid="stButton"] > button label,
+div.stButton > button label {
     color: white !important !important;
     text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
     font-weight: 600 !important;
 }
-/* عند التمرير بالفأرة - أحمر مع نص أبيض */
-.stButton > button:hover {
+
+/* تأثير التمرير - أحمر مع نص أبيض */
+div[data-testid="stButton"] > button:hover,
+div.stButton > button:hover {
     background-color: #dc2626 !important;
     color: white !important !important;
     box-shadow: 0 3px 6px rgba(220, 38, 38, 0.3) !important;
 }
-/* ضمان بقاء النص أبيض عند التمرير */
-.stButton > button:hover,
-.stButton > button:hover *,
-.stButton > button:hover span,
-.stButton > button:hover div,
-.stButton > button:hover p,
-.stButton > button:hover label,
-.stButton > button:hover .stMarkdown,
-.stButton > button:hover .stText,
-.stButton > button:hover .stButtonLabel,
-.stButton > button:hover .stButtonChild {
+
+/* عند التمرير - جميع العناصر تبقى بيضاء */
+div[data-testid="stButton"] > button:hover *,
+div.stButton > button:hover *,
+div[data-testid="stButton"] > button:hover span,
+div.stButton > button:hover span,
+div[data-testid="stButton"] > button:hover div,
+div.stButton > button:hover div,
+div[data-testid="stButton"] > button:hover p,
+div.stButton > button:hover p,
+div[data-testid="stButton"] > button:hover label,
+div.stButton > button:hover label {
     color: white !important !important;
     text-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
 }
-/* للزر المُعطَّل - نص أبيض فاتح */
-.stButton > button:disabled {
+
+/* الزر المعطل */
+div[data-testid="stButton"] > button:disabled,
+div.stButton > button:disabled {
     opacity: 0.7 !important;
     color: #f8f9fa !important !important;
     background-color: #9CA3AF !important;
 }
-.stButton > button:disabled,
-.stButton > button:disabled *,
-.stButton > button:disabled span,
-.stButton > button:disabled div,
-.stButton > button:disabled p,
-.stButton > button:disabled .stButtonLabel {
-    color: #f8f9fa !important !important;
-}
-/* ========== FILE UPLOADER - IMPROVED APPEARANCE (FIXED) ========== */
-/* تحسين مظهر رفع الملفات */
-.stFileUploader {
+
+/* ========== FILE UPLOADER - WHITE BACKGROUND & WHITE TEXT ========== */
+/* منطقة رفع الملفات - خلفية بيضاء */
+div[data-testid="stFileUploader"] {
     width: 100% !important;
 }
-.stFileUploader > div {
+
+div[data-testid="stFileUploader"] > div {
     background-color: #FFFFFF !important;
     border: 2px dashed #E5E7EB !important;
     border-radius: 8px !important;
     padding: 20px !important;
     transition: all 0.3s ease !important;
-    color: #2E2E2E !important;
 }
+
 /* عند التمرير على منطقة رفع الملفات */
-.stFileUploader > div:hover {
+div[data-testid="stFileUploader"] > div:hover {
     border-color: #05445E !important;
     background-color: #F9FAFB !important;
     box-shadow: 0 2px 8px rgba(5, 68, 94, 0.1) !important;
 }
+
 /* نص منطقة رفع الملفات */
-.stFileUploader > div > section > p {
+div[data-testid="stFileUploader"] > div > section > p {
     color: #2E2E2E !important;
     font-size: 14px !important;
     font-weight: 500 !important;
     text-align: center !important;
 }
+
 /* أيقونة رفع الملفات */
-.stFileUploader > div > section > svg {
+div[data-testid="stFileUploader"] > div > section > svg {
     color: #05445E !important;
     margin: 0 auto !important;
     display: block !important;
 }
-/* عند اختيار ملف - الخلفية تصبح زرقاء فاتحة */
-.stFileUploader [data-testid="stFileUploaderDropzone"] {
+
+/* عند اختيار ملف */
+div[data-testid="stFileUploader"] [data-testid="stFileUploaderDropzone"] {
     background-color: #F0F9FF !important;
     border-color: #05445E !important;
 }
+
 /* نص الملف المختار */
-.stFileUploader [data-testid="stFileUploaderFileName"] {
+div[data-testid="stFileUploader"] [data-testid="stFileUploaderFileName"] {
     color: #05445E !important;
     font-weight: 600 !important;
 }
-/* زر إزالة الملف */
-.stFileUploader [data-testid="stFileUploaderRemoveBtn"] {
-    color: #dc2626 !important;
-}
-/* زر "Browse files" - تغيير لون النص والخلفية */
-.stFileUploader [data-testid="baseButton-secondary"] {
-    background-color: #05445E !important;
-    color: white !important;
-    border: none !important;
-    font-weight: 600 !important;
-    padding: 0.5rem 1rem !important;
-    border-radius: 6px !important;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
-}
-.stFileUploader [data-testid="baseButton-secondary"]:hover {
-    background-color: #dc2626 !important;
-    color: white !important;
-}
-/* تأكيد تغيير لون نصوص الأزرار إلى الأبيض */
-.stButton > button,
-.stFileUploader [data-testid="baseButton-secondary"],
-.stFileUploader > div > button {
+
+/* زر "Browse files" - نص أبيض */
+div[data-testid="stFileUploader"] button {
     background-color: #05445E !important;
     color: white !important !important;
     border: none !important;
@@ -608,29 +485,27 @@ label {
     box-shadow: 0 2px 4px rgba(5, 68, 94, 0.2) !important;
     transition: all 0.3s ease !important;
 }
-/* عند التمرير على الأزرار */
-.stButton > button:hover,
-.stFileUploader [data-testid="baseButton-secondary"]:hover,
-.stFileUploader > div > button:hover {
+
+/* تأثير التمرير على زر "Browse files" */
+div[data-testid="stFileUploader"] button:hover {
     background-color: #dc2626 !important;
     color: white !important !important;
     box-shadow: 0 3px 6px rgba(220, 38, 38, 0.3) !important;
 }
-/* ضمان بقاء النص أبيض عند التمرير */
-.stFileUploader [data-testid="baseButton-secondary"]:hover,
-.stFileUploader [data-testid="baseButton-secondary"]:hover *,
-.stFileUploader [data-testid="baseButton-secondary"]:hover span,
-.stFileUploader [data-testid="baseButton-secondary"]:hover div,
-.stFileUploader [data-testid="baseButton-secondary"]:hover p,
-.stFileUploader [data-testid="baseButton-secondary"]:hover label,
-.stFileUploader [data-testid="baseButton-secondary"]:hover .stMarkdown,
-.stFileUploader [data-testid="baseButton-secondary"]:hover .stText {
+
+/* عند التمرير - جميع العناصر تبقى بيضاء */
+div[data-testid="stFileUploader"] button:hover *,
+div[data-testid="stFileUploader"] button:hover span,
+div[data-testid="stFileUploader"] button:hover div,
+div[data-testid="stFileUploader"] button:hover p,
+div[data-testid="stFileUploader"] button:hover label {
     color: white !important !important;
     text-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
 }
+
 /* ========== LOGIN PAGE BUTTONS ========== */
-/* زر تسجيل الدخول */
-section[data-testid="stForm"] .stButton > button {
+/* زر تسجيل الدخول داخل الفورم */
+section[data-testid="stForm"] div[data-testid="stButton"] > button {
     background-color: #05445E !important;
     color: white !important !important;
     border: none !important;
@@ -641,68 +516,145 @@ section[data-testid="stForm"] .stButton > button {
     box-shadow: 0 2px 4px rgba(5, 68, 94, 0.2) !important;
     transition: all 0.3s ease !important;
 }
-section[data-testid="stForm"] .stButton > button,
-section[data-testid="stForm"] .stButton > button *,
-section[data-testid="stForm"] .stButton > button span,
-section[data-testid="stForm"] .stButton > button div,
-section[data-testid="stForm"] .stButton > button p,
-section[data-testid="stForm"] .stButton > button label {
+
+/* جميع العناصر داخل زر اللوجن */
+section[data-testid="stForm"] div[data-testid="stButton"] > button *,
+section[data-testid="stForm"] div[data-testid="stButton"] > button span,
+section[data-testid="stForm"] div[data-testid="stButton"] > button div,
+section[data-testid="stForm"] div[data-testid="stButton"] > button p,
+section[data-testid="stForm"] div[data-testid="stButton"] > button label {
     color: white !important !important;
     text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
     font-weight: 600 !important;
 }
-section[data-testid="stForm"] .stButton > button:hover {
+
+/* تأثير التمرير على زر اللوجن */
+section[data-testid="stForm"] div[data-testid="stButton"] > button:hover {
     background-color: #dc2626 !important;
     color: white !important !important;
     box-shadow: 0 3px 6px rgba(220, 38, 38, 0.3) !important;
 }
-section[data-testid="stForm"] .stButton > button:hover,
-section[data-testid="stForm"] .stButton > button:hover *,
-section[data-testid="stForm"] .stButton > button:hover span,
-section[data-testid="stForm"] .stButton > button:hover div,
-section[data-testid="stForm"] .stButton > button:hover p,
-section[data-testid="stForm"] .stButton > button:hover label {
+
+/* عند التمرير - جميع العناصر تبقى بيضاء */
+section[data-testid="stForm"] div[data-testid="stButton"] > button:hover *,
+section[data-testid="stForm"] div[data-testid="stButton"] > button:hover span,
+section[data-testid="stForm"] div[data-testid="stButton"] > button:hover div,
+section[data-testid="stForm"] div[data-testid="stButton"] > button:hover p,
+section[data-testid="stForm"] div[data-testid="stButton"] > button:hover label {
     color: white !important !important;
     text-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
 }
-/* زر تغيير كلمة المرور */
-.stButton > button:contains("Change Password") {
-    background-color: #05445E !important;
+
+/* ========== HEADERS ========== */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--primary) !important;
+    font-weight: 600 !important;
 }
-/* الخلفية العامة */
-[data-testid="stAppViewContainer"] {
-    background-color: #F2F2F2 !important;
-}
-/* ضمان وضوح جميع النصوص */
-body, .stApp, .stMarkdown, .stText, .stDataFrame, .stTable, .stSelectbox, .stTextInput, .stDateInput, .stTextArea {
-    color: var(--text-main) !important;
-}
-/* تحسين الجداول */
-table, td, th {
-    color: var(--text-main) !important;
-    background-color: #FFFFFF !important;
-}
-/* حقول الإدخال */
-input[type="text"], input[type="password"], input[type="number"], textarea {
+
+/* ========== INPUTS ========== */
+input, textarea, select {
     color: var(--text-main) !important;
     background-color: #FFFFFF !important;
     border: 1px solid #E6E6E6 !important;
 }
-/* علامات التبويب */
-.stTabs [data-baseweb="tab-list"] button {
-    color: var(--text-main) !important;
-}
-.stTabs [data-baseweb="tab-panel"] {
+
+/* ========== TABLES ========== */
+table, td, th {
     color: var(--text-main) !important;
     background-color: #FFFFFF !important;
 }
-/* إخفاء عناصر Streamlit */
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-div[data-testid="stDeployButton"] { display: none; }
+
+/* ========== SIDEBAR ========== */
+section[data-testid="stSidebar"] {
+    background-color: var(--primary) !important;
+}
+
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3,
+section[data-testid="stSidebar"] h4,
+section[data-testid="stSidebar"] h5,
+section[data-testid="stSidebar"] h6,
+section[data-testid="stSidebar"] p,
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] div {
+    color: white !important;
+}
+
+/* ========== NOTIFICATIONS ========== */
+div[data-testid="stNotification"] {
+    color: var(--text-main) !important;
+}
+
+/* ========== GENERAL TEXT ========== */
+p, span, label, div {
+    color: var(--text-main) !important;
+}
+
+/* ========== CARDS ========== */
+div.stCard {
+    background-color: var(--card-bg) !important;
+    border-radius: 16px !important;
+    padding: 18px !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06) !important;
+    border: 1px solid var(--border-soft) !important;
+}
+
+/* ========== HR REQUEST PAGE - IMPROVED DISPLAY ========== */
+.hr-request-card {
+    background-color: #FFFFFF !important;
+    border-left: 4px solid var(--primary) !important;
+    padding: 16px !important;
+    margin: 15px 0 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08) !important;
+}
+.hr-request-title {
+    color: var(--primary) !important;
+    font-weight: bold !important;
+    font-size: 1.2rem !important;
+    margin-bottom: 8px !important;
+}
+.hr-request-details {
+    color: var(--text-main) !important;
+    margin: 6px 0 !important;
+    line-height: 1.5 !important;
+}
+.hr-request-date {
+    color: var(--text-muted) !important;
+    font-size: 0.9rem !important;
+    margin-top: 4px !important;
+}
 </style>
+
+<script>
+// JavaScript لضمان تطبيق الأنماط بعد تحميل الصفحة بالكامل
+document.addEventListener('DOMContentLoaded', function() {
+    // تطبيق الأنماط على جميع الأزرار
+    const buttons = document.querySelectorAll('button');
+    buttons.forEach(button => {
+        button.style.color = 'white !important';
+        button.style.backgroundColor = '#05445E';
+        button.addEventListener('mouseenter', () => {
+            button.style.backgroundColor = '#dc2626';
+            button.style.color = 'white';
+        });
+        button.addEventListener('mouseleave', () => {
+            button.style.backgroundColor = '#05445E';
+            button.style.color = 'white';
+        });
+    });
+    
+    // تطبيق الخلفية البيضاء على منطقة رفع الملفات
+    const fileUploaders = document.querySelectorAll('[data-testid="stFileUploader"] div');
+    fileUploaders.forEach(uploader => {
+        uploader.style.backgroundColor = '#FFFFFF';
+    });
+});
+</script>
 """
 st.markdown(updated_css, unsafe_allow_html=True)
+
 # ============================
 # ✅ MODIFIED: External Password Change Page (No Login Required)
 # ============================
@@ -742,6 +694,7 @@ def page_forgot_password():
                 st.success("✅ Your password has been set successfully. You can now log in.")
                 add_notification("", "HR", f"Employee {emp_code_clean} set a new password after reset.")
                 st.rerun()
+
 # ============================
 # Photo & Recruitment Helpers
 # ============================
@@ -760,6 +713,7 @@ def save_employee_photo(employee_code, uploaded_file):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
 def save_recruitment_cv(uploaded_file):
     os.makedirs(RECRUITMENT_CV_DIR, exist_ok=True)
     ext = uploaded_file.name.split(".")[-1].lower()
@@ -771,6 +725,7 @@ def save_recruitment_cv(uploaded_file):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
 # ============================
 # GitHub helpers (JSON version) — ✅ MODIFIED TO SANITIZE + ENCRYPT BEFORE UPLOAD
 # ============================
@@ -779,6 +734,7 @@ def github_headers():
     if GITHUB_TOKEN:
         headers["Authorization"] = f"token {GITHUB_TOKEN}"
     return headers
+
 def load_employee_data_from_github():
     try:
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}?ref={BRANCH}"
@@ -794,6 +750,7 @@ def load_employee_data_from_github():
             return pd.DataFrame()
     except Exception:
         return pd.DataFrame()
+
 def get_file_sha(filepath):
     try:
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{filepath}"
@@ -805,6 +762,7 @@ def get_file_sha(filepath):
             return None
     except Exception:
         return None
+
 def upload_json_to_github(filepath, data_list, commit_message):
     if not GITHUB_TOKEN:
         return False
@@ -838,6 +796,7 @@ def upload_json_to_github(filepath, data_list, commit_message):
         return put_resp.status_code in (200, 201)
     except Exception:
         return False
+
 # ============================
 # Helpers
 # ============================
@@ -850,6 +809,7 @@ def ensure_session_df():
         else:
             st.session_state["df"] = load_json_file(FILE_PATH)
             initialize_passwords_from_data(st.session_state["df"].to_dict(orient='records'))
+
 # ============================
 # Login & Save Helpers
 # ============================
@@ -871,8 +831,10 @@ def login(df, code, password):
     if stored_hash and verify_password(password, stored_hash):
         return matched.iloc[0].to_dict()
     return None
+
 def save_df_to_local(df):
     return save_json_file(df, FILE_PATH)
+
 def save_and_maybe_push(df, actor="HR"):
     saved = save_json_file(df, FILE_PATH)
     pushed = False
@@ -882,6 +844,7 @@ def save_and_maybe_push(df, actor="HR"):
         if pushed:
             saved = True
     return saved, pushed
+
 def load_leaves_data():
     df = load_json_file(LEAVES_FILE_PATH, default_columns=[
         "Employee Code", "Manager Code", "Start Date", "End Date",
@@ -892,6 +855,7 @@ def load_leaves_data():
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors="coerce")
     return df
+
 def save_leaves_data(df):
     df = df.copy()
     date_cols = ["Start Date", "End Date", "Decision Date"]
@@ -899,6 +863,7 @@ def save_leaves_data(df):
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors="coerce").dt.strftime("%Y-%m-%d")
     return save_json_file(df, LEAVES_FILE_PATH)
+
 # ============================
 # Notifications System
 # ============================
@@ -906,11 +871,13 @@ def load_notifications():
     return load_json_file(NOTIFICATIONS_FILE_PATH, default_columns=[
         "Recipient Code", "Recipient Title", "Message", "Timestamp", "Is Read"
     ])
+
 def save_notifications(df):
     df = df.copy()
     if "Timestamp" in df.columns:
         df["Timestamp"] = pd.to_datetime(df["Timestamp"], errors="coerce").astype(str)
     return save_json_file(df, NOTIFICATIONS_FILE_PATH)
+
 def add_notification(recipient_code, recipient_title, message):
     notifications = load_notifications()
     new_row = pd.DataFrame([{
@@ -922,6 +889,7 @@ def add_notification(recipient_code, recipient_title, message):
     }])
     notifications = pd.concat([notifications, new_row], ignore_index=True)
     save_notifications(notifications)
+
 def get_unread_count(user):
     notifications = load_notifications()
     if notifications.empty:
@@ -941,6 +909,7 @@ def get_unread_count(user):
     )
     unread = notifications[mask & (~notifications["Is Read"])]
     return len(unread)
+
 def mark_all_as_read(user):
     notifications = load_notifications()
     if notifications.empty:
@@ -958,6 +927,7 @@ def mark_all_as_read(user):
     )
     notifications.loc[mask, "Is Read"] = True
     save_notifications(notifications)
+
 def format_relative_time(ts):
     if not ts or pd.isna(ts):
         return "N/A"
@@ -976,6 +946,7 @@ def format_relative_time(ts):
             return dt.strftime("%d-%m-%Y")
     except Exception:
         return str(ts)
+
 # ============================
 # page_notifications
 # ============================
@@ -1065,6 +1036,7 @@ box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 </div>
 """, unsafe_allow_html=True)
         st.markdown("---")
+
 # ============================
 # 🆕 ADDITION: page_manager_leaves — Fully Implemented & FIXED
 # ============================
@@ -1157,6 +1129,7 @@ def page_manager_leaves(user):
         )
     else:
         st.info("No leave history for your team.")
+
 # ============================
 # Salary Monthly Page — **FIXED: Works for ALL employees + Better error handling**
 # ============================
@@ -1258,8 +1231,9 @@ margin-bottom:10px; box-shadow:0 4px 8px rgba(0,0,0,0.05);">
                     del st.session_state[details_key]
                     st.rerun()
     except Exception as e:
-        st.error(f"❌ Error loading salary data: {str(e)}")
+        st.error(f"❌ Error loading salary  {str(e)}")
         st.info("💡 Please contact HR or system administrator for assistance.")
+
 # ============================
 # Salary Report Page — Encrypt on Upload (HR ONLY)
 # ============================
@@ -1315,6 +1289,7 @@ def page_salary_report(user):
         )
     else:
         st.info("📭 No salary data available yet.")
+
 # ============================
 # HR Manager — UPDATED with Password Reset Feature
 # ============================
@@ -1560,6 +1535,7 @@ def page_hr_manager(user):
             st.rerun()
         except Exception as e:
             st.error(f"❌ Failed to clear: {e}")
+
 # ============================
 # 🆕 PAGE: Notify Compliance (for MR only)
 # ============================
@@ -1649,6 +1625,7 @@ def page_notify_compliance(user):
                 st.success("✅ Your message has been sent to Compliance and your manager.")
             else:
                 st.error("❌ Failed to send message.")
+
 # ============================
 # 🆕 PAGE: Report Compliance (for Compliance team + Managers + DM, AM, BUM)
 # ============================
@@ -1713,6 +1690,7 @@ def page_report_compliance(user):
         file_name="Compliance_Report.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 # ============================
 # 🆕 PAGE: IDB - Individual Development Blueprint (for MR) - FIXED
 # ============================
@@ -1814,6 +1792,7 @@ def page_idb_mr(user):
             file_name=f"IDB_{user_code}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 # ============================
 # 🆕 PAGE: Self Development (for MR)
 # ============================
@@ -1849,6 +1828,7 @@ Share your journey to success with us.</h3>
         add_notification("", "HR", f"MR {user_code} uploaded a new certification.")
         st.success("✅ Certification submitted to HR!")
         st.rerun()
+
 # ============================
 # 🆕 PAGE: HR Development View (for HR) - FIXED
 # ============================
@@ -1912,6 +1892,7 @@ def page_hr_development(user):
                         )
         else:
             st.info("📭 No certifications uploaded.")
+
 # ============================
 # 🆕 PAGE: Ask HR (for ALL employees) - FIXED with success messages
 # ============================
@@ -2000,6 +1981,7 @@ def page_ask_hr(user):
             st.markdown("**🕒 HR Reply:** Pending")
         st.markdown("</div>")
         st.markdown("---")
+
 # ============================
 # 🆕 PAGE: HR Inbox (for HR) - FIXED with success messages
 # ============================
@@ -2078,6 +2060,7 @@ def page_hr_inbox(user):
                     st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("---")
+
 # ============================
 # 🆕 PAGE: Ask Employees (for HR)
 # ============================
@@ -2142,8 +2125,9 @@ def page_ask_employees(user):
         add_notification(selected_code, "", f"HR has sent you a new request (ID: {new_id}). Check 'HR Request' page.")
         st.success(f"✅ Request sent to {selected_name} (Code: {selected_code}) successfully.")
         st.rerun()
+
 # ============================
-# 🆕 PAGE: HR Request (for ALL employees) - FIXED with success messages
+# 🆕 PAGE: HR Request (for ALL employees) - FIXED with CLEAR REQUEST DISPLAY
 # ============================
 def page_request_hr(user):
     # ✅ NEW: Show success message from session state
@@ -2166,59 +2150,74 @@ def page_request_hr(user):
         return
     user_requests = user_requests.sort_values("Date Sent", ascending=False).reset_index(drop=True)
     for idx, row in user_requests.iterrows():
-        st.markdown(f"### 📄 Request ID: {row['ID']}")
-        st.write(f"**From HR:** {row['Request']}")
-        date_sent_val = row.get("Date Sent")
-        if pd.notna(date_sent_val) and date_sent_val != pd.NaT:
-            try:
-                formatted_date = pd.to_datetime(date_sent_val).strftime('%d-%m-%Y %H:%M')
-                st.write(f"**Date Sent:** {formatted_date}")
-            except Exception:
-                st.write("**Date Sent:** Not available")
-        else:
-            st.write("**Date Sent:** Not available")
+        # ✅ FIXED: عرض واضح لطلب الـ HR مع جميع التفاصيل
+        st.markdown(f"""
+<div class="hr-request-card">
+    <div class="hr-request-title">📄 HR Request ID: {row['ID']}</div>
+    <div class="hr-request-details"><strong>From HR:</strong> {row['Request']}</div>
+    <div class="hr-request-details"><strong>What HR needs from you:</strong> Please respond to the request above with your answer or attach any required documents.</div>
+    <div class="hr-request-date">Sent on: {pd.to_datetime(row['Date Sent']).strftime('%d-%m-%Y %H:%M') if pd.notna(row['Date Sent']) else 'N/A'}</div>
+</div>
+""", unsafe_allow_html=True)
+        
+        # عرض الملف المرفق إن وجد
         file_attached = row.get("File Attached", "")
         if pd.notna(file_attached) and isinstance(file_attached, str) and file_attached.strip() != "":
             filepath = os.path.join("hr_request_files", file_attached)
             if os.path.exists(filepath):
                 with open(filepath, "rb") as f:
-                    st.download_button("📥 Download Attached File", f, file_name=file_attached, key=f"dl_req_{idx}")
+                    st.download_button("📥 Download Attached File from HR", f, file_name=file_attached, key=f"dl_req_{idx}")
             else:
                 st.warning("⚠️ The attached file does not exist on the server.")
         else:
             st.info("📎 No file was attached to this request.")
+        
+        # إذا تم الرد مسبقاً
         if row["Status"] == "Completed":
-            st.success("✅ This request has been responded to.")
+            st.success("✅ You have already responded to this request.")
+            st.markdown(f"**Your Response:** {row.get('Response', 'N/A')}")
             response_file = row.get("Response File", "")
             if pd.notna(response_file) and isinstance(response_file, str) and response_file.strip() != "":
                 resp_path = os.path.join("hr_response_files", response_file)
                 if os.path.exists(resp_path):
                     with open(resp_path, "rb") as f:
-                        st.download_button("📥 Download Your Response", f, file_name=response_file, key=f"dl_resp_{idx}")
+                        st.download_button("📥 Download Your Response File", f, file_name=response_file, key=f"dl_resp_{idx}")
                 else:
                     st.warning("⚠️ Your response file does not exist on the server.")
+            st.markdown("---")
             continue
-        st.markdown("---")
-        response_text = st.text_area("Your Response", key=f"resp_text_{idx}")
+        
+        # نموذج الرد
+        st.markdown("### ✍️ Your Response")
+        response_text = st.text_area("Write your response here", key=f"resp_text_{idx}", height=120)
         uploaded_resp_file = st.file_uploader("Attach Response File (Optional)", type=["pdf", "docx", "xlsx", "jpg", "png"], key=f"resp_file_{idx}")
-        if st.button("📤 Submit Response", key=f"submit_resp_{idx}"):
-            if not response_text.strip() and not uploaded_resp_file:
-                st.warning("Please provide a response or attach a file.")
-                continue
-            requests_df.loc[requests_df["ID"] == row["ID"], "Response"] = response_text.strip()
-            requests_df.loc[requests_df["ID"] == row["ID"], "Status"] = "Completed"
-            requests_df.loc[requests_df["ID"] == row["ID"], "Date Responded"] = pd.Timestamp.now()
-            response_file_name = ""
-            if uploaded_resp_file:
-                resp_filename = save_response_file(uploaded_resp_file, user_code, row["ID"])
-                response_file_name = resp_filename
-            if save_hr_requests(requests_df):  # ✅ Check save result
-                st.session_state["request_hr_success"] = True
-                add_notification("", "HR", f"Employee {user_code} responded to request ID {row['ID']}.")
-                st.rerun()
-            else:
-                st.session_state["request_hr_error"] = "❌ Failed to save response. Please try again."
-                st.rerun()
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("📤 Submit Response", key=f"submit_resp_{idx}"):
+                if not response_text.strip() and not uploaded_resp_file:
+                    st.warning("⚠️ Please provide a response text or attach a file.")
+                else:
+                    requests_df.loc[requests_df["ID"] == row["ID"], "Response"] = response_text.strip()
+                    requests_df.loc[requests_df["ID"] == row["ID"], "Status"] = "Completed"
+                    requests_df.loc[requests_df["ID"] == row["ID"], "Date Responded"] = pd.Timestamp.now()
+                    response_file_name = ""
+                    if uploaded_resp_file:
+                        resp_filename = save_response_file(uploaded_resp_file, user_code, row["ID"])
+                        response_file_name = resp_filename
+                    requests_df.loc[requests_df["ID"] == row["ID"], "Response File"] = response_file_name
+                    
+                    if save_hr_requests(requests_df):  # ✅ Check save result
+                        st.session_state["request_hr_success"] = True
+                        add_notification("", "HR", f"Employee {user_code} responded to request ID {row['ID']}.")
+                        st.rerun()
+                    else:
+                        st.session_state["request_hr_error"] = "❌ Failed to save response. Please try again."
+                        st.rerun()
+        with col2:
+            st.button("🔄 Refresh", key=f"refresh_{idx}")
+        st.markdown("---")
+
 # ============================
 # 🆕 PAGE: Employee Photos (HR View) - NEW PAGE
 # ============================
@@ -2296,6 +2295,7 @@ def page_employee_photos(user):
                 use_container_width=True
             )
         st.success("✅ ZIP file created. Click the button above to download.")
+
 # ============================
 # Remaining Page Functions (modified for photo upload)
 # ============================
@@ -2314,6 +2314,7 @@ def calculate_leave_balance(employee_code, leaves_df=None):
             used_days += (row["End Date"] - row["Start Date"]).days + 1
     remaining_days = DEFAULT_ANNUAL_LEAVE - used_days
     return DEFAULT_ANNUAL_LEAVE, used_days, remaining_days
+
 def build_team_hierarchy_recursive(df, manager_code, manager_title, depth=0, max_depth=10):
     if depth > max_depth:
         return None
@@ -2334,6 +2335,7 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title, depth=0, max
             "Team": sub_team if sub_team else []
         })
     return team
+
 def page_leave_request(user):
     st.subheader("📅 Request Leave")
     employee_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
@@ -2374,6 +2376,7 @@ def page_leave_request(user):
                 st.rerun()
             else:
                 st.error("❌ Failed to save leave request.")
+
 def page_my_profile(user):
     st.subheader("👤 My Profile")
     df = st.session_state.get("df", pd.DataFrame())
@@ -2456,6 +2459,7 @@ def page_my_profile(user):
             if st.button("❌ Cancel"):
                 st.session_state["show_photo_upload"] = False
                 st.rerun()
+
 def page_team_structure(user):
     st.subheader("👥 Team Structure")
     df = st.session_state.get("df", pd.DataFrame())
@@ -2531,6 +2535,7 @@ def page_team_structure(user):
             display_hierarchy(member)
     else:
         st.info("📭 No team members found under your supervision.")
+
 def page_hr_queries(user):
     st.subheader("💬 HR Queries")
     df = st.session_state.get("df", pd.DataFrame())
@@ -2574,6 +2579,7 @@ def page_hr_queries(user):
             st.markdown(f"<div style='color:#05445E; margin-top:8px;'><strong>HR Response:</strong> {row['Response']}</div>", unsafe_allow_html=True)
         st.markdown(f"<div style='color:#999999; font-size:0.9rem; margin-top:4px;'>{format_relative_time(row['Timestamp'])}</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
+
 def page_hr_view_queries(user):
     st.subheader("💬 HR Queries (HR View)")
     queries_df = load_json_file(HR_QUERIES_FILE_PATH, default_columns=["ID", "Employee Code", "Query", "Response", "Status", "Timestamp"])
@@ -2602,6 +2608,7 @@ def page_hr_view_queries(user):
     st.markdown("### 📋 All Queries History")
     all_queries = queries_df.sort_values("Timestamp", ascending=False)
     st.dataframe(all_queries, use_container_width=True)
+
 def page_hr_requests(user):
     st.subheader("📋 HR Requests")
     user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
@@ -2656,6 +2663,7 @@ def page_hr_requests(user):
                 st.download_button("📥 Download Attached File", f, key=f"dl_req_{row['ID']}")
         st.markdown(f"<div style='color:#999999; font-size:0.9rem; margin-top:4px;'>{format_relative_time(row['Timestamp'])}</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
+
 def page_hr_view_requests(user):
     st.subheader("📋 HR Requests (HR View)")
     requests_df = load_json_file(HR_REQUESTS_FILE_PATH, default_columns=["ID", "Employee Code", "Request Type", "Description", "File Path", "Status", "HR Response", "Timestamp"])
@@ -2695,6 +2703,7 @@ def page_hr_view_requests(user):
     st.markdown("### 📋 All Requests History")
     all_requests = requests_df.sort_values("Timestamp", ascending=False)
     st.dataframe(all_requests, use_container_width=True)
+
 def page_recruitment(user):
     st.subheader("👥 Recruitment")
     st.info("Use the Google Form link below to submit candidate information.")
@@ -2733,6 +2742,7 @@ def page_recruitment(user):
                     st.download_button(f"📥 {row['CV File']}", f, key=f"dl_cv_{idx}")
     else:
         st.info("📭 No CVs submitted yet.")
+
 def page_hr_recruitment_view(user):
     st.subheader("👥 Recruitment (HR View)")
     recruitment_df = load_json_file(RECRUITMENT_DATA_FILE)
@@ -2745,8 +2755,9 @@ def page_hr_recruitment_view(user):
                     st.download_button(f"📥 Download {row['CV File']}", f, key=f"dl_hr_cv_{idx}")
     else:
         st.info("📭 No recruitment data available.")
+
 # ============================
-# Login Page
+# Login Page - STRONGER STYLING
 # ============================
 def page_login():
     st.title("👥 HRAS — Averroes Admin")
@@ -2755,6 +2766,7 @@ def page_login():
     with col1:
         code = st.text_input("Employee Code")
         password = st.text_input("Password", type="password")
+        # ✅ زر تسجيل الدخول بتصميم معدّل
         if st.button("🔐 Login"):
             df = st.session_state.get("df", pd.DataFrame())
             if df.empty:
@@ -2777,6 +2789,7 @@ def page_login():
     if st.session_state.get("show_forgot_password"):
         st.markdown("---")
         page_forgot_password()
+
 # ============================
 # Main App - SIDEBAR (FIXED: Remove Team Leaves from DM/AM, Remove Leave Request from MR/DM/AM/BUM, Enhanced Notifications)
 # ============================
@@ -2943,6 +2956,7 @@ def main():
         st.session_state["hr_inbox_error"] = False
         st.success("✅ Logged out successfully.")
         st.rerun()
+
 # Run the app
 if __name__ == "__main__":
     main()
