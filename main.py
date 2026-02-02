@@ -2087,6 +2087,12 @@ def page_hr_inbox(user):
 # ============================
 def page_ask_employees(user):
     st.subheader("📤 Ask Employees")
+    if st.session_state.get("ask_employees_success"):
+       st.success(st.session_state["ask_employees_success"])
+       del st.session_state["ask_employees_success"]
+    if st.session_state.get("ask_employees_error"):
+       st.error(st.session_state["ask_employees_error"])
+        del st.session_state["ask_employees_error"]
     st.info("🔍 Select department, then select employee to send a message.")
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
@@ -2142,10 +2148,12 @@ def page_ask_employees(user):
             "Date Responded": pd.NaT
         }])
         requests_df = pd.concat([requests_df, new_row], ignore_index=True)
-        save_hr_requests(requests_df)
-        # ✅ FIXED: Send notification to the employee
+        if save_hr_requests(requests_df):  # ✅ التحقق من نجاح الحفظ أولًا
         add_notification(selected_code, "", f"HR has sent you a new request (ID: {new_id}). Check 'HR Request' page.")
-        st.success(f"✅ Request sent to {selected_name} (Code: {selected_code}) successfully.")
+        st.session_state["ask_employees_success"] = f"✅ Request sent to {selected_name} (Code: {selected_code}) successfully."
+        st.rerun()
+    else:
+        st.session_state["ask_employees_error"] = "❌ Failed to send request. Please try again."
         st.rerun()
 # ============================
 # 🆕 PAGE: HR Request (for ALL employees) - FIXED with success messages
@@ -2220,7 +2228,7 @@ def page_request_hr(user):
             if save_hr_requests(requests_df):  # ✅ Check save result
                 st.session_state["request_hr_success"] = True
                 # ✅ FIXED: Send notification to HR
-                add_notification("", "HR", f"Employee {user_code} responded to request ID {row['ID']}.")
+                add_notification("", user.get("Title", "HR"), f"Employee {user_code} responded to request ID {row['ID']}.")
                 st.rerun()
             else:
                 st.session_state["request_hr_error"] = "❌ Failed to save response. Please try again."
@@ -2788,6 +2796,10 @@ def page_login():
 # ============================
 def main():
     # Initialize session state
+    if "ask_employees_success" not in st.session_state:
+        st.session_state["ask_employees_success"] = False
+    if "ask_employees_error" not in st.session_state:
+        st.session_state["ask_employees_error"] = False
     if "logged_in" not in st.session_state:
         st.session_state["logged_in"] = False
     if "user" not in st.session_state:
