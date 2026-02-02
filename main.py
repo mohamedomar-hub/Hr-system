@@ -1,4 +1,4 @@
-# hr_system_with_config_json.py — FULLY CONVERTED TO JSON (ALL FIXES APPLIED) + BUTTON TEXT & FILE UPLOAD MODIFICATIONS
+# hr_system_with_config_json.py — FULLY CONVERTED TO JSON (ALL FIXES APPLIED) + BUTTON TEXT & FILE UPLOAD MODIFICATIONS + SIDEBAR BUTTONS
 import streamlit as st
 import pandas as pd
 import requests
@@ -326,7 +326,7 @@ def save_json_file(df, filepath):
         st.error(f"Save error: {str(e)}")
         return False
 # ============================
-# Styling - Modern Light Mode CSS (Updated per your request)
+# Styling - Modern Light Mode CSS (Updated per your request) - ✅ ENHANCED SIDEBAR BUTTONS
 # ============================
 st.set_page_config(page_title="HRAS — Averroes Admin", page_icon="👥", layout="wide")
 hide_streamlit_style = """
@@ -337,151 +337,199 @@ div[data-testid="stDeployButton"] { display: none; }
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-# ✅ تم دمج التعديلات: توحيد لون نصوص الأزرار + تحسين مظهر File Upload
+# ✅ تم دمج التعديلات: توحيد لون نصوص الأزرار + تحسين مظهر File Upload + SIDEBAR BUTTONS
 updated_css = """
 <style>
 /* ========== COLORS SYSTEM ========== */
 :root {
---primary: #05445E;
---secondary: #0A5C73;
---text-main: #2E2E2E;
---text-muted: #6B7280;
---card-bg: #FFFFFF;
---soft-bg: #F2F6F8;
---border-soft: #E5E7EB;
---file-upload-bg: #FFFFFF;
---file-upload-border: #E5E7EB;
---file-upload-hover: #F9FAFB;
+    --primary: #05445E;
+    --secondary: #0A5C73;
+    --accent-blue: #3B82F6;
+    --accent-blue-light: #BFDBFE;
+    --text-main: #2E2E2E;
+    --text-muted: #6B7280;
+    --card-bg: #FFFFFF;
+    --soft-bg: #F2F6F8;
+    --border-soft: #E5E7EB;
+    --file-upload-bg: #FFFFFF;
+    --file-upload-border: #E5E7EB;
+    --file-upload-hover: #F9FAFB;
 }
 /* ========== GENERAL TEXT ========== */
 html, body, p, span, label {
-color: var(--text-main) !important;
+    color: var(--text-main) !important;
 }
 /* ========== HEADERS ========== */
 h1, h2, h3, h4, h5 {
-color: var(--primary) !important;
-font-weight: 600;
+    color: var(--primary) !important;
+    font-weight: 600;
 }
 /* ========== SIDEBAR USER NAME ========== */
 section[data-testid="stSidebar"] h4,
 section[data-testid="stSidebar"] h5,
 section[data-testid="stSidebar"] p {
-color: #FFFFFF !important;
-font-weight: 600;
+    color: #FFFFFF !important;
+    font-weight: 600;
 }
 /* ========== INPUT LABELS ========== */
 label {
-color: var(--primary) !important;
-font-weight: 500;
+    color: var(--primary) !important;
+    font-weight: 500;
 }
 /* ========== CARDS ========== */
 .card {
-background-color: var(--card-bg);
-border-radius: 16px;
-padding: 18px;
-box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-border: 1px solid var(--border-soft);
+    background-color: var(--card-bg);
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    border: 1px solid var(--border-soft);
 }
 /* ========== INFO TEXT (No data, help text) ========== */
 .info-text {
-color: var(--text-muted) !important;
-font-size: 14px;
+    color: var(--text-muted) !important;
+    font-size: 14px;
 }
 /* ========== SECTION HEADER BOX ========== */
 .section-box {
-background-color: var(--soft-bg);
-padding: 14px 20px;
-border-radius: 14px;
-margin: 25px 0 15px 0;
+    background-color: var(--soft-bg);
+    padding: 14px 20px;
+    border-radius: 14px;
+    margin: 25px 0 15px 0;
 }
 /* إضافات ضرورية للوظائف */
 .sidebar-title {
-font-size: 1.4rem;
-font-weight: bold;
-color: var(--primary);
-text-align: center;
-margin-bottom: 10px;
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: #FFFFFF;
+    text-align: center;
+    margin-bottom: 10px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 .hr-message-card {
-background-color: #FFFFFF;
-border-left: 4px solid var(--primary);
-padding: 12px;
-margin: 10px 0;
-border-radius: 8px;
-box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    background-color: #FFFFFF;
+    border-left: 4px solid var(--primary);
+    padding: 12px;
+    margin: 10px 0;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 .hr-message-title {
-color: var(--primary);
-font-weight: bold;
-font-size: 1.1rem;
+    color: var(--primary);
+    font-weight: bold;
+    font-size: 1.1rem;
 }
 .hr-message-meta {
-color: #666666;
-font-size: 0.9rem;
-margin: 4px 0;
+    color: #666666;
+    font-size: 0.9rem;
+    margin: 4px 0;
 }
 .hr-message-body {
-color: var(--text-main) !important;
-margin-top: 6px;
+    color: var(--text-main) !important;
+    margin-top: 6px;
 }
 .leave-balance-card,
 .team-structure-card {
-background-color: #FFFFFF !important;
-border-radius: 8px;
-padding: 12px;
-text-align: center;
-border: 1px solid #E6E6E6;
-box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    background-color: #FFFFFF !important;
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+    border: 1px solid #E6E6E6;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 .leave-balance-title,
 .team-structure-title {
-color: #666666;
-font-size: 0.9rem;
+    color: #666666;
+    font-size: 0.9rem;
 }
 .leave-balance-value,
 .team-structure-value {
-color: var(--primary);
-font-size: 1.4rem;
-font-weight: bold;
-margin-top: 4px;
+    color: var(--primary);
+    font-size: 1.4rem;
+    font-weight: bold;
+    margin-top: 4px;
 }
 .leave-balance-value.used {
-color: #dc2626;
+    color: #dc2626;
 }
 .leave-balance-value.remaining {
-color: #059669;
+    color: #059669;
 }
 .team-structure-value.am { color: var(--primary); }
 .team-structure-value.dm { color: var(--secondary); }
 .team-structure-value.mr { color: #dc2626; }
 .notification-bell {
-position: absolute;
-top: 20px;
-right: 20px;
-background-color: #ef4444;
-color: white;
-width: 24px;
-height: 24px;
-border-radius: 50%;
-display: flex;
-justify-content: center;
-align-items: center;
-font-weight: bold;
-font-size: 0.8rem;
-z-index: 100;
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background-color: #ef4444;
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    font-size: 0.8rem;
+    z-index: 100;
+}
+/* ========== SIDEBAR BUTTONS - SKY BLUE WITH WHITE TEXT ========== */
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] > div:first-child {
+    padding: 0 !important;
+}
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button {
+    background-color: var(--accent-blue) !important;
+    color: white !important;
+    border: none !important;
+    font-weight: 600 !important;
+    padding: 0.8rem 1rem !important;
+    border-radius: 8px !important;
+    text-align: left !important;
+    margin: 4px 0 !important;
+    width: 100% !important;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2) !important;
+    transition: all 0.3s ease !important;
+    height: auto !important;
+    min-height: 45px !important;
+}
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button:hover {
+    background-color: #2563eb !important;
+    color: white !important;
+    box-shadow: 0 3px 6px rgba(59, 130, 246, 0.3) !important;
+    transform: translateY(-1px) !important;
+}
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button:active {
+    background-color: #1d4ed8 !important;
+    transform: translateY(0) !important;
+}
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button:disabled {
+    opacity: 0.6 !important;
+    background-color: #93c5fd !important;
+}
+/* Ensure all text elements inside sidebar buttons are white */
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button,
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button *,
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button span,
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button div,
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button p,
+section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] button label {
+    color: white !important !important;
+    font-weight: 600 !important;
 }
 /* ========== BUTTONS - ALL TEXT WHITE ========== */
 /* الأزرار الرئيسية - نص أبيض واضح */
 .stButton > button {
-background-color: var(--primary) !important;
-color: white !important;
-border: none !important;
-font-weight: 600 !important;
-padding: 0.5rem 1rem !important;
-border-radius: 6px !important;
-text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
-box-shadow: 0 2px 4px rgba(5, 68, 94, 0.2) !important;
-transition: all 0.3s ease !important;
+    background-color: var(--primary) !important;
+    color: white !important;
+    border: none !important;
+    font-weight: 600 !important;
+    padding: 0.6rem 1.2rem !important;
+    border-radius: 8px !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+    box-shadow: 0 3px 6px rgba(5, 68, 94, 0.25) !important;
+    transition: all 0.3s ease !important;
+    min-height: 42px !important;
+    font-size: 15px !important;
 }
 /* ضمان أن جميع العناصر الداخلية للزر تكون بيضاء - شامل */
 .stButton > button,
@@ -492,15 +540,17 @@ transition: all 0.3s ease !important;
 .stButton > button label,
 .stButton > button .stMarkdown,
 .stButton > button .stText {
-color: white !important !important;
-text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
-font-weight: 600 !important;
+    color: white !important !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+    font-weight: 600 !important;
+    font-size: 15px !important;
 }
 /* عند التمرير بالفأرة - أحمر مع نص أبيض */
 .stButton > button:hover {
-background-color: #dc2626 !important;
-color: white !important !important;
-box-shadow: 0 3px 6px rgba(220, 38, 38, 0.3) !important;
+    background-color: #dc2626 !important;
+    color: white !important !important;
+    box-shadow: 0 4px 8px rgba(220, 38, 38, 0.35) !important;
+    transform: translateY(-2px) !important;
 }
 /* ضمان بقاء النص أبيض عند التمرير */
 .stButton > button:hover,
@@ -511,21 +561,21 @@ box-shadow: 0 3px 6px rgba(220, 38, 38, 0.3) !important;
 .stButton > button:hover label,
 .stButton > button:hover .stMarkdown,
 .stButton > button:hover .stText {
-color: white !important !important;
-text-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
+    color: white !important !important;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.3) !important;
 }
 /* للزر المُعطَّل - نص أبيض فاتح */
 .stButton > button:disabled {
-opacity: 0.7 !important;
-color: #f8f9fa !important !important;
-background-color: #9CA3AF !important;
+    opacity: 0.7 !important;
+    color: #f8f9fa !important !important;
+    background-color: #9CA3AF !important;
 }
 .stButton > button:disabled,
 .stButton > button:disabled *,
 .stButton > button:disabled span,
 .stButton > button:disabled div,
 .stButton > button:disabled p {
-color: #f8f9fa !important !important;
+    color: #f8f9fa !important !important;
 }
 /* ========== FILE UPLOADER - IMPROVED APPEARANCE (FIXED) ========== */
 /* تحسين مظهر رفع الملفات */
@@ -533,41 +583,47 @@ color: #f8f9fa !important !important;
     width: 100% !important;
 }
 .stFileUploader > div {
-    background-color: #FFFFFF !important;
-    border: 2px dashed #E5E7EB !important;
-    border-radius: 8px !important;
-    padding: 20px !important;
+    background-color: var(--file-upload-bg) !important;
+    border: 2px dashed var(--file-upload-border) !important;
+    border-radius: 10px !important;
+    padding: 25px !important;
     transition: all 0.3s ease !important;
-    color: #2E2E2E !important;
+    color: var(--text-main) !important;
+    background-image: linear-gradient(135deg, #f8fafc 0%, #e0f2fe 100%) !important;
 }
 /* عند التمرير على منطقة رفع الملفات */
 .stFileUploader > div:hover {
-    border-color: #05445E !important;
-    background-color: #F9FAFB !important;
-    box-shadow: 0 2px 8px rgba(5, 68, 94, 0.1) !important;
+    border-color: var(--accent-blue) !important;
+    background-color: var(--file-upload-hover) !important;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15) !important;
+    transform: scale(1.02) !important;
 }
 /* نص منطقة رفع الملفات */
 .stFileUploader > div > section > p {
-    color: #2E2E2E !important;
-    font-size: 14px !important;
+    color: var(--text-main) !important;
+    font-size: 15px !important;
     font-weight: 500 !important;
     text-align: center !important;
+    margin: 8px 0 !important;
 }
 /* أيقونة رفع الملفات */
 .stFileUploader > div > section > svg {
-    color: #05445E !important;
+    color: var(--accent-blue) !important;
     margin: 0 auto !important;
     display: block !important;
+    width: 48px !important;
+    height: 48px !important;
 }
 /* عند اختيار ملف - الخلفية تصبح زرقاء فاتحة */
 .stFileUploader [data-testid="stFileUploaderDropzone"] {
-    background-color: #F0F9FF !important;
-    border-color: #05445E !important;
+    background-color: #dbeafe !important;
+    border-color: var(--accent-blue) !important;
 }
 /* نص الملف المختار */
 .stFileUploader [data-testid="stFileUploaderFileName"] {
-    color: #05445E !important;
+    color: var(--primary) !important;
     font-weight: 600 !important;
+    font-size: 14px !important;
 }
 /* زر إزالة الملف */
 .stFileUploader [data-testid="stFileUploaderRemoveBtn"] {
@@ -575,31 +631,38 @@ color: #f8f9fa !important !important;
 }
 /* زر "Browse files" - تغيير لون النص والخلفية */
 .stFileUploader [data-testid="baseButton-secondary"] {
-    background-color: #05445E !important;
+    background-color: var(--accent-blue) !important;
     color: white !important;
     border: none !important;
     font-weight: 600 !important;
-    padding: 0.5rem 1rem !important;
-    border-radius: 6px !important;
+    padding: 0.6rem 1.2rem !important;
+    border-radius: 8px !important;
     text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+    box-shadow: 0 3px 6px rgba(59, 130, 246, 0.25) !important;
+    min-height: 42px !important;
+    font-size: 15px !important;
 }
 .stFileUploader [data-testid="baseButton-secondary"]:hover {
-    background-color: #dc2626 !important;
+    background-color: #2563eb !important;
     color: white !important;
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.35) !important;
+    transform: translateY(-2px) !important;
 }
 /* تأكيد تغيير لون نصوص الأزرار إلى الأبيض */
 .stButton > button,
 .stFileUploader [data-testid="baseButton-secondary"],
 .stFileUploader > div > button {
-    background-color: #05445E !important;
+    background-color: var(--primary) !important;
     color: white !important !important;
     border: none !important;
     font-weight: 600 !important;
-    padding: 0.5rem 1rem !important;
-    border-radius: 6px !important;
+    padding: 0.6rem 1.2rem !important;
+    border-radius: 8px !important;
     text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
-    box-shadow: 0 2px 4px rgba(5, 68, 94, 0.2) !important;
+    box-shadow: 0 3px 6px rgba(5, 68, 94, 0.25) !important;
     transition: all 0.3s ease !important;
+    min-height: 42px !important;
+    font-size: 15px !important;
 }
 /* عند التمرير على الأزرار */
 .stButton > button:hover,
@@ -607,34 +670,35 @@ color: #f8f9fa !important !important;
 .stFileUploader > div > button:hover {
     background-color: #dc2626 !important;
     color: white !important !important;
-    box-shadow: 0 3px 6px rgba(220, 38, 38, 0.3) !important;
+    box-shadow: 0 4px 8px rgba(220, 38, 38, 0.35) !important;
+    transform: translateY(-2px) !important;
 }
 /* الخلفية العامة */
 [data-testid="stAppViewContainer"] {
-background-color: #F2F2F2 !important;
+    background-color: #F2F2F2 !important;
 }
 /* ضمان وضوح جميع النصوص */
 body, .stApp, .stMarkdown, .stText, .stDataFrame, .stTable, .stSelectbox, .stTextInput, .stDateInput, .stTextArea {
-color: var(--text-main) !important;
+    color: var(--text-main) !important;
 }
 /* تحسين الجداول */
 table, td, th {
-color: var(--text-main) !important;
-background-color: #FFFFFF !important;
+    color: var(--text-main) !important;
+    background-color: #FFFFFF !important;
 }
 /* حقول الإدخال */
 input[type="text"], input[type="password"], input[type="number"], textarea {
-color: var(--text-main) !important;
-background-color: #FFFFFF !important;
-border: 1px solid #E6E6E6 !important;
+    color: var(--text-main) !important;
+    background-color: #FFFFFF !important;
+    border: 1px solid #E6E6E6 !important;
 }
 /* علامات التبويب */
 .stTabs [data-baseweb="tab-list"] button {
-color: var(--text-main) !important;
+    color: var(--text-main) !important;
 }
 .stTabs [data-baseweb="tab-panel"] {
-color: var(--text-main) !important;
-background-color: #FFFFFF !important;
+    color: var(--text-main) !important;
+    background-color: #FFFFFF !important;
 }
 /* إخفاء عناصر Streamlit */
 #MainMenu {visibility: hidden;}
@@ -2019,7 +2083,7 @@ def page_hr_inbox(user):
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("---")
 # ============================
-# 🆕 PAGE: Ask Employees (for HR)
+# 🆕 PAGE: Ask Employees (for HR) - FIXED: Messages now reach employees
 # ============================
 def page_ask_employees(user):
     st.subheader("📤 Ask Employees")
@@ -2079,6 +2143,7 @@ def page_ask_employees(user):
         }])
         requests_df = pd.concat([requests_df, new_row], ignore_index=True)
         save_hr_requests(requests_df)
+        # ✅ FIXED: Send notification to the employee
         add_notification(selected_code, "", f"HR has sent you a new request (ID: {new_id}). Check 'HR Request' page.")
         st.success(f"✅ Request sent to {selected_name} (Code: {selected_code}) successfully.")
         st.rerun()
@@ -2154,6 +2219,7 @@ def page_request_hr(user):
                 response_file_name = resp_filename
             if save_hr_requests(requests_df):  # ✅ Check save result
                 st.session_state["request_hr_success"] = True
+                # ✅ FIXED: Send notification to HR
                 add_notification("", "HR", f"Employee {user_code} responded to request ID {row['ID']}.")
                 st.rerun()
             else:
@@ -2217,7 +2283,7 @@ def page_employee_photos(user):
                                     key=f"dl_photo_{emp_code}_{photo}",
                                     use_container_width=True
                                 )
-        st.markdown("---")
+    st.markdown("---")
     # Download all photos as ZIP
     st.markdown("---")
     if st.button("📦 Download All Photos (ZIP)"):
@@ -2718,7 +2784,7 @@ def page_login():
         st.markdown("---")
         page_forgot_password()
 # ============================
-# Main App - SIDEBAR (FIXED: Remove Team Leaves from DM/AM, Remove Leave Request from MR/DM/AM/BUM, Enhanced Notifications)
+# Main App - SIDEBAR (FIXED: Remove Team Leaves from DM/AM, Remove Leave Request from MR/DM/AM/BUM, Enhanced Notifications) + SIDEBAR BUTTONS
 # ============================
 def main():
     # Initialize session state
@@ -2811,8 +2877,14 @@ def main():
                 "📤 Salary Report"
             ])
         pages.append("🚪 Logout")
-        # Display navigation with DYNAMIC labels
-        selected_page = st.radio("Navigate to:", pages, label_visibility="collapsed")
+        # Display navigation with ENHANCED BUTTONS (Sky Blue with White Text)
+        selected_page = None
+        for page in pages:
+            if st.button(page, key=f"nav_{page}", use_container_width=True):
+                st.session_state["selected_page"] = page
+                st.rerun()
+        # Get selected page from session state
+        selected_page = st.session_state.get("selected_page", pages[0])
     # Page routing with ENHANCED notification handling
     if selected_page.startswith("👤 My Profile"):
         page_my_profile(user)
@@ -2881,8 +2953,3 @@ def main():
         st.session_state["request_hr_error"] = False
         st.session_state["hr_inbox_success"] = False
         st.session_state["hr_inbox_error"] = False
-        st.success("✅ Logged out successfully.")
-        st.rerun()
-# Run the app
-if __name__ == "__main__":
-    main()
