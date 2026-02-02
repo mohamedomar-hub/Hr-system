@@ -1,4 +1,4 @@
-# hr_system_with_config_json.py — FULLY CONVERTED TO JSON (ALL FIXES APPLIED) + BUTTON TEXT & FILE UPLOAD MODIFICATIONS + SIDEBAR BUTTONS
+# hr_system_with_config_json.py — FULLY CONVERTED TO JSON (ALL FIXES APPLIED) + BUTTON TEXT & FILE UPLOAD MODIFICATIONS + SIDEBAR BUTTONS + COMMUNICATION FIX
 import streamlit as st
 import pandas as pd
 import requests
@@ -13,22 +13,27 @@ import bcrypt
 # 🔐 NEW: For salary encryption
 from cryptography.fernet import Fernet, InvalidToken
 import hashlib
+
 # ============================
 # COMPLIANCE MESSAGES FILE PATH
 # ============================
 COMPLIANCE_MESSAGES_FILE = "compliance_messages.json"
+
 # ============================
 # IDB REPORTS FILE PATH
 # ============================
 IDB_REPORTS_FILE = "idb_reports.json"
+
 # ============================
 # HR QUERIES FILE PATH
 # ============================
 HR_QUERIES_FILE = "hr_queries.json"
+
 # ============================
 # HR REQUESTS FILE PATH
 # ============================
 HR_REQUESTS_FILE = "hr_requests.json"
+
 # ============================
 # SALARY ENCRYPTION SETUP (Secure: from Streamlit Secrets)
 # ============================
@@ -36,11 +41,14 @@ SALARY_SECRET_KEY = st.secrets.get("SALARY_SECRET_KEY")
 if not SALARY_SECRET_KEY:
     st.error("❌ Missing SALARY_SECRET_KEY in Streamlit Secrets.")
     st.stop()
+
 def get_fernet_from_secret(secret: str) -> Fernet:
     key = hashlib.sha256(secret.encode()).digest()
     fernet_key = base64.urlsafe_b64encode(key)
     return Fernet(fernet_key)
+
 fernet_salary = get_fernet_from_secret(SALARY_SECRET_KEY)
+
 def encrypt_salary_value(value) -> str:
     try:
         if pd.isna(value):
@@ -50,6 +58,7 @@ def encrypt_salary_value(value) -> str:
         return base64.urlsafe_b64encode(encrypted).decode()
     except Exception:
         return ""
+
 def decrypt_salary_value(encrypted_str: str) -> float:
     try:
         if not encrypted_str or pd.isna(encrypted_str):
@@ -64,6 +73,7 @@ def decrypt_salary_value(encrypted_str: str) -> float:
             return float(encrypted_str)
     except (InvalidToken, ValueError, Exception):
         return 0.0
+
 # ============================
 # 🆕 FUNCTION: Load & Save Compliance Messages
 # ============================
@@ -72,6 +82,7 @@ def load_compliance_messages():
         "ID", "MR Code", "MR Name", "Compliance Recipient", "Compliance Code",
         "Manager Code", "Manager Name", "Message", "Timestamp", "Status"
     ])
+
 def save_compliance_messages(df):
     df = df.copy()
     if "Timestamp" in df.columns:
@@ -85,6 +96,7 @@ def save_compliance_messages(df):
                 df.at[idx, "ID"] = existing_max
         df["ID"] = df["ID"].astype(int)
     return save_json_file(df, COMPLIANCE_MESSAGES_FILE)
+
 # ============================
 # 🆕 FUNCTION: Load & Save HR Queries (FIXED: No sanitize_employee_data + Success Flags)
 # ============================
@@ -92,6 +104,7 @@ def load_hr_queries():
     return load_json_file(HR_QUERIES_FILE, default_columns=[
         "Employee Code", "Employee Name", "Subject", "Message", "Reply", "Status", "Date Sent", "Date Replied"
     ])
+
 def save_hr_queries(df):
     df = df.copy()
     if "Date Sent" in df.columns:
@@ -118,6 +131,7 @@ def save_hr_queries(df):
         st.error(f"❌ Save failed: {str(e)}")
         st.error(f"💡 Check: 1) Write permissions 2) Disk space 3) File not locked by another process")
         return False
+
 # ============================
 # 🆕 FUNCTION: Load & Save HR Requests
 # ============================
@@ -125,8 +139,10 @@ def load_hr_requests():
     return load_json_file(HR_REQUESTS_FILE, default_columns=[
         "ID", "HR Code", "Employee Code", "Employee Name", "Request", "File Attached", "Status", "Response", "Response File", "Date Sent", "Date Responded"
     ])
+
 def save_hr_requests(df):
     return save_json_file(df, HR_REQUESTS_FILE)
+
 # ============================
 # 🆕 FUNCTION: Save Request File
 # ============================
@@ -139,6 +155,7 @@ def save_request_file(uploaded_file, emp_code, req_id):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
 # ============================
 # 🆕 FUNCTION: Save Response File
 # ============================
@@ -151,6 +168,7 @@ def save_response_file(uploaded_file, emp_code, req_id):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
 # ============================
 # 🆕 FUNCTION: Sanitize employee data (APPLY YOUR 4 RULES + Private Email)
 # ============================
@@ -176,6 +194,7 @@ def sanitize_employee_data(df: pd.DataFrame) -> pd.DataFrame:
     # Rule 4: Private Email is kept in the dataframe but will be controlled manually in display
     # We do NOT hide it here because we need it accessible for My Profile page
     return df
+
 # ============================
 # 🆕 FUNCTION: Load & Save IDB Reports (FIXED: Added Employee Name)
 # ============================
@@ -183,6 +202,7 @@ def load_idb_reports():
     return load_json_file(IDB_REPORTS_FILE, default_columns=[
         "Employee Code", "Employee Name", "Selected Departments", "Strengths", "Development Areas", "Action Plan", "Updated At"
     ])
+
 def save_idb_report(employee_code, employee_name, selected_deps, strengths, development, action):
     reports = load_idb_reports()
     now = pd.Timestamp.now().isoformat()
@@ -199,6 +219,7 @@ def save_idb_report(employee_code, employee_name, selected_deps, strengths, deve
     reports = reports[reports["Employee Code"] != employee_code]
     reports = pd.concat([reports, pd.DataFrame([new_row])], ignore_index=True)
     return save_json_file(reports, IDB_REPORTS_FILE)
+
 # ============================
 # Load Configuration from config.json
 # ============================
@@ -244,7 +265,9 @@ def load_config():
     except Exception as e:
         st.error(f"Error loading config.json: {e}. Using defaults.")
         return default_config
+
 CONFIG = load_config()
+
 # ============================
 # Configuration from CONFIG
 # ============================
@@ -264,22 +287,28 @@ REPO_OWNER = st.secrets.get("REPO_OWNER", CONFIG["github"]["repo_owner"])
 REPO_NAME = st.secrets.get("REPO_NAME", CONFIG["github"]["repo_name"])
 BRANCH = st.secrets.get("BRANCH", CONFIG["github"]["branch"])
 FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FILE_PATH") else DEFAULT_FILE_PATH
+
 # ============================
 # 🔐 Secure Password Management (bcrypt-based)
 # ============================
 SECURE_PASSWORDS_FILE = "secure_passwords.json"
+
 def load_password_hashes():
     if os.path.exists(SECURE_PASSWORDS_FILE):
         with open(SECURE_PASSWORDS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
+
 def save_password_hashes(hashes):
     with open(SECURE_PASSWORDS_FILE, "w", encoding="utf-8") as f:
         json.dump(hashes, f, indent=2)
+
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
 def verify_password(plain_password: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed.encode('utf-8'))
+
 def initialize_passwords_from_data(data_list):
     hashes = load_password_hashes()
     for row in data_list:
@@ -288,6 +317,7 @@ def initialize_passwords_from_data(data_list):
         if emp_code and pwd and emp_code not in hashes:
             hashes[emp_code] = hash_password(pwd)
     save_password_hashes(hashes)
+
 # ============================
 # JSON File Helpers (REPLACES EXCEL) — ✅ MODIFIED TO ENCRYPT SALARIES BEFORE SAVING
 # ============================
@@ -305,6 +335,7 @@ def load_json_file(filepath, default_columns=None):
         if default_columns:
             return pd.DataFrame(columns=default_columns)
         return pd.DataFrame()
+
 def save_json_file(df, filepath):
     try:
         # 🆕 Sanitize BEFORE saving
@@ -325,6 +356,7 @@ def save_json_file(df, filepath):
     except Exception as e:
         st.error(f"Save error: {str(e)}")
         return False
+
 # ============================
 # Styling - Modern Light Mode CSS (Updated per your request) - ✅ ENHANCED SIDEBAR BUTTONS
 # ============================
@@ -337,6 +369,7 @@ div[data-testid="stDeployButton"] { display: none; }
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
 # ✅ تم دمج التعديلات: توحيد لون نصوص الأزرار + تحسين مظهر File Upload + SIDEBAR BUTTONS
 updated_css = """
 <style>
@@ -707,6 +740,7 @@ div[data-testid="stDeployButton"] { display: none; }
 </style>
 """
 st.markdown(updated_css, unsafe_allow_html=True)
+
 # ============================
 # ✅ MODIFIED: External Password Change Page (No Login Required)
 # ============================
@@ -746,6 +780,7 @@ def page_forgot_password():
                 st.success("✅ Your password has been set successfully. You can now log in.")
                 add_notification("", "HR", f"Employee {emp_code_clean} set a new password after reset.")
                 st.rerun()
+
 # ============================
 # Photo & Recruitment Helpers
 # ============================
@@ -764,6 +799,7 @@ def save_employee_photo(employee_code, uploaded_file):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
 def save_recruitment_cv(uploaded_file):
     os.makedirs(RECRUITMENT_CV_DIR, exist_ok=True)
     ext = uploaded_file.name.split(".")[-1].lower()
@@ -775,6 +811,7 @@ def save_recruitment_cv(uploaded_file):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+
 # ============================
 # GitHub helpers (JSON version) — ✅ MODIFIED TO SANITIZE + ENCRYPT BEFORE UPLOAD
 # ============================
@@ -783,6 +820,7 @@ def github_headers():
     if GITHUB_TOKEN:
         headers["Authorization"] = f"token {GITHUB_TOKEN}"
     return headers
+
 def load_employee_data_from_github():
     try:
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}?ref={BRANCH}"
@@ -798,6 +836,7 @@ def load_employee_data_from_github():
             return pd.DataFrame()
     except Exception:
         return pd.DataFrame()
+
 def get_file_sha(filepath):
     try:
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{filepath}"
@@ -809,6 +848,7 @@ def get_file_sha(filepath):
             return None
     except Exception:
         return None
+
 def upload_json_to_github(filepath, data_list, commit_message):
     if not GITHUB_TOKEN:
         return False
@@ -842,6 +882,7 @@ def upload_json_to_github(filepath, data_list, commit_message):
         return put_resp.status_code in (200, 201)
     except Exception:
         return False
+
 # ============================
 # Helpers
 # ============================
@@ -854,6 +895,7 @@ def ensure_session_df():
         else:
             st.session_state["df"] = load_json_file(FILE_PATH)
             initialize_passwords_from_data(st.session_state["df"].to_dict(orient='records'))
+
 # ============================
 # Login & Save Helpers
 # ============================
@@ -875,8 +917,10 @@ def login(df, code, password):
     if stored_hash and verify_password(password, stored_hash):
         return matched.iloc[0].to_dict()
     return None
+
 def save_df_to_local(df):
     return save_json_file(df, FILE_PATH)
+
 def save_and_maybe_push(df, actor="HR"):
     saved = save_json_file(df, FILE_PATH)
     pushed = False
@@ -886,6 +930,7 @@ def save_and_maybe_push(df, actor="HR"):
         if pushed:
             saved = True
     return saved, pushed
+
 def load_leaves_data():
     df = load_json_file(LEAVES_FILE_PATH, default_columns=[
         "Employee Code", "Manager Code", "Start Date", "End Date",
@@ -896,6 +941,7 @@ def load_leaves_data():
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors="coerce")
     return df
+
 def save_leaves_data(df):
     df = df.copy()
     date_cols = ["Start Date", "End Date", "Decision Date"]
@@ -903,6 +949,7 @@ def save_leaves_data(df):
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors="coerce").dt.strftime("%Y-%m-%d")
     return save_json_file(df, LEAVES_FILE_PATH)
+
 # ============================
 # Notifications System
 # ============================
@@ -910,11 +957,13 @@ def load_notifications():
     return load_json_file(NOTIFICATIONS_FILE_PATH, default_columns=[
         "Recipient Code", "Recipient Title", "Message", "Timestamp", "Is Read"
     ])
+
 def save_notifications(df):
     df = df.copy()
     if "Timestamp" in df.columns:
         df["Timestamp"] = pd.to_datetime(df["Timestamp"], errors="coerce").astype(str)
     return save_json_file(df, NOTIFICATIONS_FILE_PATH)
+
 def add_notification(recipient_code, recipient_title, message):
     notifications = load_notifications()
     new_row = pd.DataFrame([{
@@ -926,6 +975,7 @@ def add_notification(recipient_code, recipient_title, message):
     }])
     notifications = pd.concat([notifications, new_row], ignore_index=True)
     save_notifications(notifications)
+
 def get_unread_count(user):
     notifications = load_notifications()
     if notifications.empty:
@@ -945,6 +995,7 @@ def get_unread_count(user):
     )
     unread = notifications[mask & (~notifications["Is Read"])]
     return len(unread)
+
 def mark_all_as_read(user):
     notifications = load_notifications()
     if notifications.empty:
@@ -962,6 +1013,7 @@ def mark_all_as_read(user):
     )
     notifications.loc[mask, "Is Read"] = True
     save_notifications(notifications)
+
 def format_relative_time(ts):
     if not ts or pd.isna(ts):
         return "N/A"
@@ -980,6 +1032,7 @@ def format_relative_time(ts):
             return dt.strftime("%d-%m-%Y")
     except Exception:
         return str(ts)
+
 # ============================
 # page_notifications
 # ============================
@@ -1069,6 +1122,7 @@ box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 </div>
 """, unsafe_allow_html=True)
         st.markdown("---")
+
 # ============================
 # 🆕 ADDITION: page_manager_leaves — Fully Implemented & FIXED
 # ============================
@@ -1161,6 +1215,7 @@ def page_manager_leaves(user):
         )
     else:
         st.info("No leave history for your team.")
+
 # ============================
 # Salary Monthly Page — **FIXED: Works for ALL employees + Better error handling**
 # ============================
@@ -1264,6 +1319,7 @@ margin-bottom:10px; box-shadow:0 4px 8px rgba(0,0,0,0.05);">
     except Exception as e:
         st.error(f"❌ Error loading salary data: {str(e)}")
         st.info("💡 Please contact HR or system administrator for assistance.")
+
 # ============================
 # Salary Report Page — Encrypt on Upload (HR ONLY)
 # ============================
@@ -1319,6 +1375,7 @@ def page_salary_report(user):
         )
     else:
         st.info("📭 No salary data available yet.")
+
 # ============================
 # HR Manager — UPDATED with Password Reset Feature
 # ============================
@@ -1564,6 +1621,7 @@ def page_hr_manager(user):
             st.rerun()
         except Exception as e:
             st.error(f"❌ Failed to clear: {e}")
+
 # ============================
 # 🆕 PAGE: Notify Compliance (for MR only)
 # ============================
@@ -1653,6 +1711,7 @@ def page_notify_compliance(user):
                 st.success("✅ Your message has been sent to Compliance and your manager.")
             else:
                 st.error("❌ Failed to send message.")
+
 # ============================
 # 🆕 PAGE: Report Compliance (for Compliance team + Managers + DM, AM, BUM)
 # ============================
@@ -1717,6 +1776,7 @@ def page_report_compliance(user):
         file_name="Compliance_Report.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 # ============================
 # 🆕 PAGE: IDB - Individual Development Blueprint (for MR) - FIXED
 # ============================
@@ -1818,6 +1878,7 @@ def page_idb_mr(user):
             file_name=f"IDB_{user_code}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
 # ============================
 # 🆕 PAGE: Self Development (for MR)
 # ============================
@@ -1853,6 +1914,7 @@ Share your journey to success with us.</h3>
         add_notification("", "HR", f"MR {user_code} uploaded a new certification.")
         st.success("✅ Certification submitted to HR!")
         st.rerun()
+
 # ============================
 # 🆕 PAGE: HR Development View (for HR) - FIXED
 # ============================
@@ -1916,6 +1978,7 @@ def page_hr_development(user):
                     )
         else:
             st.info("📭 No certifications uploaded.")
+
 # ============================
 # 🆕 PAGE: Ask HR (for ALL employees) - FIXED with success messages
 # ============================
@@ -2004,6 +2067,7 @@ def page_ask_hr(user):
             st.markdown("**🕒 HR Reply:** Pending")
         st.markdown("</div>")
         st.markdown("---")
+
 # ============================
 # 🆕 PAGE: HR Inbox (for HR) - FIXED with success messages
 # ============================
@@ -2082,18 +2146,22 @@ def page_hr_inbox(user):
                     st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("---")
+
 # ============================
-# 🆕 PAGE: Ask Employees (for HR) - FIXED: Messages now reach employees
+# 🆕 PAGE: Ask Employees (for HR) - FIXED: Messages now reach employees + Success/Error Handling
 # ============================
 def page_ask_employees(user):
     st.subheader("📤 Ask Employees")
+    st.info("🔍 Select department, then select employee to send a message.")
+    
+    # ✅ عرض رسائل النجاح/الخطأ من Session State
     if st.session_state.get("ask_employees_success"):
-       st.success(st.session_state["ask_employees_success"])
-       del st.session_state["ask_employees_success"]
+        st.success(st.session_state["ask_employees_success"])
+        del st.session_state["ask_employees_success"]
     if st.session_state.get("ask_employees_error"):
         st.error(st.session_state["ask_employees_error"])
-        del st.session_state["ask_employees_error"]  # ← 4 مسافات فقط هنا (ليس 8)
-    st.info("🔍 Select department, then select employee to send a message.")
+        del st.session_state["ask_employees_error"]
+    
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.error("Employee data not loaded.")
@@ -2148,13 +2216,16 @@ def page_ask_employees(user):
             "Date Responded": pd.NaT
         }])
         requests_df = pd.concat([requests_df, new_row], ignore_index=True)
-        if save_hr_requests(requests_df):  # ✅ التحقق من نجاح الحفظ أولًا
-        add_notification(selected_code, "", f"HR has sent you a new request (ID: {new_id}). Check 'HR Request' page.")
-        st.session_state["ask_employees_success"] = f"✅ Request sent to {selected_name} (Code: {selected_code}) successfully."
-        st.rerun()
-    else:
-        st.session_state["ask_employees_error"] = "❌ Failed to send request. Please try again."
-        st.rerun()
+        
+        # ✅ التحقق من نجاح الحفظ قبل الإرسال
+        if save_hr_requests(requests_df):
+            add_notification(selected_code, "", f"HR has sent you a new request (ID: {new_id}). Check 'HR Request' page.")
+            st.session_state["ask_employees_success"] = f"✅ Request sent to {selected_name} (Code: {selected_code}) successfully."
+            st.rerun()
+        else:
+            st.session_state["ask_employees_error"] = "❌ Failed to send request. Please check file permissions and try again."
+            st.rerun()
+
 # ============================
 # 🆕 PAGE: HR Request (for ALL employees) - FIXED with success messages
 # ============================
@@ -2228,11 +2299,12 @@ def page_request_hr(user):
             if save_hr_requests(requests_df):  # ✅ Check save result
                 st.session_state["request_hr_success"] = True
                 # ✅ FIXED: Send notification to HR
-                add_notification("", user.get("Title", "HR"), f"Employee {user_code} responded to request ID {row['ID']}.")
+                add_notification("", "HR", f"Employee {user_code} responded to request ID {row['ID']}.")
                 st.rerun()
             else:
                 st.session_state["request_hr_error"] = "❌ Failed to save response. Please try again."
                 st.rerun()
+
 # ============================
 # 🆕 PAGE: Employee Photos (HR View) - NEW PAGE
 # ============================
@@ -2310,6 +2382,7 @@ def page_employee_photos(user):
                 use_container_width=True
             )
         st.success("✅ ZIP file created. Click the button above to download.")
+
 # ============================
 # Remaining Page Functions (modified for photo upload)
 # ============================
@@ -2328,6 +2401,7 @@ def calculate_leave_balance(employee_code, leaves_df=None):
             used_days += (row["End Date"] - row["Start Date"]).days + 1
     remaining_days = DEFAULT_ANNUAL_LEAVE - used_days
     return DEFAULT_ANNUAL_LEAVE, used_days, remaining_days
+
 def build_team_hierarchy_recursive(df, manager_code, manager_title, depth=0, max_depth=10):
     if depth > max_depth:
         return None
@@ -2348,6 +2422,7 @@ def build_team_hierarchy_recursive(df, manager_code, manager_title, depth=0, max
             "Team": sub_team if sub_team else []
         })
     return team
+
 def page_leave_request(user):
     st.subheader("📅 Request Leave")
     employee_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
@@ -2388,6 +2463,7 @@ def page_leave_request(user):
                 st.rerun()
             else:
                 st.error("❌ Failed to save leave request.")
+
 def page_my_profile(user):
     st.subheader("👤 My Profile")
     df = st.session_state.get("df", pd.DataFrame())
@@ -2470,6 +2546,7 @@ def page_my_profile(user):
             if st.button("❌ Cancel"):
                 st.session_state["show_photo_upload"] = False
                 st.rerun()
+
 def page_team_structure(user):
     st.subheader("👥 Team Structure")
     df = st.session_state.get("df", pd.DataFrame())
@@ -2545,6 +2622,7 @@ def page_team_structure(user):
             display_hierarchy(member)
     else:
         st.info("📭 No team members found under your supervision.")
+
 def page_hr_queries(user):
     st.subheader("💬 HR Queries")
     df = st.session_state.get("df", pd.DataFrame())
@@ -2588,6 +2666,7 @@ def page_hr_queries(user):
             st.markdown(f"<div style='color:#05445E; margin-top:8px;'><strong>HR Response:</strong> {row['Response']}</div>", unsafe_allow_html=True)
         st.markdown(f"<div style='color:#999999; font-size:0.9rem; margin-top:4px;'>{format_relative_time(row['Timestamp'])}</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
+
 def page_hr_view_queries(user):
     st.subheader("💬 HR Queries (HR View)")
     queries_df = load_json_file(HR_QUERIES_FILE_PATH, default_columns=["ID", "Employee Code", "Query", "Response", "Status", "Timestamp"])
@@ -2616,6 +2695,7 @@ def page_hr_view_queries(user):
     st.markdown("### 📋 All Queries History")
     all_queries = queries_df.sort_values("Timestamp", ascending=False)
     st.dataframe(all_queries, use_container_width=True)
+
 def page_hr_requests(user):
     st.subheader("📋 HR Requests")
     user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
@@ -2670,6 +2750,7 @@ def page_hr_requests(user):
                 st.download_button("📥 Download Attached File", f, key=f"dl_req_{row['ID']}")
         st.markdown(f"<div style='color:#999999; font-size:0.9rem; margin-top:4px;'>{format_relative_time(row['Timestamp'])}</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
+
 def page_hr_view_requests(user):
     st.subheader("📋 HR Requests (HR View)")
     requests_df = load_json_file(HR_REQUESTS_FILE_PATH, default_columns=["ID", "Employee Code", "Request Type", "Description", "File Path", "Status", "HR Response", "Timestamp"])
@@ -2709,6 +2790,7 @@ def page_hr_view_requests(user):
     st.markdown("### 📋 All Requests History")
     all_requests = requests_df.sort_values("Timestamp", ascending=False)
     st.dataframe(all_requests, use_container_width=True)
+
 def page_recruitment(user):
     st.subheader("👥 Recruitment")
     st.info("Use the Google Form link below to submit candidate information.")
@@ -2747,6 +2829,7 @@ def page_recruitment(user):
                     st.download_button(f"📥 {row['CV File']}", f, key=f"dl_cv_{idx}")
     else:
         st.info("📭 No CVs submitted yet.")
+
 def page_hr_recruitment_view(user):
     st.subheader("👥 Recruitment (HR View)")
     recruitment_df = load_json_file(RECRUITMENT_DATA_FILE)
@@ -2759,6 +2842,7 @@ def page_hr_recruitment_view(user):
                     st.download_button(f"📥 Download {row['CV File']}", f, key=f"dl_hr_cv_{idx}")
     else:
         st.info("📭 No recruitment data available.")
+
 # ============================
 # Login Page
 # ============================
@@ -2791,15 +2875,12 @@ def page_login():
     if st.session_state.get("show_forgot_password"):
         st.markdown("---")
         page_forgot_password()
+
 # ============================
-# Main App - SIDEBAR (FIXED: Remove Team Leaves from DM/AM, Remove Leave Request from MR/DM/AM/BUM, Enhanced Notifications) + SIDEBAR BUTTONS
+# Main App - SIDEBAR (FIXED: Remove Team Leaves from DM/AM, Remove Leave Request from MR/DM/AM/BUM, Enhanced Notifications) + SIDEBAR BUTTONS + COMMUNICATION FIX
 # ============================
 def main():
     # Initialize session state
-    if "ask_employees_success" not in st.session_state:
-        st.session_state["ask_employees_success"] = False
-    if "ask_employees_error" not in st.session_state:
-        st.session_state["ask_employees_error"] = False
     if "logged_in" not in st.session_state:
         st.session_state["logged_in"] = False
     if "user" not in st.session_state:
@@ -2819,17 +2900,26 @@ def main():
         st.session_state["hr_inbox_success"] = False
     if "hr_inbox_error" not in st.session_state:
         st.session_state["hr_inbox_error"] = False
+    # ✅ NEW: Initialize success/error flags for Ask Employees page
+    if "ask_employees_success" not in st.session_state:
+        st.session_state["ask_employees_success"] = False
+    if "ask_employees_error" not in st.session_state:
+        st.session_state["ask_employees_error"] = False
+    
     # Load employee data if not loaded
     ensure_session_df()
+    
     # Login page if not logged in
     if not st.session_state["logged_in"]:
         page_login()
         return
+    
     # Get user info
     user = st.session_state["user"]
     user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
     user_name = user.get("Employee Name", user_code)
     user_title = str(user.get("Title", "")).strip().upper()
+    
     # Sidebar with enhanced notifications
     with st.sidebar:
         st.markdown('<p class="sidebar-title">👥 HRAS</p>', unsafe_allow_html=True)
@@ -2889,14 +2979,17 @@ def main():
                 "📤 Salary Report"
             ])
         pages.append("🚪 Logout")
+        
         # Display navigation with ENHANCED BUTTONS (Sky Blue with White Text)
         selected_page = None
         for page in pages:
             if st.button(page, key=f"nav_{page}", use_container_width=True):
                 st.session_state["selected_page"] = page
                 st.rerun()
+        
         # Get selected page from session state
         selected_page = st.session_state.get("selected_page", pages[0])
+    
     # Page routing with ENHANCED notification handling
     if selected_page.startswith("👤 My Profile"):
         page_my_profile(user)
@@ -2940,14 +3033,23 @@ def main():
             page_hr_recruitment_view(user)
         else:
             page_recruitment(user)
-    elif selected_page.startswith("⚙️ HR Manager"):
-        page_hr_manager(user)
+        elif selected_page.startswith("⚙️ HR Manager"):
+        if user_title == "HR":
+            page_hr_manager(user)
+        else:
+            st.error("❌ Access denied. HR only.")
     elif selected_page.startswith("💬 Ask HR"):
         page_ask_hr(user)
     elif selected_page.startswith("📬 HR Inbox"):
-        page_hr_inbox(user)
+        if user_title == "HR":
+            page_hr_inbox(user)
+        else:
+            st.error("❌ Access denied. HR only.")
     elif selected_page.startswith("📤 Ask Employees"):
-        page_ask_employees(user)
+        if user_title == "HR":
+            page_ask_employees(user)
+        else:
+            st.error("❌ Access denied. HR only.")
     elif selected_page.startswith("📥 HR Request"):
         page_request_hr(user)
     elif selected_page.startswith("📸 Employee Photos"):
@@ -2965,11 +3067,14 @@ def main():
         st.session_state["request_hr_error"] = False
         st.session_state["hr_inbox_success"] = False
         st.session_state["hr_inbox_error"] = False
+        st.session_state["ask_employees_success"] = False
+        st.session_state["ask_employees_error"] = False
         st.session_state["selected_page"] = None
         st.success("✅ You have been logged out.")
         st.rerun()
     else:
         st.info("📭 Page not found.")
+
 # ============================
 # Run the app
 # ============================
