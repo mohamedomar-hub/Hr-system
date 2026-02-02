@@ -3033,7 +3033,7 @@ def main():
             page_hr_recruitment_view(user)
         else:
             page_recruitment(user)
-        elif selected_page.startswith("⚙️ HR Manager"):
+    elif selected_page.startswith("⚙️ HR Manager"):
         if user_title == "HR":
             page_hr_manager(user)
         else:
