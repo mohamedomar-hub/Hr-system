@@ -2091,8 +2091,8 @@ def page_ask_employees(user):
        st.success(st.session_state["ask_employees_success"])
        del st.session_state["ask_employees_success"]
     if st.session_state.get("ask_employees_error"):
-       st.error(st.session_state["ask_employees_error"])
-        del st.session_state["ask_employees_error"]
+        st.error(st.session_state["ask_employees_error"])
+        del st.session_state["ask_employees_error"]  # ← 4 مسافات فقط هنا (ليس 8)
     st.info("🔍 Select department, then select employee to send a message.")
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
