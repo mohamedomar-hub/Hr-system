@@ -527,74 +527,87 @@ background-color: #9CA3AF !important;
 .stButton > button:disabled p {
 color: #f8f9fa !important !important;
 }
-/* ========== FILE UPLOADER - IMPROVED APPEARANCE ========== */
+/* ========== FILE UPLOADER - IMPROVED APPEARANCE (FIXED) ========== */
 /* تحسين مظهر رفع الملفات */
+.stFileUploader {
+    width: 100% !important;
+}
 .stFileUploader > div {
-background-color: var(--file-upload-bg) !important;
-border: 2px dashed var(--file-upload-border) !important;
-border-radius: 8px !important;
-padding: 20px !important;
-transition: all 0.3s ease !important;
+    background-color: #FFFFFF !important;
+    border: 2px dashed #E5E7EB !important;
+    border-radius: 8px !important;
+    padding: 20px !important;
+    transition: all 0.3s ease !important;
+    color: #2E2E2E !important;
 }
 /* عند التمرير على منطقة رفع الملفات */
 .stFileUploader > div:hover {
-border-color: var(--primary) !important;
-background-color: var(--file-upload-hover) !important;
-box-shadow: 0 2px 8px rgba(5, 68, 94, 0.1) !important;
+    border-color: #05445E !important;
+    background-color: #F9FAFB !important;
+    box-shadow: 0 2px 8px rgba(5, 68, 94, 0.1) !important;
 }
 /* نص منطقة رفع الملفات */
 .stFileUploader > div > section > p {
-color: var(--text-main) !important;
-font-size: 14px !important;
-font-weight: 500 !important;
+    color: #2E2E2E !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    text-align: center !important;
 }
 /* أيقونة رفع الملفات */
 .stFileUploader > div > section > svg {
-color: var(--primary) !important;
+    color: #05445E !important;
+    margin: 0 auto !important;
+    display: block !important;
 }
 /* عند اختيار ملف - الخلفية تصبح زرقاء فاتحة */
 .stFileUploader [data-testid="stFileUploaderDropzone"] {
-background-color: #F0F9FF !important;
-border-color: var(--primary) !important;
+    background-color: #F0F9FF !important;
+    border-color: #05445E !important;
 }
 /* نص الملف المختار */
 .stFileUploader [data-testid="stFileUploaderFileName"] {
-color: var(--primary) !important;
-font-weight: 600 !important;
+    color: #05445E !important;
+    font-weight: 600 !important;
 }
 /* زر إزالة الملف */
 .stFileUploader [data-testid="stFileUploaderRemoveBtn"] {
-color: #dc2626 !important;
+    color: #dc2626 !important;
 }
-/* ========== FILE UPLOADER BUTTON - WHITE TEXT ========== */
-/* زر رفع الملف داخل منطقة الـ uploader */
+/* زر "Browse files" - تغيير لون النص والخلفية */
+.stFileUploader [data-testid="baseButton-secondary"] {
+    background-color: #05445E !important;
+    color: white !important;
+    border: none !important;
+    font-weight: 600 !important;
+    padding: 0.5rem 1rem !important;
+    border-radius: 6px !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+}
+.stFileUploader [data-testid="baseButton-secondary"]:hover {
+    background-color: #dc2626 !important;
+    color: white !important;
+}
+/* تأكيد تغيير لون نصوص الأزرار إلى الأبيض */
+.stButton > button,
+.stFileUploader [data-testid="baseButton-secondary"],
 .stFileUploader > div > button {
-background-color: var(--primary) !important;
-color: white !important !important;
-border: none !important;
-font-weight: 600 !important;
-padding: 0.5rem 1rem !important;
-border-radius: 6px !important;
-text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+    background-color: #05445E !important;
+    color: white !important !important;
+    border: none !important;
+    font-weight: 600 !important;
+    padding: 0.5rem 1rem !important;
+    border-radius: 6px !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2) !important;
+    box-shadow: 0 2px 4px rgba(5, 68, 94, 0.2) !important;
+    transition: all 0.3s ease !important;
 }
-.stFileUploader > div > button,
-.stFileUploader > div > button *,
-.stFileUploader > div > button span,
-.stFileUploader > div > button div,
-.stFileUploader > div > button p {
-color: white !important !important;
-font-weight: 600 !important;
-}
+/* عند التمرير على الأزرار */
+.stButton > button:hover,
+.stFileUploader [data-testid="baseButton-secondary"]:hover,
 .stFileUploader > div > button:hover {
-background-color: #dc2626 !important;
-color: white !important !important;
-}
-.stFileUploader > div > button:hover,
-.stFileUploader > div > button:hover *,
-.stFileUploader > div > button:hover span,
-.stFileUploader > div > button:hover div,
-.stFileUploader > div > button:hover p {
-color: white !important !important;
+    background-color: #dc2626 !important;
+    color: white !important !important;
+    box-shadow: 0 3px 6px rgba(220, 38, 38, 0.3) !important;
 }
 /* الخلفية العامة */
 [data-testid="stAppViewContainer"] {
