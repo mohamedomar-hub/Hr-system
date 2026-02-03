@@ -3258,7 +3258,7 @@ else:
 # ============================
 st.markdown("""
 <div style="text-align: center; color: #666666; font-size: 0.9rem; padding: 20px; margin-top: 30px; border-top: 1px solid #e2e8f0;">
-    © 2026 Averroes HR Administration System — Version 3.2 (JSON Edition)
+    © 2026 Averroes HR Administration System
 </div>
 """, unsafe_allow_html=True)
     
