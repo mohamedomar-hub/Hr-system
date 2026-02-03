@@ -3055,7 +3055,7 @@ with st.sidebar:
             elif is_am or is_dm:
                 # ✅ AM/DM gets Team Development Reports (بدون Team Structure)
                 pages = ["My Profile", "📊 Team Development Reports", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-                        elif is_mr:
+            elif is_mr:
                 # ✅ MR gets Notify Compliance + IDB + Self Development
                 pages = ["My Profile", "🚀 IDB – Individual Development Blueprint", "🌱 Self Development", "Notify Compliance", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             elif is_special:
