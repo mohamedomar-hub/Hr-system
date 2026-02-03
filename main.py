@@ -2981,33 +2981,7 @@ with st.sidebar:
     # تم الاحتفاظ بزر تغيير كلمة المرور فقط
     
     if not st.session_state["logged_in_user"] and not st.session_state["external_password_page"]:
-        # ✅ تم حذف هذا الكود بالكامل:
-        # with st.container():
-        #     st.markdown("<div style='background-color:white; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1;'>", unsafe_allow_html=True)
-        #     st.markdown("### 🔐 Login Required")
-        #     with st.form("login_form"):
-        #         uid = st.text_input("Employee Code")
-        #         pwd = st.text_input("Password", type="password")
-        #         submitted = st.form_submit_button("Sign in")
-        #         if submitted:
-        #             df = st.session_state.get("df", pd.DataFrame())
-        #             if df.empty:
-        #                 st.error("Employee data not loaded. Please check your file.")
-        #             else:
-        #                 user = login(df, uid, pwd)
-        #                 if user is None:
-        #                     st.error("Invalid credentials or required columns missing.")
-        #                 else:
-        #                     if "Title" not in user:
-        #                         user["Title"] = "Unknown"
-        #                     st.session_state["logged_in_user"] = user
-        #                     st.session_state["current_page"] = "My Profile"
-        #                     st.success("Login successful!")
-        #                     st.rerun()
-        #     st.markdown("</div>", unsafe_allow_html=True)
-        # st.markdown("<br>", unsafe_allow_html=True)
-        
-        # ✅ الاحتفاظ بزر تغيير كلمة المرور فقط
+        # ✅ تم حذف نموذج اللوجن بالكامل من هنا
         if st.button("🔐 Change Password (No Login)", use_container_width=True):
             st.session_state["external_password_page"] = True
             st.rerun()
@@ -3083,7 +3057,7 @@ with st.sidebar:
                         button_label = f"Notifications ({unread_count})"
                     else:
                         button_label = "Notifications"
-                    if st.button(button_label, key=f"nav_{p}", use_container_width=True):
+                                        if st.button(button_label, key=f"nav_{p}", use_container_width=True):
                         st.session_state["current_page"] = p
                         st.rerun()
                 else:
@@ -3234,35 +3208,37 @@ else:
         else:
             st.info("Please log in to access the system.")
     else:
-        st.markdown("""
-<div style="text-align: center; padding: 40px; background-color: #f8fafc; border-radius: 16px; max-width: 600px; margin: 40px auto;">
-    <h2 style="color: #05445E; margin-bottom: 20px;">👥 HRAS — Averroes Admin</h2>
-    <p style="color: #666666; font-size: 1.1rem; margin-bottom: 30px;">
-        Welcome to the HR Administration System.<br>
-        Please log in to continue.
-    </p>
-    <div style="background-color: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
-        <form>
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; text-align: left; color: #05445E; font-weight: 500; margin-bottom: 6px;">Employee Code</label>
-                <input type="text" placeholder="Enter your code" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem;">
-            </div>
-            <div style="margin-bottom: 25px;">
-                <label style="display: block; text-align: left; color: #05445E; font-weight: 500; margin-bottom: 6px;">Password</label>
-                <input type="password" placeholder="Enter your password" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem;">
-            </div>
-            <button type="submit" style="width: 100%; background-color: #05445E; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: 600; font-size: 1rem; cursor: pointer;">
-                Sign in
-            </button>
-        </form>
-        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
-            <a href="#" style="color: #05445E; text-decoration: none; font-weight: 500;">
-                🔐 Change Password (No Login)
-            </a>
-        </div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+        # ✅ تم استبدال الـ HTML الثابت بنموذج Streamlit فعّال
+        st.markdown('<div class="sidebar-title" style="text-align: center; font-size: 1.8rem; margin-bottom: 10px;">HRAS — Averroes Admin</div>', unsafe_allow_html=True)
+        st.markdown("<hr style='border: 1px solid #05445E; max-width: 600px; margin: 10px auto;'>", unsafe_allow_html=True)
+        
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.markdown("### 🔐 Login Required")
+            with st.form("login_form_center"):
+                uid = st.text_input("Employee Code", placeholder="Enter your employee code")
+                pwd = st.text_input("Password", type="password", placeholder="Enter your password")
+                submitted = st.form_submit_button("Sign in", use_container_width=True)
+                if submitted:
+                    df = st.session_state.get("df", pd.DataFrame())
+                    if df.empty:
+                        st.error("Employee data not loaded. Please check your file.")
+                    else:
+                        user = login(df, uid, pwd)
+                        if user is None:
+                            st.error("❌ Invalid credentials or required columns missing.")
+                        else:
+                            if "Title" not in user:
+                                user["Title"] = "Unknown"
+                            st.session_state["logged_in_user"] = user
+                            st.session_state["current_page"] = "My Profile"
+                            st.success("✅ Login successful!")
+                            st.rerun()
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("🔐 Change Password (No Login)", use_container_width=True):
+                st.session_state["external_password_page"] = True
+                st.rerun()
 
 # ============================
 # Footer
