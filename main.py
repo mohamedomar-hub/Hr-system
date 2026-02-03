@@ -3060,167 +3060,173 @@ with st.sidebar:
                 # ❌ Special titles: ONLY Leave Request (no Team Leaves)
                 pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             else:
-# Default fallback (e.g., unknown titles): allow basic access
-pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+    # Default fallback (e.g., unknown titles): allow basic access
+    pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+
 # ✅ إضافة صفحة Report Compliance لفريق الـ Compliance + المدراء (AM, DM)
 compliance_and_managers = {
-"ASSOCIATE COMPLIANCE",
-"FIELD COMPLIANCE SPECIALIST",
-"COMPLIANCE MANAGER",
-"AM",
-"DM"
+    "ASSOCIATE COMPLIANCE",
+    "FIELD COMPLIANCE SPECIALIST",
+    "COMPLIANCE MANAGER",
+    "AM",
+    "DM"
 }
 if title_val in compliance_and_managers:
-pages.insert(1, "Report Compliance")  # بعد My Profile مباشرة
+    pages.insert(1, "Report Compliance")  # بعد My Profile مباشرة
+
 unread_count = get_unread_count(user)
 for p in pages:
-if p == "Notifications":
-if unread_count > 0:
-button_label = f"Notifications ({unread_count})"
-else:
-button_label = "Notifications"
-if st.button(button_label, key=f"nav_{p}", use_container_width=True):
-st.session_state["current_page"] = p
-st.rerun()
-else:
-if st.button(p, key=f"nav_{p}", use_container_width=True):
-st.session_state["current_page"] = p
-st.rerun()
+    if p == "Notifications":
+        if unread_count > 0:
+            button_label = f"Notifications ({unread_count})"
+        else:
+            button_label = "Notifications"
+        if st.button(button_label, key=f"nav_{p}", use_container_width=True):
+            st.session_state["current_page"] = p
+            st.rerun()
+    else:
+        if st.button(p, key=f"nav_{p}", use_container_width=True):
+            st.session_state["current_page"] = p
+            st.rerun()
+
 st.markdown("---")
 if st.button("🚪 Logout", use_container_width=True):
-st.session_state["logged_in_user"] = None
-st.session_state["current_page"] = "My Profile"
-st.success("You have been logged out.")
-st.rerun()
+    st.session_state["logged_in_user"] = None
+    st.session_state["current_page"] = "My Profile"
+    st.success("You have been logged out.")
+    st.rerun()
+
 if st.session_state["external_password_page"]:
-page_forgot_password()
+    page_forgot_password()
 else:
-if st.session_state["logged_in_user"]:
-current_page = st.session_state["current_page"]
-user = st.session_state["logged_in_user"]
-title_val = str(user.get("Title") or "").strip().upper()
-is_hr = "HR" in title_val
-is_bum = title_val == "BUM"
-is_am = title_val == "AM"
-is_dm = title_val == "DM"
-is_mr = title_val == "MR"
-SPECIAL_TITLES = {
-"KEY ACCOUNT SPECIALIST",
-"SFE SPECIALIST",
-"TRAINING SPECIALIST",
-"SENIOR TALENT ACQUISITION",
-"HR SPECIALIST",
-"ASSOCIATE COMPLIANCE",
-"FIELD COMPLIANCE SPECIALIST",
-"OPERATION SUPERVISOR",
-"OPERATION ADMIN",
-"STORE SPECIALIST",
-"DIRECT SALES",
-"OPERATION SPECIALIST",
-"OPERATION AND ANALYTICS SPECIALIST",
-"OFFICE BOY"
-}
-is_special = title_val in SPECIAL_TITLES
-# ✅ إضافة شرط صفحة Report Compliance
-compliance_and_managers_set = {
-"ASSOCIATE COMPLIANCE",
-"FIELD COMPLIANCE SPECIALIST",
-"COMPLIANCE MANAGER",
-"AM",
-"DM"
-}
-if current_page == "My Profile":
-page_my_profile(user)
-elif current_page == "Notifications":
-page_notifications(user)
-elif current_page == "Leave Request":
-if is_special:
-page_leave_request(user)
-else:
-st.error("Access denied. Only specific roles can request leave.")
-elif current_page == "Team Leaves":
-if is_bum:
-page_manager_leaves(user)
-else:
-st.error("Access denied. Only BUM can view team leaves.")
-elif current_page == "Dashboard":
-page_dashboard(user)
-elif current_page == "Reports":
-page_reports(user)
-elif current_page == "HR Manager":
-page_hr_manager(user)
-elif current_page == "Team Structure":
-if is_bum or is_am or is_dm:
-page_my_team(user, role=title_val)
-else:
-st.error("Access denied. BUM, AM, or DM only.")
-elif current_page == "HR Inbox":
-if is_hr:
-page_hr_inbox(user)
-else:
-st.error("Access denied. HR only.")
-elif current_page == "Employee Photos":
-if is_hr:
-page_employee_photos(user)
-else:
-st.error("Access denied. HR only.")
-elif current_page == "Ask HR":
-page_ask_hr(user)
-elif current_page == "Ask Employees":
-if is_hr:
-page_ask_employees(user)
-else:
-st.error("Access denied. HR only.")
-elif current_page == "Request HR":
-page_request_hr(user)
-elif current_page == "Structure":
-page_directory(user)
-elif current_page == "Salary Monthly":
-page_salary_monthly(user)
-elif current_page == "Salary Report":
-if is_hr:
-page_salary_report(user)
-else:
-st.error("Access denied. HR only.")
-elif current_page == "Recruitment":
-if is_hr:
-page_recruitment(user)
-else:
-st.error("Access denied. HR only.")
-elif current_page == "Settings":
-if is_hr:
-page_settings(user)
-else:
-st.error("Access denied. HR only.")
-elif current_page == "Notify Compliance":
-if is_mr:
-page_notify_compliance(user)
-else:
-st.error("Access denied. MR only.")
-elif current_page == "Report Compliance":
-if title_val in compliance_and_managers_set:
-page_report_compliance(user)
-else:
-st.error("Access denied. Compliance or Managers only.")
-elif current_page == "🚀 IDB – Individual Development Blueprint":
-if is_mr:
-page_idb_mr(user)
-else:
-st.error("Access denied. MR only.")
-elif current_page == "🌱 Self Development":
-if is_mr:
-page_self_development(user)
-else:
-st.error("Access denied. MR only.")
-elif current_page.startswith("🎓 Employee Development"):
-if is_hr:
-page_hr_development(user)
-else:
-st.error("Access denied. HR only.")
-elif current_page == "🎓 Team Development":
-if is_bum or is_am or is_dm:
-page_team_development(user)
-else:
-st.error("Access denied. BUM, AM, or DM only.")
-else:
-st.info("Please log in to access the system.")
+    if st.session_state["logged_in_user"]:
+        current_page = st.session_state["current_page"]
+        user = st.session_state["logged_in_user"]
+        title_val = str(user.get("Title") or "").strip().upper()
+        is_hr = "HR" in title_val
+        is_bum = title_val == "BUM"
+        is_am = title_val == "AM"
+        is_dm = title_val == "DM"
+        is_mr = title_val == "MR"
+        SPECIAL_TITLES = {
+            "KEY ACCOUNT SPECIALIST",
+            "SFE SPECIALIST",
+            "TRAINING SPECIALIST",
+            "SENIOR TALENT ACQUISITION",
+            "HR SPECIALIST",
+            "ASSOCIATE COMPLIANCE",
+            "FIELD COMPLIANCE SPECIALIST",
+            "OPERATION SUPERVISOR",
+            "OPERATION ADMIN",
+            "STORE SPECIALIST",
+            "DIRECT SALES",
+            "OPERATION SPECIALIST",
+            "OPERATION AND ANALYTICS SPECIALIST",
+            "OFFICE BOY"
+        }
+        is_special = title_val in SPECIAL_TITLES
+
+        # ✅ إضافة شرط صفحة Report Compliance
+        compliance_and_managers_set = {
+            "ASSOCIATE COMPLIANCE",
+            "FIELD COMPLIANCE SPECIALIST",
+            "COMPLIANCE MANAGER",
+            "AM",
+            "DM"
+        }
+
+        if current_page == "My Profile":
+            page_my_profile(user)
+        elif current_page == "Notifications":
+            page_notifications(user)
+        elif current_page == "Leave Request":
+            if is_special:
+                page_leave_request(user)
+            else:
+                st.error("Access denied. Only specific roles can request leave.")
+        elif current_page == "Team Leaves":
+            if is_bum:
+                page_manager_leaves(user)
+            else:
+                st.error("Access denied. Only BUM can view team leaves.")
+        elif current_page == "Dashboard":
+            page_dashboard(user)
+        elif current_page == "Reports":
+            page_reports(user)
+        elif current_page == "HR Manager":
+            page_hr_manager(user)
+        elif current_page == "Team Structure":
+            if is_bum or is_am or is_dm:
+                page_my_team(user, role=title_val)
+            else:
+                st.error("Access denied. BUM, AM, or DM only.")
+        elif current_page == "HR Inbox":
+            if is_hr:
+                page_hr_inbox(user)
+            else:
+                st.error("Access denied. HR only.")
+        elif current_page == "Employee Photos":
+            if is_hr:
+                page_employee_photos(user)
+            else:
+                st.error("Access denied. HR only.")
+        elif current_page == "Ask HR":
+            page_ask_hr(user)
+        elif current_page == "Ask Employees":
+            if is_hr:
+                page_ask_employees(user)
+            else:
+                st.error("Access denied. HR only.")
+        elif current_page == "Request HR":
+            page_request_hr(user)
+        elif current_page == "Structure":
+            page_directory(user)
+        elif current_page == "Salary Monthly":
+            page_salary_monthly(user)
+        elif current_page == "Salary Report":
+            if is_hr:
+                page_salary_report(user)
+            else:
+                st.error("Access denied. HR only.")
+        elif current_page == "Recruitment":
+            if is_hr:
+                page_recruitment(user)
+            else:
+                st.error("Access denied. HR only.")
+        elif current_page == "Settings":
+            if is_hr:
+                page_settings(user)
+            else:
+                st.error("Access denied. HR only.")
+        elif current_page == "Notify Compliance":
+            if is_mr:
+                page_notify_compliance(user)
+            else:
+                st.error("Access denied. MR only.")
+        elif current_page == "Report Compliance":
+            if title_val in compliance_and_managers_set:
+                page_report_compliance(user)
+            else:
+                st.error("Access denied. Compliance or Managers only.")
+        elif current_page == "🚀 IDB – Individual Development Blueprint":
+            if is_mr:
+                page_idb_mr(user)
+            else:
+                st.error("Access denied. MR only.")
+        elif current_page == "🌱 Self Development":
+            if is_mr:
+                page_self_development(user)
+            else:
+                st.error("Access denied. MR only.")
+        elif current_page.startswith("🎓 Employee Development"):
+            if is_hr:
+                page_hr_development(user)
+            else:
+                st.error("Access denied. HR only.")
+        elif current_page == "🎓 Team Development":
+            if is_bum or is_am or is_dm:
+                page_team_development(user)
+            else:
+                st.error("Access denied. BUM, AM, or DM only.")
+        else:
+            st.info("Please log in to access the system.")
