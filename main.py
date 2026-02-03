@@ -10,7 +10,7 @@ import shutil
 import zipfile
 import json
 import bcrypt
-from openpyxl import Workbook  # ✅ إضافة مكتبة openpyxl
+from openpyxl import Workbook  # ✅ إضافة مكتبة openpyl
 # 🔐 NEW: For salary encryption
 from cryptography.fernet import Fernet, InvalidToken
 import hashlib
@@ -768,26 +768,26 @@ def page_notifications(user):
         time_formatted = format_relative_time(row["Timestamp"])
         st.markdown(f"""
 <div style="
-background-color: {bg_color};
-border-left: 4px solid {color};
-padding: 12px;
-margin: 10px 0;
-border-radius: 8px;
-box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    background-color: {bg_color};
+    border-left: 4px solid {color};
+    padding: 12px;
+    margin: 10px 0;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 ">
-<div style="display: flex; justify-content: space-between; align-items: flex-start;">
-<div style="display: flex; align-items: center; gap: 10px; flex: 1;">
-<span style="font-size: 1.3rem; color: {color};">{icon}</span>
-<div>
-<div style="color: {color}; font-weight: bold; font-size: 1.05rem;">
-{status_badge} {row['Message']}
-</div>
-<div style="color: #666666; font-size: 0.9rem; margin-top: 4px;">
-• {time_formatted}
-</div>
-</div>
-</div>
-</div>
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+            <span style="font-size: 1.3rem; color: {color};">{icon}</span>
+            <div>
+                <div style="color: {color}; font-weight: bold; font-size: 1.05rem;">
+                    {status_badge} {row['Message']}
+                </div>
+                <div style="color: #666666; font-size: 0.9rem; margin-top: 4px;">
+                    • {time_formatted}
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 """, unsafe_allow_html=True)
         st.markdown("---")
@@ -883,6 +883,119 @@ def page_manager_leaves(user):
         )
     else:
         st.info("No leave history for your team.")
+# ============================
+# 📊 صفحة جديدة: تقارير تطوير الفريق (IDB & Certifications)
+# ============================
+def page_team_development_reports(user):
+    st.subheader("📊 Team Development Reports")
+    st.info("View IDB reports and certifications of your team members.")
+    
+    user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
+    user_title = str(user.get("Title", "")).strip().upper()
+    
+    # جلب بيانات الموظفين
+    df = st.session_state.get("df", pd.DataFrame())
+    if df.empty:
+        st.error("Employee data not loaded.")
+        return
+    
+    # بناء شجرة الفريق
+    hierarchy = build_team_hierarchy_recursive(df, user_code, user_title)
+    if not hierarchy:
+        st.info("No team members found under your supervision.")
+        return
+    
+    # جمع كودات جميع المرؤوسين
+    def collect_all_team_codes(node, codes_set):
+        if node:
+            codes_set.add(node.get("Manager Code", ""))
+            for child in node.get("Team", []):
+                collect_all_team_codes(child, codes_set)
+        return codes_set
+    
+    team_codes = set()
+    collect_all_team_codes(hierarchy, team_codes)
+    team_codes.add(user_code)
+    
+    tab_idb, tab_certs = st.tabs(["📋 IDB Reports", "📜 Certifications"])
+    
+    with tab_idb:
+        idb_df = load_idb_reports()
+        if not idb_df.empty:
+            # ✅ إضافة Employee Name إذا غير موجود
+            if "Employee Name" not in idb_df.columns:
+                col_map = {c.lower().strip(): c for c in df.columns}
+                emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
+                emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
+                if emp_code_col and emp_name_col:
+                    df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+                    idb_df["Employee Code"] = idb_df["Employee Code"].astype(str).str.strip()
+                    idb_df = idb_df.merge(
+                        df[[emp_code_col, emp_name_col]].rename(columns={emp_code_col: "Employee Code", emp_name_col: "Employee Name"}),
+                        on="Employee Code",
+                        how="left"
+                    )
+            
+            # تصفية التقارير لفريق المستخدم فقط
+            idb_df_filtered = idb_df[idb_df["Employee Code"].astype(str).isin(team_codes)].copy()
+            
+            if not idb_df_filtered.empty:
+                # تحويل القوائم النصية إلى سلاسل
+                idb_df_filtered["Selected Departments"] = idb_df_filtered["Selected Departments"].apply(
+                    lambda x: ", ".join(eval(x)) if isinstance(x, str) else ", ".join(x)
+                )
+                idb_df_filtered["Strengths"] = idb_df_filtered["Strengths"].apply(
+                    lambda x: "; ".join(eval(x)) if isinstance(x, str) else "; ".join(x)
+                )
+                idb_df_filtered["Development Areas"] = idb_df_filtered["Development Areas"].apply(
+                    lambda x: "; ".join(eval(x)) if isinstance(x, str) else "; ".join(x)
+                )
+                
+                # عرض الأعمدة المطلوبة
+                display_cols = ["Employee Code", "Employee Name", "Selected Departments", "Strengths", "Development Areas", "Action Plan", "Updated At"]
+                st.dataframe(idb_df_filtered[display_cols], use_container_width=True)
+                
+                # زر التحميل
+                buf = BytesIO()
+                with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+                    idb_df_filtered.to_excel(writer, index=False)
+                buf.seek(0)
+                st.download_button(
+                    "📥 Download IDB Reports",
+                    data=buf,
+                    file_name=f"Team_IDB_Reports_{user_code}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            else:
+                st.info("📭 No IDB reports from your team yet.")
+        else:
+            st.info("📭 No IDB reports in the system.")
+    
+    with tab_certs:
+        cert_log = load_json_file("certifications_log.json")
+        if not cert_log.empty:
+            # تصفية الشهادات لفريق المستخدم فقط
+            cert_log_filtered = cert_log[cert_log["Employee Code"].astype(str).isin(team_codes)].copy()
+            
+            if not cert_log_filtered.empty:
+                st.dataframe(cert_log_filtered, use_container_width=True)
+                
+                for idx, row in cert_log_filtered.iterrows():
+                    filepath = os.path.join("certifications", row["File"])
+                    if os.path.exists(filepath):
+                        with open(filepath, "rb") as f:
+                            file_bytes = f.read()
+                            st.download_button(
+                                label=f"📥 Download {row['File']}",
+                                data=file_bytes,
+                                file_name=row["File"],
+                                mime="application/octet-stream",
+                                key=f"dl_cert_{idx}"
+                            )
+            else:
+                st.info("📭 No certifications from your team yet.")
+        else:
+            st.info("📭 No certifications uploaded in the system.")
 # ============================
 # Salary Monthly Page — **REPLACED WITH IMPROVED VERSION FROM edit.txt**
 # ============================
@@ -1102,6 +1215,8 @@ def page_hr_manager(user):
                             st.error("Employee code not found in company database.")
                     else:
                         st.error("Employee code column not found.")
+        else:
+            st.error("Employee code not found in secure passwords file.")
     st.markdown("---")
     # ============================
     # 📊 HR: Detailed Leave Report
@@ -1842,22 +1957,22 @@ def page_leave_request(user):
     with col1:
         st.markdown(f"""
 <div class="leave-balance-card">
-<div class="leave-balance-title">Annual Leave Balance</div>
-<div class="leave-balance-value">{annual_balance} Days</div>
+    <div class="leave-balance-title">Annual Leave Balance</div>
+    <div class="leave-balance-value">{annual_balance} Days</div>
 </div>
 """, unsafe_allow_html=True)
     with col2:
         st.markdown(f"""
 <div class="leave-balance-card">
-<div class="leave-balance-title">Used Leave Balance</div>
-<div class="leave-balance-value used">{used_days} Days</div>
+    <div class="leave-balance-title">Used Leave Balance</div>
+    <div class="leave-balance-value used">{used_days} Days</div>
 </div>
 """, unsafe_allow_html=True)
     with col3:
         st.markdown(f"""
 <div class="leave-balance-card">
-<div class="leave-balance-title">Remaining Days</div>
-<div class="leave-balance-value remaining">{remaining_days} Days</div>
+    <div class="leave-balance-title">Remaining Days</div>
+    <div class="leave-balance-value remaining">{remaining_days} Days</div>
 </div>
 """, unsafe_allow_html=True)
     col_map = {c.lower().strip(): c for c in df_emp.columns}
@@ -2122,22 +2237,22 @@ def page_my_team(user, role="AM"):
         with col1:
             st.markdown(f"""
 <div class="team-structure-card">
-<div class="team-structure-title">AM Count</div>
-<div class="team-structure-value am">{hierarchy['Summary']['AM']}</div>
+    <div class="team-structure-title">AM Count</div>
+    <div class="team-structure-value am">{hierarchy['Summary']['AM']}</div>
 </div>
 """, unsafe_allow_html=True)
         with col2:
             st.markdown(f"""
 <div class="team-structure-card">
-<div class="team-structure-title">DM Count</div>
-<div class="team-structure-value dm">{hierarchy['Summary']['DM']}</div>
+    <div class="team-structure-title">DM Count</div>
+    <div class="team-structure-value dm">{hierarchy['Summary']['DM']}</div>
 </div>
 """, unsafe_allow_html=True)
         with col3:
             st.markdown(f"""
 <div class="team-structure-card">
-<div class="team-structure-title">MR Count</div>
-<div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
+    <div class="team-structure-title">MR Count</div>
+    <div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
 </div>
 """, unsafe_allow_html=True)
     elif user_title == "AM":
@@ -2146,15 +2261,15 @@ def page_my_team(user, role="AM"):
         with col1:
             st.markdown(f"""
 <div class="team-structure-card">
-<div class="team-structure-title">DM Count</div>
-<div class="team-structure-value dm">{hierarchy['Summary']['DM']}</div>
+    <div class="team-structure-title">DM Count</div>
+    <div class="team-structure-value dm">{hierarchy['Summary']['DM']}</div>
 </div>
 """, unsafe_allow_html=True)
         with col2:
             st.markdown(f"""
 <div class="team-structure-card">
-<div class="team-structure-title">MR Count</div>
-<div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
+    <div class="team-structure-title">MR Count</div>
+    <div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
 </div>
 """, unsafe_allow_html=True)
     def render_tree(node, level=0, is_last_child=False):
@@ -2193,10 +2308,10 @@ def page_my_team(user, role="AM"):
                 prefix += "├── "
         st.markdown(f"""
 <div class="team-node">
-<div class="team-node-header">
-<span style="color: {color};">{prefix}{icon} <strong>{manager_info}</strong> (Code: {manager_code})</span>
-<span class="team-node-summary">{summary_str}</span>
-</div>
+    <div class="team-node-header">
+        <span style="color: {color};">{prefix}{icon} <strong>{manager_info}</strong> (Code: {manager_code})</span>
+        <span class="team-node-summary">{summary_str}</span>
+    </div>
 """, unsafe_allow_html=True)
         if node.get("Team"):
             st.markdown('<div class="team-node-children">', unsafe_allow_html=True)
@@ -2715,9 +2830,9 @@ def page_hr_inbox(user):
             sent_time = str(date_sent)
         card_html = f"""
 <div class="hr-message-card">
-<div class="hr-message-title">📌 {subj if subj else 'No Subject'}</div>
-<div class="hr-message-meta">👤 {emp_name} — {emp_code} &nbsp;|&nbsp; 🕒 {sent_time} &nbsp;|&nbsp; 🏷️ {status}</div>
-<div class="hr-message-body">{msg if msg else ''}</div>
+    <div class="hr-message-title">📌 {subj if subj else 'No Subject'}</div>
+    <div class="hr-message-meta">👤 {emp_name} — {emp_code} &nbsp;|&nbsp; 🕒 {sent_time} &nbsp;|&nbsp; 🏷️ {status}</div>
+    <div class="hr-message-body">{msg if msg else ''}</div>
 """
         st.markdown(card_html, unsafe_allow_html=True)
         if reply_existing:
@@ -2925,11 +3040,11 @@ with st.sidebar:
             if is_hr:
                 pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Recruitment", "🎓 Employee Development (HR View)", "Notifications", "Structure", "Salary Monthly", "Salary Report", "Settings"]
             elif is_bum:
-                # ✅ BUM gets Team Leaves + Team Structure
-                pages = ["My Profile", "Team Leaves", "Team Structure", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+                # ✅ BUM gets Team Leaves + Team Development Reports (بدون Team Structure)
+                pages = ["My Profile", "Team Leaves", "📊 Team Development Reports", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             elif is_am or is_dm:
-                # ✅ AM/DM get Team Structure (but NOT Team Leaves)
-                pages = ["My Profile", "Team Structure", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+                # ✅ AM/DM gets Team Development Reports (بدون Team Structure)
+                pages = ["My Profile", "📊 Team Development Reports", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             elif is_mr:
                 # ✅ MR gets Notify Compliance + IDB + Self Development
                 pages = ["My Profile", "🚀 IDB – Individual Development Blueprint", "🌱 Self Development", "Notify Compliance", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
@@ -2939,7 +3054,7 @@ with st.sidebar:
             else:
                 # Default fallback (e.g., unknown titles): allow basic access
                 pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-            # ✅ إضافة صفحة Report Compliance لفريق الـ Compliance + المدراء (AM, DM)
+                        # ✅ إضافة شرط صفحة Report Compliance لفريق الـ Compliance + المدراء (AM, DM)
             compliance_and_managers = {
                 "ASSOCIATE COMPLIANCE",
                 "FIELD COMPLIANCE SPECIALIST",
@@ -2949,6 +3064,7 @@ with st.sidebar:
             }
             if title_val in compliance_and_managers:
                 pages.insert(1, "Report Compliance")  # بعد My Profile مباشرة
+            
             unread_count = get_unread_count(user)
             for p in pages:
                 if p == "Notifications":
@@ -2963,12 +3079,14 @@ with st.sidebar:
                     if st.button(p, key=f"nav_{p}", use_container_width=True):
                         st.session_state["current_page"] = p
                         st.rerun()
+            
             st.markdown("---")
             if st.button("🚪 Logout", use_container_width=True):
                 st.session_state["logged_in_user"] = None
                 st.session_state["current_page"] = "My Profile"
                 st.success("You have been logged out.")
                 st.rerun()
+
 if st.session_state["external_password_page"]:
     page_forgot_password()
 else:
@@ -2981,6 +3099,7 @@ else:
         is_am = title_val == "AM"
         is_dm = title_val == "DM"
         is_mr = title_val == "MR"
+        
         SPECIAL_TITLES = {
             "KEY ACCOUNT SPECIALIST",
             "SFE SPECIALIST",
@@ -2998,6 +3117,7 @@ else:
             "OFFICE BOY"
         }
         is_special = title_val in SPECIAL_TITLES
+        
         # ✅ إضافة شرط صفحة Report Compliance
         compliance_and_managers_set = {
             "ASSOCIATE COMPLIANCE",
@@ -3006,6 +3126,7 @@ else:
             "AM",
             "DM"
         }
+        
         if current_page == "My Profile":
             page_my_profile(user)
         elif current_page == "Notifications":
@@ -3094,5 +3215,50 @@ else:
                 page_hr_development(user)
             else:
                 st.error("Access denied. HR only.")
+        elif current_page == "📊 Team Development Reports":
+            if is_bum or is_am or is_dm:
+                page_team_development_reports(user)
+            else:
+                st.error("Access denied. BUM, AM, or DM only.")
         else:
             st.info("Please log in to access the system.")
+    else:
+        st.markdown("""
+<div style="text-align: center; padding: 40px; background-color: #f8fafc; border-radius: 16px; max-width: 600px; margin: 40px auto;">
+    <h2 style="color: #05445E; margin-bottom: 20px;">👥 HRAS — Averroes Admin</h2>
+    <p style="color: #666666; font-size: 1.1rem; margin-bottom: 30px;">
+        Welcome to the HR Administration System.<br>
+        Please log in to continue.
+    </p>
+    <div style="background-color: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+        <form>
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; text-align: left; color: #05445E; font-weight: 500; margin-bottom: 6px;">Employee Code</label>
+                <input type="text" placeholder="Enter your code" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem;">
+            </div>
+            <div style="margin-bottom: 25px;">
+                <label style="display: block; text-align: left; color: #05445E; font-weight: 500; margin-bottom: 6px;">Password</label>
+                <input type="password" placeholder="Enter your password" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem;">
+            </div>
+            <button type="submit" style="width: 100%; background-color: #05445E; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: 600; font-size: 1rem; cursor: pointer;">
+                Sign in
+            </button>
+        </form>
+        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+            <a href="#" style="color: #05445E; text-decoration: none; font-weight: 500;">
+                🔐 Change Password (No Login)
+            </a>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# ============================
+# Footer
+# ============================
+st.markdown("""
+<div style="text-align: center; color: #666666; font-size: 0.9rem; padding: 20px; margin-top: 30px; border-top: 1px solid #e2e8f0;">
+    © 2026 Averroes HR Administration System — Version 3.2 (JSON Edition)
+</div>
+""", unsafe_allow_html=True)
+    
