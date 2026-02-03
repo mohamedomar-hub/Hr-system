@@ -3057,7 +3057,7 @@ with st.sidebar:
                         button_label = f"Notifications ({unread_count})"
                     else:
                         button_label = "Notifications"
-                                        if st.button(button_label, key=f"nav_{p}", use_container_width=True):
+                if st.button(button_label, key=f"nav_{p}", use_container_width=True):
                         st.session_state["current_page"] = p
                         st.rerun()
                 else:
