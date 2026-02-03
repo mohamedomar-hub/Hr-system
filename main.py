@@ -10,7 +10,7 @@ import shutil
 import zipfile
 import json
 import bcrypt
-from openpyxl import Workbook  # ✅ إضافة مكتبة openpyl
+from openpyxl import Workbook  # ✅ إضافة مكتبة openpyxl
 # 🔐 NEW: For salary encryption
 from cryptography.fernet import Fernet, InvalidToken
 import hashlib
@@ -2976,31 +2976,38 @@ with st.sidebar:
     # تم حذف كل الكود الخاص باللوجو من هنا
     st.markdown('<div class="sidebar-title">HRAS — Averroes Admin</div>', unsafe_allow_html=True)
     st.markdown("<hr style='border: 1px solid #05445E; margin: 10px 0;'>", unsafe_allow_html=True)
+    
+    # ✅ تم حذف نموذج اللوجن من الـ Sidebar (النسخة المكررة)
+    # تم الاحتفاظ بزر تغيير كلمة المرور فقط
+    
     if not st.session_state["logged_in_user"] and not st.session_state["external_password_page"]:
-        with st.container():
-            st.markdown("<div style='background-color:white; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1;'>", unsafe_allow_html=True)
-            st.markdown("### 🔐 Login Required")
-            with st.form("login_form"):
-                uid = st.text_input("Employee Code")
-                pwd = st.text_input("Password", type="password")
-                submitted = st.form_submit_button("Sign in")
-                if submitted:
-                    df = st.session_state.get("df", pd.DataFrame())
-                    if df.empty:
-                        st.error("Employee data not loaded. Please check your file.")
-                    else:
-                        user = login(df, uid, pwd)
-                        if user is None:
-                            st.error("Invalid credentials or required columns missing.")
-                        else:
-                            if "Title" not in user:
-                                user["Title"] = "Unknown"
-                            st.session_state["logged_in_user"] = user
-                            st.session_state["current_page"] = "My Profile"
-                            st.success("Login successful!")
-                            st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
+        # ✅ تم حذف هذا الكود بالكامل:
+        # with st.container():
+        #     st.markdown("<div style='background-color:white; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1;'>", unsafe_allow_html=True)
+        #     st.markdown("### 🔐 Login Required")
+        #     with st.form("login_form"):
+        #         uid = st.text_input("Employee Code")
+        #         pwd = st.text_input("Password", type="password")
+        #         submitted = st.form_submit_button("Sign in")
+        #         if submitted:
+        #             df = st.session_state.get("df", pd.DataFrame())
+        #             if df.empty:
+        #                 st.error("Employee data not loaded. Please check your file.")
+        #             else:
+        #                 user = login(df, uid, pwd)
+        #                 if user is None:
+        #                     st.error("Invalid credentials or required columns missing.")
+        #                 else:
+        #                     if "Title" not in user:
+        #                         user["Title"] = "Unknown"
+        #                     st.session_state["logged_in_user"] = user
+        #                     st.session_state["current_page"] = "My Profile"
+        #                     st.success("Login successful!")
+        #                     st.rerun()
+        #     st.markdown("</div>", unsafe_allow_html=True)
+        # st.markdown("<br>", unsafe_allow_html=True)
+        
+        # ✅ الاحتفاظ بزر تغيير كلمة المرور فقط
         if st.button("🔐 Change Password (No Login)", use_container_width=True):
             st.session_state["external_password_page"] = True
             st.rerun()
@@ -3017,6 +3024,7 @@ with st.sidebar:
             is_am = title_val == "AM"
             is_dm = title_val == "DM"
             is_mr = title_val == "MR"
+            
             # ✅ Define special titles that CAN access Leave Request & Team Leaves
             SPECIAL_TITLES = {
                 "KEY ACCOUNT SPECIALIST",
@@ -3035,8 +3043,10 @@ with st.sidebar:
                 "OFFICE BOY"
             }
             is_special = title_val in SPECIAL_TITLES
+            
             st.write(f"👋 **Welcome, {user.get('Employee Name') or 'User'}**")
             st.markdown("---")
+            
             if is_hr:
                 pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Recruitment", "🎓 Employee Development (HR View)", "Notifications", "Structure", "Salary Monthly", "Salary Report", "Settings"]
             elif is_bum:
@@ -3045,7 +3055,7 @@ with st.sidebar:
             elif is_am or is_dm:
                 # ✅ AM/DM gets Team Development Reports (بدون Team Structure)
                 pages = ["My Profile", "📊 Team Development Reports", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-            elif is_mr:
+                        elif is_mr:
                 # ✅ MR gets Notify Compliance + IDB + Self Development
                 pages = ["My Profile", "🚀 IDB – Individual Development Blueprint", "🌱 Self Development", "Notify Compliance", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             elif is_special:
@@ -3054,7 +3064,8 @@ with st.sidebar:
             else:
                 # Default fallback (e.g., unknown titles): allow basic access
                 pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-                        # ✅ إضافة شرط صفحة Report Compliance لفريق الـ Compliance + المدراء (AM, DM)
+            
+            # ✅ إضافة شرط صفحة Report Compliance لفريق الـ Compliance + المدراء (AM, DM)
             compliance_and_managers = {
                 "ASSOCIATE COMPLIANCE",
                 "FIELD COMPLIANCE SPECIALIST",
@@ -3258,7 +3269,6 @@ else:
 # ============================
 st.markdown("""
 <div style="text-align: center; color: #666666; font-size: 0.9rem; padding: 20px; margin-top: 30px; border-top: 1px solid #e2e8f0;">
-    © 2026 Averroes HR Administration System
+    © 2026 Averroes HR Administration System — Version 3.2 (JSON Edition)
 </div>
 """, unsafe_allow_html=True)
-    
