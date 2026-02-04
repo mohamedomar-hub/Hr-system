@@ -283,9 +283,10 @@ updated_css = """
     margin-bottom: 20px;
     text-align: center;
     box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    border: 1px solid rgba(255,255,255,0.1);
 }
-.profile-card-top h4 { color: white !important; margin: 0; font-size: 1.1rem; }
-.profile-card-top p { color: #E0E0E0 !important; margin: 3px 0; font-size: 0.85rem; font-weight: 500; }
+.profile-card-top h4 { color: white !important; margin: 0; font-size: 1.15rem; font-weight: 700; }
+.profile-card-top p { color: #E0E0E0 !important; margin: 4px 0; font-size: 0.9rem; font-weight: 500; }
 
 /* ========== SIDEBAR NAVIGATION BOXES ========== */
 [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
@@ -327,6 +328,9 @@ h1, h2, h3, h4, h5 { color: var(--primary) !important; font-weight: 600; }
 .stButton > button { background-color: #1E88E5 !important; color: white !important; border: none !important; font-weight: 600; padding: 0.5rem 1rem; border-radius: 6px; }
 .stButton > button:hover { background-color: #dc2626 !important; color: white !important; }
 [data-testid="stAppViewContainer"] { background-color: #F2F2F2 !important; }
+
+/* إخفاء أي نصوص تظهر أسفل السايدبار خارج التنسيق المعتاد */
+[data-testid="stSidebar"] .stMarkdown p:not(.profile-card-top p) { font-weight: 500; }
 </style>
 """
 st.markdown(updated_css, unsafe_allow_html=True)
@@ -667,8 +671,12 @@ def page_notifications(user):
 <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
 <span style="font-size: 1.3rem; color: {color};">{icon}</span>
 <div>
-<div style="color: {color}; font-weight: bold; font-size: 1.05rem;"> {status_badge} {row['Message']} </div>
-<div style="color: #666666; font-size: 0.9rem; margin-top: 4px;"> • {time_formatted} </div>
+<div style="color: {color}; font-weight: bold; font-size: 1.05rem;">
+{status_badge} {row['Message']}
+</div>
+<div style="color: #666666; font-size: 0.9rem; margin-top: 4px;">
+• {time_formatted}
+</div>
 </div>
 </div>
 </div>
@@ -1343,7 +1351,8 @@ def page_report_compliance(user):
 def page_idb_mr(user):
     st.subheader("🚀 IDB – Individual Development Blueprint")
     st.markdown("""
-<div style="background-color:#f0fdf4; padding:12px; border-radius:8px; border-left:4px solid #059669;">
+<div style="background-color:#f0fdf4;
+padding:12px; border-radius:8px; border-left:4px solid #059669;">
 <p style="color:#05445E; font-weight:bold;">We want you to always aim higher — your success matters to us.</p>
 </div>
 """, unsafe_allow_html=True)
@@ -1444,7 +1453,8 @@ def page_idb_mr(user):
 def page_self_development(user):
     st.subheader("🌱 Self Development")
     st.markdown("""
-<div style="background-color:#e0f2fe; padding:16px; border-radius:10px; text-align:center; margin-bottom:20px;">
+<div style="background-color:#e0f2fe;
+padding:16px; border-radius:10px; text-align:center; margin-bottom:20px;">
 <h3 style="color:#05445E;">We always want you at your best — your success matters to us.<br>
 Share your journey to success with us.</h3>
 </div>
@@ -1542,19 +1552,24 @@ def page_hr_development(user):
 def page_manager_development(user):
     st.subheader("🎓 Team Development (Manager View)")
     st.markdown("""
-<div style="background-color:#e0f2fe; padding:12px; border-radius:8px; border-left:4px solid #05445E; margin-bottom:20px;">
+<div style="background-color:#e0f2fe; padding:12px;
+border-radius:8px; border-left:4px solid #05445E; margin-bottom:20px;">
 <p style="color:#05445E; font-weight:bold;">View your team's development reports and certifications.</p>
 </div>
 """, unsafe_allow_html=True)
+    
     user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
     user_title = str(user.get("Title", "")).strip().upper()
+    
     # جلب بيانات الموظفين
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.error("Employee data not loaded.")
         return
+    
     # بناء شجرة الفريق
     hierarchy = build_team_hierarchy_recursive(df, user_code, user_title)
+    
     # جمع كود جميع أعضاء الفريق (بما فيهم الـ MR)
     def collect_all_team_codes(node, codes_set):
         if node:
@@ -1562,16 +1577,21 @@ def page_manager_development(user):
             for child in node.get("Team", []):
                 collect_all_team_codes(child, codes_set)
         return codes_set
+    
     team_codes = set()
     collect_all_team_codes(hierarchy, team_codes)
     team_codes.add(user_code)  # أضف كود المستخدم نفسه
+    
     st.info(f"👥 Your team includes {len(team_codes)} members")
+    
     tab_idb, tab_certs = st.tabs(["📋 IDB Reports", "📜 Certifications"])
+    
     with tab_idb:
         idb_df = load_idb_reports()
         if not idb_df.empty:
             # تصفية التقارير لفريق المدير فقط
             idb_df = idb_df[idb_df["Employee Code"].astype(str).isin(team_codes)].copy()
+            
             if not idb_df.empty:
                 # إضافة أسماء الموظفين إذا غير موجودة
                 if "Employee Name" not in idb_df.columns:
@@ -1588,6 +1608,7 @@ def page_manager_development(user):
                                 on="Employee Code",
                                 how="left"
                             )
+                
                 # تحويل القوائم النصية إلى سلاسل
                 idb_df["Selected Departments"] = idb_df["Selected Departments"].apply(
                     lambda x: ", ".join(eval(x)) if isinstance(x, str) else ", ".join(x)
@@ -1598,9 +1619,11 @@ def page_manager_development(user):
                 idb_df["Development Areas"] = idb_df["Development Areas"].apply(
                     lambda x: "; ".join(eval(x)) if isinstance(x, str) else "; ".join(x)
                 )
+                
                 # عرض الأعمدة المطلوبة
                 display_cols = ["Employee Code", "Employee Name", "Selected Departments", "Strengths", "Development Areas", "Action Plan", "Updated At"]
                 st.dataframe(idb_df[display_cols], use_container_width=True)
+                
                 # زر التحميل
                 buf = BytesIO()
                 with pd.ExcelWriter(buf, engine="openpyxl") as writer:
@@ -1616,13 +1639,16 @@ def page_manager_development(user):
                 st.info("📭 No IDB reports from your team yet.")
         else:
             st.info("📭 No IDB reports yet.")
+    
     with tab_certs:
         cert_log = load_json_file("certifications_log.json")
         if not cert_log.empty:
             # تصفية الشهادات لفريق المدير فقط
             cert_log = cert_log[cert_log["Employee Code"].astype(str).isin(team_codes)].copy()
+            
             if not cert_log.empty:
                 st.dataframe(cert_log, use_container_width=True)
+                
                 for idx, row in cert_log.iterrows():
                     filepath = os.path.join("certifications", row["File"])
                     if os.path.exists(filepath):
@@ -1996,7 +2022,7 @@ def send_full_leaves_report_to_hr(leaves_df, df_emp, out_path="HR_Leaves_Report.
     if "Manager Code" in leaves.columns:
         leaves["Manager Code"] = leaves["Manager Code"].astype(str).str.strip()
     if emp_code_col in df_emp_local.columns and emp_name_col in df_emp_local.columns:
-        df_emp_local[emp_code_col] = df_emp_local[emp_code_local].astype(str).str.strip().str.replace('.0', '', regex=False)
+        df_emp_local[emp_code_col] = df_emp_local[emp_code_col].astype(str).str.strip().str.replace('.0', '', regex=False)
         leaves = leaves.merge(
             df_emp_local[[emp_code_col, emp_name_col]].rename(columns={emp_code_col: "Employee Code", emp_name_col: "Employee Name"}),
             on="Employee Code", how="left"
@@ -2865,26 +2891,8 @@ def main():
     is_mr = user_title == "MR"
     is_special = user_title in ["ASSOCIATE COMPLIANCE", "FIELD COMPLIANCE SPECIALIST", "COMPLIANCE MANAGER"]
     
-    # ✅ MODIFIED: Page lists - REMOVED "Team Structure" for DM/AM/BUM, ADDED "🎓 Team Development"
-    if is_hr:
-        pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Recruitment", "🎓 Employee Development (HR View)", "Notifications", "Structure", "Salary Monthly", "Salary Report", "Settings"]
-    elif is_bum:
-        # ✅ BUM: Removed "Team Structure", added "🎓 Team Development"
-        pages = ["My Profile", "Team Leaves", "🎓 Team Development", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-    elif is_am or is_dm:
-        # ✅ AM/DM: Removed "Team Structure", added "🎓 Team Development"
-        pages = ["My Profile", "🎓 Team Development", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-    elif is_mr:
-        # ✅ MR: Unchanged (keeps IDB & Self Development)
-        pages = ["My Profile", "🚀 IDB – Individual Development Blueprint", "🌱 Self Development", "Notify Compliance", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-    elif is_special:
-        # ✅ Compliance roles: Unchanged
-        pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly", "📋 Report Compliance"]
-    else:
-        # Default fallback
-        pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-    
-    # ✅ NEW: Profile Card at the TOP of Sidebar
+    # ✅ FIXED: Removed old display logic from here to prevent duplicate info in footer
+    # ✅ Profile Card at the TOP of Sidebar
     st.sidebar.markdown(f"""
     <div class="profile-card-top">
         <h4>👤 {user.get('Employee Name', 'User')}</h4>
@@ -2893,110 +2901,56 @@ def main():
     </div>
     """, unsafe_allow_html=True)
     
+    # ✅ Navigation Menu
+    if is_hr:
+        pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Recruitment", "🎓 Employee Development (HR View)", "Notifications", "Structure", "Salary Monthly", "Salary Report", "Settings"]
+    elif is_bum:
+        pages = ["My Profile", "Team Leaves", "🎓 Team Development", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+    elif is_am or is_dm:
+        pages = ["My Profile", "🎓 Team Development", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+    elif is_mr:
+        pages = ["My Profile", "🚀 IDB – Individual Development Blueprint", "🌱 Self Development", "Notify Compliance", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+    elif is_special:
+        pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly", "📋 Report Compliance"]
+    else:
+        pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+    
     st.sidebar.markdown('<div class="sidebar-title">👥 Navigation</div>', unsafe_allow_html=True)
     current_page = st.sidebar.radio("Go to", pages, index=0)
     unread = get_unread_count(user)
     if unread > 0:
         st.sidebar.markdown(f'<div class="notification-bell">{unread}</div>', unsafe_allow_html=True)
-    st.sidebar.markdown("---")
     
+    st.sidebar.markdown("---")
     if st.sidebar.button("🚪 Logout"):
         st.session_state["logged_in"] = False
         st.session_state["user"] = None
         st.rerun()
     
-    # ✅ MODIFIED: Routing - Added "🎓 Team Development" page handler
-    if current_page == "Dashboard":
-        page_dashboard(user)
-    elif current_page == "Reports":
-        page_reports(user)
-    elif current_page == "HR Manager":
-        if is_hr:
-            page_hr_manager(user)
-        else:
-            st.error("Access denied. HR only.")
-    elif current_page == "HR Inbox":
-        if is_hr:
-            page_hr_inbox(user)
-        else:
-            st.error("Access denied. HR only.")
-    elif current_page == "Employee Photos":
-        if is_hr:
-            page_employee_photos(user)
-        else:
-            st.error("Access denied. HR only.")
-    elif current_page == "Ask Employees":
-        if is_hr:
-            page_ask_employees(user)
-        else:
-            st.error("Access denied. HR only.")
-    elif current_page == "Recruitment":
-        if is_hr:
-            page_recruitment(user)
-        else:
-            st.error("Access denied. HR only.")
-    elif current_page == "🎓 Employee Development (HR View)":
-        if is_hr:
-            page_hr_development(user)
-        else:
-            st.error("Access denied. HR only.")
-    elif current_page == "🎓 Team Development":
-        if is_bum or is_am or is_dm:
-            page_manager_development(user)
-        else:
-            st.error("Access denied. BUM, AM, or DM only.")
-    elif current_page == "My Profile":
-        page_my_profile(user)
-    # ❌ REMOVED: "My Team Structure" page is NOT in sidebar menus for DM/AM/BUM per your request
-    # (Page handler kept in code but never called from sidebar navigation)
-    elif current_page == "Team Leaves":
-        if is_bum or is_am or is_dm:
-            page_manager_leaves(user)
-        else:
-            st.error("Access denied. Managers only.")
-    elif current_page == "Leave Request":
-        page_leave_request(user)
-    elif current_page == "Ask HR":
-        page_ask_hr(user)
-    elif current_page == "Request HR":
-        page_request_hr(user)
-    elif current_page == "Notify Compliance":
-        if is_mr:
-            page_notify_compliance(user)
-        else:
-            st.error("Access denied. MR only.")
-    elif current_page == "📋 Report Compliance":
-        if is_special or is_bum or is_am or is_dm:
-            page_report_compliance(user)
-        else:
-            st.error("Access denied. Compliance team or managers only.")
-    elif current_page == "🚀 IDB – Individual Development Blueprint":
-        if is_mr:
-            page_idb_mr(user)
-        else:
-            st.error("Access denied. MR only.")
-    elif current_page == "🌱 Self Development":
-        if is_mr:
-            page_self_development(user)
-        else:
-            st.error("Access denied. MR only.")
-    elif current_page == "Notifications":
-        page_notifications(user)
-    elif current_page == "Structure":
-        page_directory(user)
-    elif current_page == "Salary Monthly":
-        page_salary_monthly(user)
-    elif current_page == "Salary Report":
-        if is_hr:
-            page_salary_report(user)
-        else:
-            st.error("Access denied. HR only.")
-    elif current_page == "Settings":
-        if is_hr:
-            page_settings(user)
-        else:
-            st.error("Access denied. HR only.")
-    else:
-        st.info(f"Page '{current_page}' not implemented yet.")
+    # Routing logic (unchanged)
+    if current_page == "Dashboard": page_dashboard(user)
+    elif current_page == "Reports": page_reports(user)
+    elif current_page == "HR Manager": page_hr_manager(user) if is_hr else st.error("Access denied.")
+    elif current_page == "HR Inbox": page_hr_inbox(user) if is_hr else st.error("Access denied.")
+    elif current_page == "Employee Photos": page_employee_photos(user) if is_hr else st.error("Access denied.")
+    elif current_page == "Ask Employees": page_ask_employees(user) if is_hr else st.error("Access denied.")
+    elif current_page == "Recruitment": page_recruitment(user) if is_hr else st.error("Access denied.")
+    elif current_page == "🎓 Employee Development (HR View)": page_hr_development(user) if is_hr else st.error("Access denied.")
+    elif current_page == "🎓 Team Development": page_manager_development(user) if (is_bum or is_am or is_dm) else st.error("Access denied.")
+    elif current_page == "My Profile": page_my_profile(user)
+    elif current_page == "Team Leaves": page_manager_leaves(user) if (is_bum or is_am or is_dm) else st.error("Access denied.")
+    elif current_page == "Leave Request": page_leave_request(user)
+    elif current_page == "Ask HR": page_ask_hr(user)
+    elif current_page == "Request HR": page_request_hr(user)
+    elif current_page == "Notify Compliance": page_notify_compliance(user) if is_mr else st.error("Access denied.")
+    elif current_page == "📋 Report Compliance": page_report_compliance(user) if (is_special or is_bum or is_am or is_dm) else st.error("Access denied.")
+    elif current_page == "🚀 IDB – Individual Development Blueprint": page_idb_mr(user) if is_mr else st.error("Access denied.")
+    elif current_page == "🌱 Self Development": page_self_development(user) if is_mr else st.error("Access denied.")
+    elif current_page == "Notifications": page_notifications(user)
+    elif current_page == "Structure": page_directory(user)
+    elif current_page == "Salary Monthly": page_salary_monthly(user)
+    elif current_page == "Salary Report": page_salary_report(user) if is_hr else st.error("Access denied.")
+    elif current_page == "Settings": page_settings(user) if is_hr else st.error("Access denied.")
+
 if __name__ == "__main__":
     main()
