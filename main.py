@@ -258,21 +258,22 @@ div[data-testid="stDeployButton"] { display: none; }
 </style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-# ✅ تم دمج التنسيق الجديد للـ Sidebar بالكامل
+# ✅ تم دمج التنسيق الجديد للـ Sidebar بالكامل وإصلاح ألوان الإحصائيات
 updated_css = """
 <style>
 /* ========== COLORS SYSTEM ========== */
 :root {
-    --primary: #05445E;
-    --secondary: #0A5C73;
-    --sky-blue: #1E88E5; /* أزرق سماوي */
-    --hover-red: #dc2626; /* أحمر للهوفر */
-    --text-main: #2E2E2E;
-    --text-muted: #6B7280;
-    --card-bg: #FFFFFF;
-    --soft-bg: #F2F6F8;
-    --border-soft: #E5E7EB;
+--primary: #05445E;
+--secondary: #0A5C73;
+--sky-blue: #1E88E5; /* أزرق سماوي */
+--hover-red: #dc2626; /* أحمر للهوفر */
+--text-main: #2E2E2E;
+--text-muted: #6B7280;
+--card-bg: #FFFFFF;
+--soft-bg: #F2F6F8;
+--border-soft: #E5E7EB;
 }
+
 /* ========== TOP PROFILE CARD ========== */
 .profile-card-top {
     background: linear-gradient(135deg, var(--primary), var(--secondary));
@@ -286,6 +287,7 @@ updated_css = """
 }
 .profile-card-top h4 { color: white !important; margin: 0; font-size: 1.15rem; font-weight: 700; }
 .profile-card-top p { color: white !important; margin: 4px 0; font-size: 1.15rem; font-weight: 700; }
+
 /* ========== SIDEBAR NAVIGATION BOXES ========== */
 [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
     gap: 12px;
@@ -318,30 +320,41 @@ updated_css = """
     background-color: var(--primary) !important;
     border: 2px solid white !important;
 }
+
 /* ========== GENERAL TEXT & CARDS ========== */
 html, body, p, span, .stMarkdown p { color: #2E2E2E !important; }
-[data-testid="stMarkdownContainer"] p { color: #2E2E2E !important; }
 h1, h2, h3, h4, h5 { color: var(--primary) !important; font-weight: 600; }
-.hr-message-card {
-    background-color: #FFFFFF;
-    border-left: 4px solid var(--primary);
-    padding: 12px;
-    margin: 10px 0;
-    border-radius: 8px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+
+/* إصلاح أرقام الإحصائيات (st.metric) */
+[data-testid="stMetricValue"] {
+    color: #2E2E2E !important;
 }
-/* الأزرار تبقى كما هي لأنك قلت أنها أصبحت جيدة */
-.stButton > button {
+[data-testid="stMetricLabel"] p {
+    color: var(--primary) !important;
+    font-weight: bold;
+}
+
+.hr-message-card { 
+    background-color: #FFFFFF; 
+    border-left: 4px solid var(--primary); 
+    padding: 12px; 
+    margin: 10px 0; 
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05); 
+}
+
+.stButton > button { 
     background-color: #1E88E5 !important;
-    color: white !important;
-    border: none !important;
-    font-weight: 600;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
+    color: white !important; 
+    border: none !important; 
+    font-weight: 600; 
+    padding: 0.5rem 1rem; 
+    border-radius: 6px; 
 }
 .stButton > button:hover { background-color: #dc2626 !important; }
+
 [data-testid="stAppViewContainer"] { background-color: #F2F2F2 !important; }
-/* إخفاء أي نصوص تظهر أسفل السايدبار خارج التنسيق المعتاد */
+
 [data-testid="stSidebar"] .stMarkdown p:not(.profile-card-top p) { font-weight: 500; }
 </style>
 """
@@ -357,7 +370,7 @@ def page_forgot_password():
         new_pwd = st.text_input("New Password", type="password")
         confirm_pwd = st.text_input("Confirm New Password", type="password")
         submitted = st.form_submit_button("Set New Password")
-        if submitted:
+    if submitted:
             if not emp_code.strip() or not new_pwd or not confirm_pwd:
                 st.error("All fields are required.")
             elif new_pwd != confirm_pwd:
@@ -365,7 +378,6 @@ def page_forgot_password():
             else:
                 emp_code_clean = emp_code.strip().replace(".0", "")
                 hashes = load_password_hashes()
-                # ✅ التحقق من وجود الموظف في ملف employees.json (وليس secure_passwords.json)
                 df = st.session_state.get("df", pd.DataFrame())
                 if df.empty:
                     st.error("Employee data not loaded.")
@@ -379,7 +391,6 @@ def page_forgot_password():
                 if emp_code_clean not in df[code_col].values:
                     st.error("Employee code not found in the company database.")
                     return
-                # ✅ الآن: نسمح بإنشاء باسورد جديد بغض النظر عن وجود الهاش أو لا
                 hashes[emp_code_clean] = hash_password(new_pwd)
                 save_password_hashes(hashes)
                 st.success("✅ Your password has been set successfully. You can now log in.")
@@ -411,7 +422,7 @@ def save_recruitment_cv(uploaded_file):
         f.write(uploaded_file.getbuffer())
     return filename
 # ============================
-# GitHub helpers (JSON version) — ✅ MODIFIED TO SANITIZE + ENCRYPT BEFORE UPLOAD
+# GitHub helpers (JSON version)
 # ============================
 def github_headers():
     headers = {"Accept": "application/vnd.github.v3+json"}
@@ -427,7 +438,6 @@ def load_employee_data_from_github():
             file_content = base64.b64decode(content["content"])
             data = json.loads(file_content.decode('utf-8'))
             df = pd.DataFrame(data)
-            # 🆕 Sanitize immediately after loading from GitHub
             return sanitize_employee_data(df)
         else:
             return pd.DataFrame()
@@ -448,11 +458,9 @@ def upload_json_to_github(filepath, data_list, commit_message):
     if not GITHUB_TOKEN:
         return False
     try:
-        # 🆕 Sanitize the data BEFORE encryption/upload
         df_temp = pd.DataFrame(data_list)
         df_sanitized = sanitize_employee_data(df_temp)
         data_list_sanitized = df_sanitized.to_dict(orient='records')
-        # 🔒 Encrypt sensitive columns before uploading to GitHub
         sensitive_cols = ["Basic Salary", "KPI Bonus", "Deductions", "Net Salary"]
         data_list_copy = [row.copy() for row in data_list_sanitized]
         for item in data_list_copy:
@@ -683,12 +691,8 @@ def page_notifications(user):
 <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
 <span style="font-size: 1.3rem; color: {color};">{icon}</span>
 <div>
-<div style="color: {color}; font-weight: bold; font-size: 1.05rem;">
-{status_badge} {row['Message']}
-</div>
-<div style="color: #666666; font-size: 0.9rem; margin-top: 4px;">
-• {time_formatted}
-</div>
+<div style="color: {color}; font-weight: bold; font-size: 1.05rem;"> {status_badge} {row['Message']} </div>
+<div style="color: #666666; font-size: 0.9rem; margin-top: 4px;"> • {time_formatted} </div>
 </div>
 </div>
 </div>
@@ -696,7 +700,7 @@ def page_notifications(user):
 """, unsafe_allow_html=True)
         st.markdown("---")
 # ============================
-# 🆕 ADDITION: page_manager_leaves — Fully Implemented & FIXED
+# page_manager_leaves — Fully Implemented & FIXED
 # ============================
 def page_manager_leaves(user):
     st.subheader("📅 Team Leave Requests")
@@ -708,13 +712,11 @@ def page_manager_leaves(user):
     if leaves_df.empty:
         st.info("No leave requests in the system.")
         return
-    # Filter team leaves using Manager Code (ensure consistent string format)
     leaves_df["Manager Code"] = leaves_df["Manager Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     team_leaves = leaves_df[leaves_df["Manager Code"] == manager_code].copy()
     if team_leaves.empty:
         st.info("No leave requests from your team.")
         return
-    # Merge with employee names
     df_emp = st.session_state.get("df", pd.DataFrame())
     name_col_to_use = "Employee Code"
     if not df_emp.empty:
@@ -774,7 +776,6 @@ def page_manager_leaves(user):
         st.dataframe(all_leaves[[
             "Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"
         ]], use_container_width=True)
-        # ✅ Add Download Button for Full History
         buf = BytesIO()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
             all_leaves[["Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"]].to_excel(writer, index=False)
@@ -788,14 +789,12 @@ def page_manager_leaves(user):
     else:
         st.info("No leave history for your team.")
 # ============================
-# Salary Monthly Page — **REPLACED WITH IMPROVED VERSION FROM edit.txt**
+# Salary Monthly Page
 # ============================
 def page_salary_monthly(user):
     st.subheader("Monthly Salaries")
-    # 🔹 Normalize logged-in employee code
     user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
     try:
-        # 🔹 Load salaries JSON
         if not os.path.exists(SALARIES_FILE_PATH):
             st.error(f"❌ File '{SALARIES_FILE_PATH}' not found.")
             return
@@ -803,36 +802,29 @@ def page_salary_monthly(user):
         if salary_df.empty:
             st.info("No salary data available.")
             return
-        # 🔹 Ensure required columns
         required_columns = ["Employee Code", "Month", "Basic Salary", "KPI Bonus", "Deductions"]
         missing_cols = [c for c in required_columns if c not in salary_df.columns]
         if missing_cols:
             st.error(f"❌ Missing columns: {missing_cols}")
             return
-        # 🔹 Normalize Employee Code column BEFORE filtering
         salary_df["Employee Code"] = (
             salary_df["Employee Code"]
             .astype(str)
             .str.strip()
             .str.replace(".0", "", regex=False)
         )
-        # 🔹 Filter salaries for current user
         user_salaries = salary_df[salary_df["Employee Code"] == user_code].copy()
         if user_salaries.empty:
             st.info(f"🚫 No salary records found for you (Code: {user_code}).")
             return
-        # 🔐 Decrypt numeric columns FIRST
         for col in ["Basic Salary", "KPI Bonus", "Deductions"]:
             user_salaries[col] = user_salaries[col].apply(decrypt_salary_value)
-        # 🧮 Calculate Net Salary safely
         user_salaries["Net Salary"] = (
             user_salaries["Basic Salary"]
             + user_salaries["KPI Bonus"]
             - user_salaries["Deductions"]
         )
-        # 🔹 Sort by Month (optional but nice)
         user_salaries = user_salaries.reset_index(drop=True)
-        # 🔘 Toggle full table
         if st.button("📊 Show All Details"):
             st.session_state["show_all_details"] = not st.session_state.get("show_all_details", False)
         if st.session_state.get("show_all_details", False):
@@ -841,7 +833,6 @@ def page_salary_monthly(user):
                 user_salaries[["Month", "Basic Salary", "KPI Bonus", "Deductions", "Net Salary"]],
                 use_container_width=True
             )
-        # 🔹 Per-month detailed cards
         for idx, row in user_salaries.iterrows():
             month = row["Month"]
             btn_key = f"show_details_{month}_{idx}"
@@ -863,7 +854,6 @@ def page_salary_monthly(user):
 </div>
 """
                 st.markdown(card, unsafe_allow_html=True)
-                # 📥 Download salary slip
                 output = BytesIO()
                 with pd.ExcelWriter(output, engine="openpyxl") as writer:
                     pd.DataFrame([details]).to_excel(
@@ -876,9 +866,9 @@ def page_salary_monthly(user):
                     file_name=f"Salary_{user_code}_{month}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-                if st.button(f"Hide Details for {month}", key=f"hide_{month}"):
-                    del st.session_state[details_key]
-                    st.rerun()
+            if st.button(f"Hide Details for {month}", key=f"hide_{month}"):
+                del st.session_state[details_key]
+                st.rerun()
     except Exception as e:
         st.error(f"❌ Error loading salary  {e}")
 # ============================
@@ -969,9 +959,6 @@ def page_hr_manager(user):
     if df.empty:
         st.error("Employee data not loaded.")
         return
-    # ============================
-    # 🔑 NEW: Reset Employee Password Section
-    # ============================
     st.markdown("### 🔑 Reset Employee Password")
     st.warning("This will invalidate the current password. The employee must use 'Change Password (No Login)' to set a new one.")
     with st.form("reset_password_form"):
@@ -989,7 +976,6 @@ def page_hr_manager(user):
                     st.success(f"✅ Password for Employee {emp_code_clean} has been reset. Employee must set a new password using the external link.")
                     add_notification(emp_code_clean, "", "Your password was reset by HR. Please set a new password using the 'Change Password (No Login)' link on the login page.")
                 else:
-                    # Even if not in hashes, if in employees.json, we treat it as reset
                     col_map = {c.lower().strip(): c for c in df.columns}
                     code_col = col_map.get("employee_code") or col_map.get("employee code")
                     if code_col:
@@ -1002,9 +988,6 @@ def page_hr_manager(user):
                     else:
                         st.error("Employee code column not found.")
     st.markdown("---")
-    # ============================
-    # 📊 HR: Detailed Leave Report
-    # ============================
     st.markdown("### 📊 HR: Detailed Leave Report for All Employees")
     leaves_df_all = load_leaves_data()
     df_emp_global = st.session_state.get("df", pd.DataFrame())
@@ -1045,15 +1028,11 @@ def page_hr_manager(user):
     else:
         st.info("No employee or leave data available for the detailed report.")
     st.markdown("---")
-    # ============================
-    # Upload Employees Excel
-    # ============================
     st.markdown("### Upload Employees Excel (will replace current dataset)")
     uploaded_file = st.file_uploader("Upload Excel file (.xlsx) to replace the current employees dataset", type=["xlsx"])
     if uploaded_file:
         try:
             new_df = pd.read_excel(uploaded_file)
-            # 🆕 Apply sanitization immediately on upload
             new_df = sanitize_employee_data(new_df)
             st.session_state["uploaded_df_preview"] = new_df.copy()
             st.success("File loaded and sanitized. Preview below.")
@@ -1063,7 +1042,6 @@ def page_hr_manager(user):
             with col1:
                 if st.button("Replace In-Memory Dataset with Uploaded File"):
                     st.session_state["df"] = new_df.copy()
-                    # ✅ NEW: Re-initialize passwords from new data
                     initialize_passwords_from_data(new_df.to_dict(orient='records'))
                     st.success("In-memory dataset replaced and password hashes updated.")
             with col2:
@@ -1072,9 +1050,6 @@ def page_hr_manager(user):
         except Exception as e:
             st.error(f"Failed to read uploaded file: {e}")
     st.markdown("---")
-    # ============================
-    # Manage Employees (Edit / Delete)
-    # ============================
     st.markdown("### Manage Employees (Edit / Delete)")
     if df.empty:
         st.info("Dataset empty. Upload or load data first.")
@@ -1158,9 +1133,6 @@ def page_hr_manager(user):
                         st.session_state["delete_target"] = None
                         st.info("Deletion cancelled.")
     st.markdown("---")
-    # ============================
-    # Save / Push Dataset
-    # ============================
     st.markdown("### Save / Push Dataset")
     if st.button("Save current in-memory dataset locally and optionally push to GitHub"):
         df_current = st.session_state.get("df", pd.DataFrame())
@@ -1176,9 +1148,6 @@ def page_hr_manager(user):
         else:
             st.error("Failed to save dataset locally.")
     st.markdown("---")
-    # ============================
-    # Clear All Test Data
-    # ============================
     st.warning("🛠️ **Clear All Test Data** (Use BEFORE going live!)")
     if st.button("🗑️ Clear Leaves, HR Messages, Notifications & Photos"):
         try:
@@ -1210,22 +1179,17 @@ def page_hr_manager(user):
 def page_notify_compliance(user):
     st.subheader("📨 Notify Compliance Team")
     st.info("Use this form to notify the Compliance team about delays, absences, or other operational issues.")
-    # 1. جلب بيانات الموظفين
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.error("Employee data not loaded.")
         return
-    # 2. تحديد مدير الـ MR (لعرضه كمرجع فقط)
     user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
-    # ✅ استخدم الأسماء الحرفية كما في ملف JSON
     emp_code_col = "Employee Code"
     mgr_code_col = "Manager Code"
     emp_name_col = "Employee Name"
-    # ✅ تحقق من وجود الأعمدة
     if not all(col in df.columns for col in [emp_code_col, mgr_code_col, emp_name_col]):
         st.error(f"❌ Required columns missing: {emp_code_col}, {mgr_code_col}, {emp_name_col}")
         return
-    # ✅ تنظيف أعمدة Employee Code و Manager Code
     df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     df[mgr_code_col] = df[mgr_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
     user_row = df[df[emp_code_col] == user_code]
@@ -1239,7 +1203,6 @@ def page_notify_compliance(user):
         if not mgr_row.empty:
             manager_name = mgr_row.iloc[0].get(emp_name_col, "N/A")
     st.markdown(f"**Your Manager**: {manager_name} (Code: {manager_code})")
-    # 3. جلب أسماء فريق Compliance (العناوين الثلاثة)
     compliance_titles = {
         "ASSOCIATE COMPLIANCE",
         "FIELD COMPLIANCE SPECIALIST",
@@ -1260,7 +1223,6 @@ def page_notify_compliance(user):
     recipient_data = compliance_options[selected_option]
     recipient_name = recipient_data["name"]
     recipient_code = recipient_data["code"]
-    # 4. نموذج الإرسال
     message = st.text_area("Your Message", height=120, placeholder="Example: I was delayed today due to traffic...")
     if st.button("📤 Send to Compliance"):
         if not message.strip():
@@ -1268,7 +1230,6 @@ def page_notify_compliance(user):
         else:
             messages_df = load_compliance_messages()
             new_id = int(messages_df["ID"].max()) + 1 if not messages_df.empty else 1
-            # ✅ رسالة واحدة تحتوي على بيانات الـ Compliance + المدير
             new_row = pd.DataFrame([{
                 "ID": new_id,
                 "MR Code": user_code,
@@ -1283,13 +1244,10 @@ def page_notify_compliance(user):
             }])
             messages_df = pd.concat([messages_df, new_row], ignore_index=True)
             if save_compliance_messages(messages_df):
-                # ✅ إشعار لكل عناوين الـ Compliance
                 for title in compliance_titles:
                     add_notification("", title, f"New message from MR {user_code}")
-                # ✅ إشعار للمدير (إذا كان موجودًا)
                 if manager_code != "N/A" and manager_code != user_code:
                     add_notification(manager_code, "", f"New compliance message from your team member {user_code}")
-                # ✅ رسالة تأكيد فورية (بدون rerun)
                 st.success("✅ Your message has been sent to Compliance and your manager.")
             else:
                 st.error("❌ Failed to send message.")
@@ -1303,22 +1261,17 @@ def page_report_compliance(user):
     if messages_df.empty:
         st.info("No compliance messages yet.")
         return
-    # جلب بيانات الموظفين
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.error("Employee data not loaded.")
         return
-    # تحديد صلاحيات المستخدم
     title_val = str(user.get("Title", "")).strip().upper()
     is_compliance = title_val in {"ASSOCIATE COMPLIANCE", "FIELD COMPLIANCE SPECIALIST", "COMPLIANCE MANAGER"}
     is_manager = title_val in {"AM", "DM"}
-    # إذا كان المستخدم ليس من فريق Compliance، نطبق التصفية
     if not is_compliance and is_manager:
         user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
-        # بناء شجرة الفريق
         hierarchy = build_team_hierarchy_recursive(df, user_code, title_val)
         if hierarchy:
-            # جمع كود جميع أعضاء الفريق (بما فيهم MRs)
             def collect_all_team_codes(node, codes_set):
                 if node:
                     codes_set.add(node.get("Manager Code", ""))
@@ -1328,11 +1281,9 @@ def page_report_compliance(user):
             team_codes = set()
             collect_all_team_codes(hierarchy, team_codes)
             team_codes.add(user_code)  # أضف كود المستخدم نفسه
-            # تصفية الرسائل
             messages_df = messages_df[
                 messages_df["MR Code"].astype(str).isin(team_codes)
             ].copy()
-    # عرض الرسائل
     messages_df = messages_df.sort_values("Timestamp", ascending=False).reset_index(drop=True)
     messages_df["Date"] = pd.to_datetime(messages_df["Timestamp"]).dt.strftime("%d-%m-%Y %H:%M")
     display_df = messages_df[[
@@ -1346,7 +1297,6 @@ def page_report_compliance(user):
         "Manager Name": "Team Manager"
     })
     st.dataframe(display_df, use_container_width=True)
-    # زر تحميل Excel
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         display_df.to_excel(writer, index=False)
@@ -1363,8 +1313,7 @@ def page_report_compliance(user):
 def page_idb_mr(user):
     st.subheader("🚀 IDB – Individual Development Blueprint")
     st.markdown("""
-<div style="background-color:#f0fdf4;
-padding:12px; border-radius:8px; border-left:4px solid #059669;">
+<div style="background-color:#f0fdf4; padding:12px; border-radius:8px; border-left:4px solid #059669;">
 <p style="color:#05445E; font-weight:bold;">We want you to always aim higher — your success matters to us.</p>
 </div>
 """, unsafe_allow_html=True)
@@ -1412,7 +1361,7 @@ padding:12px; border-radius:8px; border-left:4px solid #059669;">
             else:
                 success = save_idb_report(
                     user_code,
-                    user_name,  # ✅ FIXED: Added Employee Name
+                    user_name,
                     selected,
                     [s.strip() for s in strength_inputs if s.strip()],
                     [d.strip() for d in dev_inputs if d.strip()],
@@ -1420,7 +1369,6 @@ padding:12px; border-radius:8px; border-left:4px solid #059669;">
                 )
                 if success:
                     st.success("✅ IDB Report saved successfully!")
-                    # ✅ FIXED: Send notification to HR + ALL managers (DM, AM, BUM)
                     add_notification("", "HR", f"MR {user_name} ({user_code}) updated their IDB report.")
                     add_notification("", "DM", f"MR {user_name} ({user_code}) updated their IDB report.")
                     add_notification("", "AM", f"MR {user_name} ({user_code}) updated their IDB report.")
@@ -1428,7 +1376,6 @@ padding:12px; border-radius:8px; border-left:4px solid #059669;">
                     st.rerun()
                 else:
                     st.error("❌ Failed to save report.")
-    # عرض التقرير الحالي كجدول قابل للتنزيل
     if not existing.empty:
         st.markdown("### 📊 Your Current IDB Report")
         display_data = {
@@ -1465,8 +1412,7 @@ padding:12px; border-radius:8px; border-left:4px solid #059669;">
 def page_self_development(user):
     st.subheader("🌱 Self Development")
     st.markdown("""
-<div style="background-color:#e0f2fe;
-padding:16px; border-radius:10px; text-align:center; margin-bottom:20px;">
+<div style="background-color:#e0f2fe; padding:16px; border-radius:10px; text-align:center; margin-bottom:20px;">
 <h3 style="color:#05445E;">We always want you at your best — your success matters to us.<br>
 Share your journey to success with us.</h3>
 </div>
@@ -1482,7 +1428,6 @@ Share your journey to success with us.</h3>
         filepath = os.path.join("certifications", filename)
         with open(filepath, "wb") as f:
             f.write(uploaded_cert.getbuffer())
-        # حفظ ميتا بيانات في JSON
         cert_log = load_json_file("certifications_log.json", default_columns=["Employee Code", "File", "Description", "Uploaded At"])
         new_log = pd.DataFrame([{
             "Employee Code": user_code,
@@ -1504,7 +1449,6 @@ def page_hr_development(user):
     with tab_idb:
         idb_df = load_idb_reports()
         if not idb_df.empty:
-            # ✅ FIXED: Add Employee Name if not exists
             if "Employee Name" not in idb_df.columns:
                 df = st.session_state.get("df", pd.DataFrame())
                 if not df.empty:
@@ -1519,7 +1463,6 @@ def page_hr_development(user):
                             on="Employee Code",
                             how="left"
                         )
-            # تحويل القوائم النصية إلى سلاسل
             idb_df["Selected Departments"] = idb_df["Selected Departments"].apply(
                 lambda x: ", ".join(eval(x)) if isinstance(x, str) else ", ".join(x)
             )
@@ -1529,7 +1472,6 @@ def page_hr_development(user):
             idb_df["Development Areas"] = idb_df["Development Areas"].apply(
                 lambda x: "; ".join(eval(x)) if isinstance(x, str) else "; ".join(x)
             )
-            # عرض الأعمدة المطلوبة
             display_cols = ["Employee Code", "Employee Name", "Selected Departments", "Strengths", "Development Areas", "Action Plan", "Updated At"]
             st.dataframe(idb_df[display_cols], use_container_width=True)
             buf = BytesIO()
@@ -1546,16 +1488,15 @@ def page_hr_development(user):
             for idx, row in cert_log.iterrows():
                 filepath = os.path.join("certifications", row["File"])
                 if os.path.exists(filepath):
-                    # ✅ FIXED: Download with original file format
                     with open(filepath, "rb") as f:
                         file_bytes = f.read()
-                        st.download_button(
-                            label=f"📥 Download {row['File']}",
-                            data=file_bytes,
-                            file_name=row["File"],  # نفس اسم الملف الأصلي
-                            mime="application/octet-stream",  # صيغة عامة تحافظ على نوع الملف
-                            key=f"dl_cert_{idx}"
-                        )
+                    st.download_button(
+                        label=f"📥 Download {row['File']}",
+                        data=file_bytes,
+                        file_name=row["File"],
+                        mime="application/octet-stream",
+                        key=f"dl_cert_{idx}"
+                    )
         else:
             st.info("📭 No certifications uploaded.")
 # ============================
@@ -1564,21 +1505,17 @@ def page_hr_development(user):
 def page_manager_development(user):
     st.subheader("🎓 Team Development (Manager View)")
     st.markdown("""
-<div style="background-color:#e0f2fe; padding:12px;
-border-radius:8px; border-left:4px solid #05445E; margin-bottom:20px;">
+<div style="background-color:#e0f2fe; padding:12px; border-radius:8px; border-left:4px solid #05445E; margin-bottom:20px;">
 <p style="color:#05445E; font-weight:bold;">View your team's development reports and certifications.</p>
 </div>
 """, unsafe_allow_html=True)
     user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
     user_title = str(user.get("Title", "")).strip().upper()
-    # جلب بيانات الموظفين
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.error("Employee data not loaded.")
         return
-    # بناء شجرة الفريق
     hierarchy = build_team_hierarchy_recursive(df, user_code, user_title)
-    # جمع كود جميع أعضاء الفريق (بما فيهم الـ MR)
     def collect_all_team_codes(node, codes_set):
         if node:
             codes_set.add(node.get("Manager Code", ""))
@@ -1593,12 +1530,9 @@ border-radius:8px; border-left:4px solid #05445E; margin-bottom:20px;">
     with tab_idb:
         idb_df = load_idb_reports()
         if not idb_df.empty:
-            # تصفية التقارير لفريق المدير فقط
             idb_df = idb_df[idb_df["Employee Code"].astype(str).isin(team_codes)].copy()
             if not idb_df.empty:
-                # إضافة أسماء الموظفين إذا غير موجودة
                 if "Employee Name" not in idb_df.columns:
-                    df = st.session_state.get("df", pd.DataFrame())
                     if not df.empty:
                         col_map = {c.lower().strip(): c for c in df.columns}
                         emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
@@ -1611,7 +1545,6 @@ border-radius:8px; border-left:4px solid #05445E; margin-bottom:20px;">
                                 on="Employee Code",
                                 how="left"
                             )
-                # تحويل القوائم النصية إلى سلاسل
                 idb_df["Selected Departments"] = idb_df["Selected Departments"].apply(
                     lambda x: ", ".join(eval(x)) if isinstance(x, str) else ", ".join(x)
                 )
@@ -1621,10 +1554,8 @@ border-radius:8px; border-left:4px solid #05445E; margin-bottom:20px;">
                 idb_df["Development Areas"] = idb_df["Development Areas"].apply(
                     lambda x: "; ".join(eval(x)) if isinstance(x, str) else "; ".join(x)
                 )
-                # عرض الأعمدة المطلوبة
                 display_cols = ["Employee Code", "Employee Name", "Selected Departments", "Strengths", "Development Areas", "Action Plan", "Updated At"]
                 st.dataframe(idb_df[display_cols], use_container_width=True)
-                # زر التحميل
                 buf = BytesIO()
                 with pd.ExcelWriter(buf, engine="openpyxl") as writer:
                     idb_df.to_excel(writer, index=False)
@@ -1642,7 +1573,6 @@ border-radius:8px; border-left:4px solid #05445E; margin-bottom:20px;">
     with tab_certs:
         cert_log = load_json_file("certifications_log.json")
         if not cert_log.empty:
-            # تصفية الشهادات لفريق المدير فقط
             cert_log = cert_log[cert_log["Employee Code"].astype(str).isin(team_codes)].copy()
             if not cert_log.empty:
                 st.dataframe(cert_log, use_container_width=True)
@@ -1651,13 +1581,13 @@ border-radius:8px; border-left:4px solid #05445E; margin-bottom:20px;">
                     if os.path.exists(filepath):
                         with open(filepath, "rb") as f:
                             file_bytes = f.read()
-                            st.download_button(
-                                label=f"📥 Download {row['File']}",
-                                data=file_bytes,
-                                file_name=row["File"],
-                                mime="application/octet-stream",
-                                key=f"dl_cert_mgr_{idx}"
-                            )
+                        st.download_button(
+                            label=f"📥 Download {row['File']}",
+                            data=file_bytes,
+                            file_name=row["File"],
+                            mime="application/octet-stream",
+                            key=f"dl_cert_mgr_{idx}"
+                        )
             else:
                 st.info("📭 No certifications from your team yet.")
         else:
@@ -2066,164 +1996,63 @@ def page_my_team(user, role="AM"):
     if not hierarchy:
         st.info(f"Could not build team structure for your code: {user_code}. Check your manager assignment or title.")
         return
-    ROLE_ICONS = {
-        "BUM": "🏢",
-        "AM": "👨‍💼",
-        "DM": "👩‍💼",
-        "MR": "🧑‍⚕️"
-    }
-    ROLE_COLORS = {
-        "BUM": "#05445E",
-        "AM": "#05445E",
-        "DM": "#0A5C73",
-        "MR": "#dc2626"
-    }
+    ROLE_ICONS = { "BUM": "🏢", "AM": "👨‍💼", "DM": "👩‍💼", "MR": "🧑‍⚕️" }
+    ROLE_COLORS = { "BUM": "#05445E", "AM": "#05445E", "DM": "#0A5C73", "MR": "#dc2626" }
     st.markdown("""
 <style>
 .team-node {
-    background-color: #FFFFFF;
-    border-left: 4px solid #05445E;
-    padding: 12px;
-    margin: 8px 0;
-    border-radius: 6px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+background-color: #FFFFFF;
+border-left: 4px solid #05445E;
+padding: 12px;
+margin: 8px 0;
+border-radius: 6px;
+box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 .team-node-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-weight: 600;
-    color: #05445E;
-    margin-bottom: 8px;
+display: flex;
+justify-content: space-between;
+align-items: center;
+font-weight: 600;
+color: #05445E;
+margin-bottom: 8px;
 }
-.team-node-summary {
-    font-size: 0.9rem;
-    color: #666666;
-    margin-top: 4px;
-}
-.team-node-children {
-    margin-left: 20px;
-    margin-top: 8px;
-}
-.team-member {
-    display: flex;
-    align-items: center;
-    padding: 6px 12px;
-    background-color: #f8fafc;
-    border-radius: 4px;
-    margin: 4px 0;
-    font-size: 0.95rem;
-}
-.team-member-icon {
-    margin-right: 8px;
-    font-size: 1.1rem;
-}
+.team-node-summary { font-size: 0.9rem; color: #666666; margin-top: 4px; }
+.team-node-children { margin-left: 20px; margin-top: 8px; }
+.team-member { display: flex; align-items: center; padding: 6px 12px; background-color: #f8fafc; border-radius: 4px; margin: 4px 0; font-size: 0.95rem; }
+.team-member-icon { margin-right: 8px; font-size: 1.1rem; }
 </style>
 """, unsafe_allow_html=True)
     user_title = role.upper()
     if user_title == "BUM":
         st.markdown("### Team Structure Summary")
         col1, col2, col3 = st.columns(3)
-        with col1:
-            st.markdown(f"""
-<div class="team-structure-card">
-<div class="team-structure-title">AM Count</div>
-<div class="team-structure-value am">{hierarchy['Summary']['AM']}</div>
-</div>
-""", unsafe_allow_html=True)
-        with col2:
-            st.markdown(f"""
-<div class="team-structure-card">
-<div class="team-structure-title">DM Count</div>
-<div class="team-structure-value dm">{hierarchy['Summary']['DM']}</div>
-</div>
-""", unsafe_allow_html=True)
-        with col3:
-            st.markdown(f"""
-<div class="team-structure-card">
-<div class="team-structure-title">MR Count</div>
-<div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
-</div>
-""", unsafe_allow_html=True)
+        with col1: st.markdown(f'<div class="team-structure-card"><div class="team-structure-title">AM Count</div><div class="team-structure-value am">{hierarchy["Summary"]["AM"]}</div></div>', unsafe_allow_html=True)
+        with col2: st.markdown(f'<div class="team-structure-card"><div class="team-structure-title">DM Count</div><div class="team-structure-value dm">{hierarchy["Summary"]["DM"]}</div></div>', unsafe_allow_html=True)
+        with col3: st.markdown(f'<div class="team-structure-card"><div class="team-structure-title">MR Count</div><div class="team-structure-value mr">{hierarchy["Summary"]["MR"]}</div></div>', unsafe_allow_html=True)
     elif user_title == "AM":
         st.markdown("### Team Structure Summary")
         col1, col2 = st.columns(2)
-        with col1:
-            st.markdown(f"""
-<div class="team-structure-card">
-<div class="team-structure-title">DM Count</div>
-<div class="team-structure-value dm">{hierarchy['Summary']['DM']}</div>
-</div>
-""", unsafe_allow_html=True)
-        with col2:
-            st.markdown(f"""
-<div class="team-structure-card">
-<div class="team-structure-title">MR Count</div>
-<div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
-</div>
-""", unsafe_allow_html=True)
+        with col1: st.markdown(f'<div class="team-structure-card"><div class="team-structure-title">DM Count</div><div class="team-structure-value dm">{hierarchy["Summary"]["DM"]}</div></div>', unsafe_allow_html=True)
+        with col2: st.markdown(f'<div class="team-structure-card"><div class="team-structure-title">MR Count</div><div class="team-structure-value mr">{hierarchy["Summary"]["MR"]}</div></div>', unsafe_allow_html=True)
     def render_tree(node, level=0, is_last_child=False):
-        if not node:
-            return
-        am_count = node["Summary"]["AM"]
-        dm_count = node["Summary"]["DM"]
-        mr_count = node["Summary"]["MR"]
-        total_count = node["Summary"]["Total"]
+        if not node: return
         summary_parts = []
-        if am_count > 0:
-            summary_parts.append(f"🟢 {am_count} AM")
-        if dm_count > 0:
-            summary_parts.append(f"🔵 {dm_count} DM")
-        if mr_count > 0:
-            summary_parts.append(f"🟣 {mr_count} MR")
-        if total_count > 0:
-            summary_parts.append(f"🔢 {total_count} Total")
+        if node["Summary"]["AM"] > 0: summary_parts.append(f"🟢 {node['Summary']['AM']} AM")
+        if node["Summary"]["DM"] > 0: summary_parts.append(f"🔵 {node['Summary']['DM']} DM")
+        if node["Summary"]["MR"] > 0: summary_parts.append(f"🟣 {node['Summary']['MR']} MR")
         summary_str = " | ".join(summary_parts) if summary_parts else "No direct reports"
-        manager_info = node.get("Manager", "Unknown")
-        manager_code = node.get("Manager Code", "N/A")
+        manager_info, manager_code = node.get("Manager", "Unknown"), node.get("Manager Code", "N/A")
         role = "MR"
-        if "(" in manager_info and ")" in manager_info:
-            role_part = manager_info.split("(")[-1].split(")")[0].strip()
-            if role_part in ROLE_ICONS:
-                role = role_part
-        icon = ROLE_ICONS.get(role, "👤")
-        color = ROLE_COLORS.get(role, "#2E2E2E")
-        prefix = ""
-        if level > 0:
-            for i in range(level - 1):
-                prefix += "│   "
-            if is_last_child:
-                prefix += "└── "
-            else:
-                prefix += "├── "
-        st.markdown(f"""
-<div class="team-node">
-<div class="team-node-header">
-<span style="color: {color};">{prefix}{icon} <strong>{manager_info}</strong> (Code: {manager_code})</span>
-<span class="team-node-summary">{summary_str}</span>
-</div>
-""", unsafe_allow_html=True)
+        if "(" in manager_info: role = manager_info.split("(")[-1].replace(")", "").strip()
+        icon, color = ROLE_ICONS.get(role, "👤"), ROLE_COLORS.get(role, "#2E2E2E")
+        prefix = ("│   " * (level - 1) + ("└── " if is_last_child else "├── ")) if level > 0 else ""
+        st.markdown(f'<div class="team-node"><div class="team-node-header"><span style="color: {color};">{prefix}{icon} <strong>{manager_info}</strong> (Code: {manager_code})</span><span class="team-node-summary">{summary_str}</span></div>', unsafe_allow_html=True)
         if node.get("Team"):
             st.markdown('<div class="team-node-children">', unsafe_allow_html=True)
-            team_count = len(node.get("Team", []))
-            for i, team_member in enumerate(node.get("Team", [])):
-                is_last = (i == team_count - 1)
-                render_tree(team_member, level + 1, is_last)
+            for i, child in enumerate(node["Team"]): render_tree(child, level + 1, i == len(node["Team"]) - 1)
             st.markdown('</div>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     render_tree(hierarchy, 0, True)
-    if not hierarchy.get("Team"):
-        root_manager_info = hierarchy.get("Manager", "Unknown")
-        root_manager_code = hierarchy.get("Manager Code", "N/A")
-        role = "MR"
-        if "(" in root_manager_info and ")" in root_manager_info:
-            role_part = root_manager_info.split("(")[-1].split(")")[0].strip()
-            if role_part in ROLE_ICONS:
-                role = role_part
-        icon = ROLE_ICONS.get(role, "👤")
-        color = ROLE_COLORS.get(role, "#2E2E2E")
-        st.markdown(f'<span style="color: {color};">{icon} <strong>{root_manager_info}</strong> (Code: {root_manager_code})</span>', unsafe_allow_html=True)
-        st.info("No direct subordinates found under your supervision.")
 def page_directory(user):
     st.subheader("Company Structure")
     df = st.session_state.get("df", pd.DataFrame())
@@ -2231,79 +2060,28 @@ def page_directory(user):
         st.info("Employee data not loaded.")
         return
     st.info("Search and filter employees below.")
-    COLUMNS_TO_SHOW = [
-        "Employee Code",
-        "Employee Name",
-        "Manager Name",
-        "Title",
-        "Mobile",
-        "Department",
-        "E-Mail",
-        "Address as 702 bricks"
-    ]
+    COLUMNS_TO_SHOW = ["Employee Code", "Employee Name", "Manager Name", "Title", "Mobile", "Department", "E-Mail", "Address as 702 bricks"]
     col_map = {c.lower().strip(): c for c in df.columns}
-    final_columns = []
-    for col_name in COLUMNS_TO_SHOW:
-        variations = [
-            col_name.lower().replace(' ', '_'),
-            col_name.lower().replace(' ', ''),
-            col_name.lower(),
-            col_name
-        ]
-        found_col = None
-        for var in variations:
-            if var in col_map:
-                found_col = col_map[var]
-                break
-        if found_col:
-            final_columns.append(found_col)
-        else:
-            st.warning(f"Column '{col_name}' not found in data.")
-    col1, col2 = st.columns(2)
-    with col1:
-        search_name = st.text_input("Search by Employee Name")
-    with col2:
-        search_code = st.text_input("Search by Employee Code")
+    final_columns = [col_map[v] for n in COLUMNS_TO_SHOW for v in [n.lower().replace(' ', '_'), n.lower().replace(' ', ''), n.lower(), n] if v in col_map]
+    c1, c2 = st.columns(2)
+    search_name, search_code = c1.text_input("Search by Employee Name"), c2.text_input("Search by Employee Code")
     filtered_df = df.copy()
     if search_name:
-        emp_name_col = None
-        for col in df.columns:
-            if col.lower().replace(" ", "_").replace("-", "_") in ["employee_name", "name", "employee name", "full name", "first name"]:
-                emp_name_col = col
-                break
-        if emp_name_col:
-            filtered_df = filtered_df[filtered_df[emp_name_col].astype(str).str.contains(search_name, case=False, na=False)]
-        else:
-            st.warning("Employee Name column not found for search.")
+        name_col = next((c for c in df.columns if c.lower().replace(" ", "_") in ["employee_name", "name", "full_name"]), None)
+        if name_col: filtered_df = filtered_df[filtered_df[name_col].astype(str).str.contains(search_name, case=False, na=False)]
     if search_code:
-        emp_code_col = None
-        for col in df.columns:
-            if col.lower().replace(" ", "_").replace("-", "_") in ["employee_code", "code", "employee code", "emp_code"]:
-                emp_code_col = col
-                break
-        if emp_code_col:
-            filtered_df = filtered_df[filtered_df[emp_code_col].astype(str).str.contains(search_code, case=False, na=False)]
-        else:
-            st.warning("Employee Code column not found for search.")
+        code_col = next((c for c in df.columns if c.lower().replace(" ", "_") in ["employee_code", "code", "emp_code"]), None)
+        if code_col: filtered_df = filtered_df[filtered_df[code_col].astype(str).str.contains(search_code, case=False, na=False)]
     if final_columns:
-        display_df = filtered_df[final_columns].copy()
-        st.dataframe(display_df, use_container_width=True)
-        st.info(f"Showing {len(display_df)} of {len(df)} employees.")
+        st.dataframe(filtered_df[final_columns].copy(), use_container_width=True)
     else:
-        st.error("No columns could be mapped for display. Please check your Excel sheet headers.")
-def load_hr_queries():
-    return load_json_file(HR_QUERIES_FILE_PATH, default_columns=[
-        "ID", "Employee Code", "Employee Name", "Subject", "Message",
-        "Reply", "Status", "Date Sent", "Date Replied"
-    ])
+        st.error("Column mapping failed.")
+def load_hr_queries(): return load_json_file(HR_QUERIES_FILE_PATH, default_columns=["ID", "Employee Code", "Employee Name", "Subject", "Message", "Reply", "Status", "Date Sent", "Date Replied"])
 def save_hr_queries(df):
     df = df.copy()
-    if "Date Sent" in df.columns:
-        df["Date Sent"] = pd.to_datetime(df["Date Sent"], errors="coerce").astype(str)
-    if "Date Replied" in df.columns:
-        df["Date Replied"] = pd.to_datetime(df["Date Replied"], errors="coerce").astype(str)
+    for c in ["Date Sent", "Date Replied"]:
+        if c in df.columns: df[c] = pd.to_datetime(df[c], errors="coerce").astype(str)
     if "ID" in df.columns:
-        df = df.copy()
         df["ID"] = pd.to_numeric(df["ID"], errors="coerce")
         if df["ID"].isna().any():
             existing_max = int(df["ID"].max(skipna=True)) if not df["ID"].isna().all() else 0
@@ -2312,17 +2090,12 @@ def save_hr_queries(df):
                 df.at[idx, "ID"] = existing_max
         df["ID"] = df["ID"].astype(int)
     return save_json_file(df, HR_QUERIES_FILE_PATH)
-def load_hr_requests():
-    return load_json_file(HR_REQUESTS_FILE_PATH, default_columns=[
-        "ID", "HR Code", "Employee Code", "Employee Name", "Request", "File Attached", "Status", "Response", "Response File", "Date Sent", "Date Responded"
-    ])
+def load_hr_requests(): return load_json_file(HR_REQUESTS_FILE_PATH, default_columns=["ID", "HR Code", "Employee Code", "Employee Name", "Request", "File Attached", "Status", "Response", "Response File", "Date Sent", "Date Responded"])
 def save_hr_requests(df):
     df = df.copy()
-    for col in ["Date Sent", "Date Responded"]:
-        if col in df.columns:
-            df[col] = pd.to_datetime(df[col], errors="coerce").astype(str)
+    for c in ["Date Sent", "Date Responded"]:
+        if c in df.columns: df[c] = pd.to_datetime(df[c], errors="coerce").astype(str)
     if "ID" in df.columns:
-        df = df.copy()
         df["ID"] = pd.to_numeric(df["ID"], errors="coerce")
         if df["ID"].isna().any():
             existing_max = int(df["ID"].max(skipna=True)) if not df["ID"].isna().all() else 0
@@ -2331,615 +2104,251 @@ def save_hr_requests(df):
                 df.at[idx, "ID"] = existing_max
         df["ID"] = df["ID"].astype(int)
     return save_json_file(df, HR_REQUESTS_FILE_PATH)
-def save_request_file(uploaded_file, employee_code, request_id):
+def save_request_file(f, code, rid):
     os.makedirs("hr_request_files", exist_ok=True)
-    ext = uploaded_file.name.split(".")[-1].lower()
-    filename = f"req_{request_id}_emp_{employee_code}.{ext}"
-    filepath = os.path.join("hr_request_files", filename)
-    with open(filepath, "wb") as f:
-        f.write(uploaded_file.getbuffer())
-    return filename
-def save_response_file(uploaded_file, employee_code, request_id):
+    fn = f"req_{rid}_emp_{code}.{f.name.split('.')[-1].lower()}"
+    with open(os.path.join("hr_request_files", fn), "wb") as out: out.write(f.getbuffer())
+    return fn
+def save_response_file(f, code, rid):
     os.makedirs("hr_response_files", exist_ok=True)
-    ext = uploaded_file.name.split(".")[-1].lower()
-    filename = f"resp_{request_id}_emp_{employee_code}.{ext}"
-    filepath = os.path.join("hr_response_files", filename)
-    with open(filepath, "wb") as f:
-        f.write(uploaded_file.getbuffer())
-    return filename
+    fn = f"resp_{rid}_emp_{code}.{f.name.split('.')[-1].lower()}"
+    with open(os.path.join("hr_response_files", fn), "wb") as out: out.write(f.getbuffer())
+    return fn
 def page_ask_employees(user):
     st.subheader("📤 Ask Employees")
-    st.info("🔍 Type employee name or code to search. HR can send requests with file attachments.")
     df = st.session_state.get("df", pd.DataFrame())
-    if df.empty:
-        st.error("Employee data not loaded.")
-        return
+    if df.empty: return
     col_map = {c.lower().strip(): c for c in df.columns}
-    code_col_options = ["employee_code", "employee code", "emp code", "code", "employeeid", "emp_id"]
-    code_col = None
-    for opt in code_col_options:
-        if opt in col_map:
-            code_col = col_map[opt]
-            break
-    if not code_col:
-        st.error("Could not find any column for Employee Code. Please check your Excel sheet headers.")
-        return
-    name_col_options = ["employee_name", "employee name", "name", "emp name", "full name", "first name"]
-    name_col = None
-    for opt in name_col_options:
-        if opt in col_map:
-            name_col = col_map[opt]
-            break
-    if not name_col:
-        st.error("Could not find any column for Employee Name. Please check your Excel sheet headers.")
-        return
-    df[code_col] = df[code_col].astype(str).str.strip()
-    df[name_col] = df[name_col].astype(str).str.strip()
-    emp_options = df[[code_col, name_col]].copy()
-    emp_options["Display"] = emp_options[name_col] + " (Code: " + emp_options[code_col] + ")"
-    st.markdown("### 🔍 Search Employee by Name or Code")
-    search_term = st.text_input("Type employee name or code to search...")
-    if search_term:
-        mask = (
-            emp_options[name_col].str.contains(search_term, case=False, na=False) |
-            emp_options[code_col].str.contains(search_term, case=False, na=False)
-        )
-        filtered_options = emp_options[mask].copy()
-        if filtered_options.empty:
-            st.warning("No employee found matching your search.")
-            return
-    else:
-        filtered_options = emp_options.copy()
-    if len(filtered_options) == 1:
-        selected_row = filtered_options.iloc[0]
-    elif len(filtered_options) > 1:
-        selected_display = st.selectbox("Select Employee", filtered_options["Display"].tolist())
-        selected_row = filtered_options[filtered_options["Display"] == selected_display].iloc[0]
-    else:
-        return
-    selected_code = selected_row[code_col]
-    selected_name = selected_row[name_col]
-    st.success(f"✅ Selected: {selected_name} (Code: {selected_code})")
-    request_text = st.text_area("Request Details", height=100)
-    uploaded_file = st.file_uploader("Attach File (Optional)", type=["pdf", "docx", "xlsx", "jpg", "png"])
-    if st.button("Send Request"):
-        if not request_text.strip():
-            st.warning("Please enter a request message.")
-            return
-        hr_code = str(user.get("Employee Code", "N/A")).strip().replace(".0", "")
-        requests_df = load_hr_requests()
-        new_id = int(requests_df["ID"].max()) + 1 if "ID" in requests_df.columns and not requests_df.empty else 1
-        file_attached = ""
-        if uploaded_file:
-            file_attached = save_request_file(uploaded_file, selected_code, new_id)
-        new_row = pd.DataFrame([{
-            "ID": new_id,
-            "HR Code": hr_code,
-            "Employee Code": selected_code,
-            "Employee Name": selected_name,
-            "Request": request_text.strip(),
-            "File Attached": file_attached,
-            "Status": "Pending",
-            "Response": "",
-            "Response File": "",
-            "Date Sent": pd.Timestamp.now(),
-            "Date Responded": pd.NaT
-        }])
-        requests_df = pd.concat([requests_df, new_row], ignore_index=True)
-        save_hr_requests(requests_df)
-        add_notification(selected_code, "", f"HR has sent you a new request (ID: {new_id}). Check 'Request HR' page.")
-        st.success(f"Request sent to {selected_name} (Code: {selected_code}) successfully.")
-        st.rerun()
-# ============================
-# ✅ MODIFIED: page_request_hr — Now shows messages from HR properly
-# ============================
+    code_col = next((col_map[opt] for opt in ["employee_code", "code"] if opt in col_map), None)
+    name_col = next((col_map[opt] for opt in ["employee_name", "name"] if opt in col_map), None)
+    if not code_col or not name_col: return
+    df[code_col], df[name_col] = df[code_col].astype(str), df[name_col].astype(str)
+    search_term = st.text_input("Type employee name or code...")
+    opts = df[[code_col, name_col]].copy()
+    opts["Display"] = opts[name_col] + " (Code: " + opts[code_col] + ")"
+    filtered = opts[opts[name_col].str.contains(search_term, case=False) | opts[code_col].str.contains(search_term, case=False)] if search_term else opts
+    if filtered.empty: return
+    sel_row = filtered.iloc[0] if len(filtered) == 1 else filtered[filtered["Display"] == st.selectbox("Select", filtered["Display"].tolist())].iloc[0]
+    st.success(f"✅ Selected: {sel_row[name_col]}")
+    req_text, up_file = st.text_area("Request Details"), st.file_uploader("Attach File")
+    if st.button("Send Request") and req_text.strip():
+        hr_c, r_df = str(user.get("Employee Code", "N/A")).replace(".0", ""), load_hr_requests()
+        nid = int(r_df["ID"].max()) + 1 if not r_df.empty else 1
+        fn = save_request_file(up_file, sel_row[code_col], nid) if up_file else ""
+        nr = pd.DataFrame([{"ID": nid, "HR Code": hr_c, "Employee Code": sel_row[code_col], "Employee Name": sel_row[name_col], "Request": req_text.strip(), "File Attached": fn, "Status": "Pending", "Response": "", "Response File": "", "Date Sent": pd.Timestamp.now(), "Date Responded": pd.NaT}])
+        save_hr_requests(pd.concat([r_df, nr], ignore_index=True))
+        add_notification(sel_row[code_col], "", f"HR request (ID: {nid})")
+        st.success("Sent!"); st.rerun()
 def page_request_hr(user):
     st.subheader("📥 Request HR")
-    st.info("Here you can see and respond to requests sent by HR. You can upload files as a response.")
-    user_code = str(user.get("Employee Code", "N/A")).strip().replace(".0", "")
-    requests_df = load_hr_requests()
-    if requests_df.empty:
-        st.info("No messages or requests from HR found.")
-        return
-    user_requests = requests_df[requests_df["Employee Code"].astype(str) == user_code].copy()
-    if user_requests.empty:
-        st.info("No messages from HR for you yet.")
-        return
-    user_requests = user_requests.sort_values("Date Sent", ascending=False).reset_index(drop=True)
-    for idx, row in user_requests.iterrows():
-        st.markdown(f"### 📄 Message ID: {row['ID']}")
-        st.info(f"**From HR:** {row['Request']}")
-        date_sent_val = row.get("Date Sent")
-        if pd.notna(date_sent_val) and date_sent_val != pd.NaT:
-            try:
-                formatted_date = pd.to_datetime(date_sent_val).strftime('%d-%m-%Y %H:%M')
-                st.write(f"📅 **Date Sent:** {formatted_date}")
-            except Exception:
-                st.write("📅 **Date Sent:** Not available")
-        else:
-            st.write("📅 **Date Sent:** Not available")
-        file_attached = row.get("File Attached", "")
-        if pd.notna(file_attached) and isinstance(file_attached, str) and file_attached.strip() != "":
-            filepath = os.path.join("hr_request_files", file_attached)
-            if os.path.exists(filepath):
-                with open(filepath, "rb") as f:
-                    st.download_button(f"📥 Download HR Attachment ({file_attached})", f, file_name=file_attached, key=f"dl_req_{idx}")
-            else:
-                st.warning("The attached file is not available on the server.")
+    user_code, r_df = str(user.get("Employee Code", "N/A")).replace(".0", ""), load_hr_requests()
+    if r_df.empty: return
+    u_reqs = r_df[r_df["Employee Code"].astype(str) == user_code].sort_values("Date Sent", ascending=False).reset_index(drop=True)
+    for idx, row in u_reqs.iterrows():
+        st.markdown(f"### 📄 Message ID: {row['ID']}"); st.info(f"**From HR:** {row['Request']}")
+        ds = row.get("Date Sent")
+        if pd.notna(ds): st.write(f"📅 **Date Sent:** {pd.to_datetime(ds).strftime('%d-%m-%Y %H:%M')}")
+        fa = row.get("File Attached", "")
+        if fa:
+            fp = os.path.join("hr_request_files", fa)
+            if os.path.exists(fp):
+                with open(fp, "rb") as f: st.download_button(f"📥 Download HR Attachment", f, file_name=fa, key=f"dl_req_{idx}")
         if row["Status"] == "Completed":
-            st.success("✅ **You have responded to this message.**")
-            st.write(f"**Your Answer:** {row['Response']}")
-            response_file = row.get("Response File", "")
-            if pd.notna(response_file) and isinstance(response_file, str) and response_file.strip() != "":
-                resp_path = os.path.join("hr_response_files", response_file)
-                if os.path.exists(resp_path):
-                    with open(resp_path, "rb") as f:
-                        st.download_button("📥 Download Your Attached Response", f, file_name=response_file, key=f"dl_resp_{idx}")
+            st.success("✅ Responded"); st.write(f"**Your Answer:** {row['Response']}")
             continue
         st.markdown("---")
-        response_text = st.text_area("Your Response to HR", key=f"resp_text_{idx}", placeholder="Type your reply here...")
-        uploaded_resp_file = st.file_uploader("Attach Response File (Optional)", type=["pdf", "docx", "xlsx", "jpg", "png"], key=f"resp_file_{idx}")
-        if st.button("Submit Response", key=f"submit_resp_{idx}"):
-            if not response_text.strip() and not uploaded_resp_file:
-                st.warning("Please provide a response text or attach a file.")
-                continue
-            requests_df.loc[requests_df["ID"] == row["ID"], "Response"] = response_text.strip()
-            requests_df.loc[requests_df["ID"] == row["ID"], "Status"] = "Completed"
-            requests_df.loc[requests_df["ID"] == row["ID"], "Date Responded"] = pd.Timestamp.now()
-            if uploaded_resp_file:
-                resp_filename = save_response_file(uploaded_resp_file, user_code, row["ID"])
-                requests_df.loc[requests_df["ID"] == row["ID"], "Response File"] = resp_filename
-            save_hr_requests(requests_df)
-            add_notification("", "HR", f"Employee {user_code} responded to HR message (ID {row['ID']}).")
-            st.success("Response submitted successfully!")
-            st.rerun()
+        rt, up_f = st.text_area("Your Response", key=f"rt_{idx}"), st.file_uploader("Attach File", key=f"up_{idx}")
+        if st.button("Submit Response", key=f"sub_{idx}") and (rt.strip() or up_f):
+            r_df.loc[r_df["ID"] == row["ID"], ["Response", "Status", "Date Responded"]] = [rt.strip(), "Completed", pd.Timestamp.now()]
+            if up_f: r_df.loc[r_df["ID"] == row["ID"], "Response File"] = save_response_file(up_f, user_code, row["ID"])
+            save_hr_requests(r_df); add_notification("", "HR", f"Emp {user_code} responded (ID {row['ID']})")
+            st.success("Sent!"); st.rerun()
 def page_recruitment(user):
     st.subheader("👥 Recruitment Management")
-    if user.get("Title", "").upper() != "HR":
-        st.error("Access denied. HR only.")
-        return
-    st.markdown(f"""
-<div style="background-color:white; padding:12px; border-radius:8px; border:1px solid #05445E; margin-bottom:20px;">
-<h4>📝 Candidate Application Form</h4>
-<p>Share this link with job applicants:</p>
-<a href="{GOOGLE_FORM_RECRUITMENT_LINK}" target="_blank" style="color:#05445E; text-decoration:underline;">
-👉 Apply via Google Form
-</a>
-<p style="font-size:0.9rem; color:#666666; margin-top:8px;">
-After applicants submit, download the Excel responses from Google Sheets and upload them below.
-</p>
-</div>
-""", unsafe_allow_html=True)
-    tab_cv, tab_db = st.tabs(["📄 CV Candidates", "📊 Recruitment Database"])
-    with tab_cv:
-        st.markdown("### Upload New Candidate CV")
-        uploaded_cv = st.file_uploader("Upload CV (PDF or Word)", type=["pdf", "doc", "docx"])
-        candidate_name = st.text_input("Candidate Name (for reference)")
-        if uploaded_cv and st.button("✅ Save CV"):
-            try:
-                filename = save_recruitment_cv(uploaded_cv)
-                st.success(f"CV saved as: `{filename}`")
-                if candidate_name:
-                    add_notification("", "HR", f"New CV uploaded for: {candidate_name}")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Failed to save CV: {e}")
-        st.markdown("---")
-        st.markdown("### All Uploaded CVs")
-        cv_files = []
-        if os.path.exists(RECRUITMENT_CV_DIR):
-            cv_files = sorted(os.listdir(RECRUITMENT_CV_DIR), reverse=True)
-        if not cv_files:
-            st.info("No CVs uploaded yet.")
-        else:
-            for cv in cv_files:
-                col1, col2 = st.columns([4, 1])
-                with col1:
-                    st.markdown(f"📄 `{cv}`")
-                with col2:
-                    with open(os.path.join(RECRUITMENT_CV_DIR, cv), "rb") as f:
-                        st.download_button("📥", f, file_name=cv, key=f"dl_cv_{cv}")
-        if st.button("📦 Download All CVs (ZIP)"):
-            zip_path = "all_cvs.zip"
-            with zipfile.ZipFile(zip_path, 'w') as zipf:
-                for cv in cv_files:
-                    zipf.write(os.path.join(RECRUITMENT_CV_DIR, cv), cv)
-            with open(zip_path, "rb") as f:
-                st.download_button("Download ZIP", f, file_name="Recruitment_CVs.zip", mime="application/zip")
-    with tab_db:
-        st.markdown("### Upload Recruitment Data from Google Forms")
-        uploaded_db = st.file_uploader("Upload Excel from Google Forms", type=["xlsx"])
-        if uploaded_db:
-            try:
-                new_db_df = pd.read_excel(uploaded_db)
-                st.session_state["recruitment_preview"] = new_db_df.copy()
-                st.success("File loaded successfully.")
-                st.dataframe(new_db_df.head(10), use_container_width=True)
-                if st.button("✅ Replace Recruitment Database"):
-                    save_json_file(new_db_df, RECRUITMENT_DATA_FILE)
-                    st.success("Recruitment database updated!")
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Error reading file: {e}")
-        st.markdown("---")
-        st.markdown("### Current Recruitment Database")
+    if user.get("Title", "").upper() != "HR": return
+    st.markdown(f'<div style="background-color:white; padding:12px; border-radius:8px; border:1px solid #05445E; margin-bottom:20px;"><h4>📝 Candidate Application Form</h4><a href="{GOOGLE_FORM_RECRUITMENT_LINK}" target="_blank">👉 Apply via Google Form</a></div>', unsafe_allow_html=True)
+    t_cv, t_db = st.tabs(["📄 CV Candidates", "📊 Recruitment Database"])
+    with t_cv:
+        up_cv, c_name = st.file_uploader("Upload CV", type=["pdf", "doc", "docx"]), st.text_input("Candidate Name")
+        if up_cv and st.button("✅ Save CV"):
+            fn = save_recruitment_cv(up_cv); st.success(f"Saved: `{fn}`")
+            if c_name: add_notification("", "HR", f"New CV: {c_name}"); st.rerun()
+        cv_files = sorted(os.listdir(RECRUITMENT_CV_DIR), reverse=True) if os.path.exists(RECRUITMENT_CV_DIR) else []
+        for cv in cv_files:
+            c1, c2 = st.columns([4, 1])
+            c1.markdown(f"📄 `{cv}`")
+            with c2:
+                with open(os.path.join(RECRUITMENT_CV_DIR, cv), "rb") as f: st.download_button("📥", f, file_name=cv, key=f"dl_{cv}")
+    with t_db:
+        up_db = st.file_uploader("Upload Google Forms Excel", type=["xlsx"])
+        if up_db:
+            ndf = pd.read_excel(up_db); st.dataframe(ndf.head(10))
+            if st.button("✅ Replace Database"): save_json_file(ndf, RECRUITMENT_DATA_FILE); st.success("Updated!"); st.rerun()
         db_df = load_json_file(RECRUITMENT_DATA_FILE)
         if not db_df.empty:
             st.dataframe(db_df, use_container_width=True)
-            buf = BytesIO()
-            with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-                db_df.to_excel(writer, index=False)
-            buf.seek(0)
-            st.download_button(
-                "📥 Download Recruitment Database",
-                data=buf,
-                file_name="Recruitment_Data.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-        else:
-            st.info("No recruitment data uploaded yet.")
-# ... (الجزء الأول من الكود كما هو)
+            buf = BytesIO(); 
+            with pd.ExcelWriter(buf, engine="openpyxl") as w: db_df.to_excel(w, index=False)
+            st.download_button("📥 Download Database", data=buf.getvalue(), file_name="Recruitment_Data.xlsx")
 def page_settings(user):
     st.subheader("⚙️ System Settings")
-    if user.get("Title", "").upper() != "HR":
-        st.error("You do not have permission to access System Settings.")
-        return
-    st.markdown("Manage system configuration, templates, design and backup options.")
-    # ❌ Removed General Settings and Theme Settings tabs
-    tab3, tab4 = st.tabs([
-        "🧾 Templates",
-        "💾 Backup"
-    ])
-    with tab3:
-        st.markdown("### Upload Templates")
-        st.markdown("**Upload Salary Template (.xlsx)**")
-        uploaded_template = st.file_uploader("Upload Salary Template", type=["xlsx"])
-        if uploaded_template:
-            with open("salary_template.xlsx", "wb") as f:
-                f.write(uploaded_template.getbuffer())
-            st.success("Salary template uploaded successfully.")
-        st.markdown("### Upload System Logo")
-        uploaded_logo = st.file_uploader("Upload Logo (PNG / JPG)", type=["png", "jpg", "jpeg"])
-        if uploaded_logo:
-            with open("logo.jpg", "wb") as f:
-                f.write(uploaded_logo.getbuffer())
-            st.success("Logo updated successfully.")
-    with tab4:
-        st.markdown("### Full System Backup")
+    if user.get("Title", "").upper() != "HR": return
+    t3, t4 = st.tabs(["🧾 Templates", "💾 Backup"])
+    with t3:
+        up_t = st.file_uploader("Salary Template", type=["xlsx"])
+        if up_t:
+            with open("salary_template.xlsx", "wb") as f: f.write(up_t.getbuffer())
+            st.success("Template updated.")
+        up_l = st.file_uploader("Logo", type=["png", "jpg", "jpeg"])
+        if up_l:
+            with open("logo.jpg", "wb") as f: f.write(up_l.getbuffer())
+            st.success("Logo updated.")
+    with t4:
         if st.button("Create Backup Zip"):
-            backup_name = f"backup_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
-            with zipfile.ZipFile(backup_name, "w") as zipf:
-                for file in [
-                    DEFAULT_FILE_PATH, LEAVES_FILE_PATH, NOTIFICATIONS_FILE_PATH,
-                    HR_QUERIES_FILE_PATH, HR_REQUESTS_FILE_PATH, SALARIES_FILE_PATH
-                ]:
-                    if os.path.exists(file):
-                        zipf.write(file)
+            bn = f"backup_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+            with zipfile.ZipFile(bn, "w") as z:
+                for f in [DEFAULT_FILE_PATH, LEAVES_FILE_PATH, NOTIFICATIONS_FILE_PATH, HR_QUERIES_FILE_PATH, HR_REQUESTS_FILE_PATH, SALARIES_FILE_PATH]:
+                    if os.path.exists(f): z.write(f)
                 if os.path.exists("employee_photos"):
-                    for photo in os.listdir("employee_photos"):
-                        zipf.write(os.path.join("employee_photos", photo))
-            with open(backup_name, "rb") as f:
-                st.download_button(
-                    label="📥 Download Backup ZIP",
-                    data=f,
-                    file_name=backup_name,
-                    mime="application/zip"
-                )
-            st.success("Backup created successfully.")
-# ... (باقي الكود كما هو)
+                    for p in os.listdir("employee_photos"): z.write(os.path.join("employee_photos", p))
+            with open(bn, "rb") as f: st.download_button("📥 Download Backup ZIP", f, file_name=bn)
 def page_dashboard(user):
     st.subheader("Dashboard")
     df = st.session_state.get("df", pd.DataFrame())
-    if df.empty:
-        st.info("No employee data available.")
-        return
-    col_map = {c.lower(): c for c in df.columns}
-    dept_col = col_map.get("department")
-    hire_col = col_map.get("hire date") or col_map.get("hire_date") or col_map.get("hiring date")
-    total_employees = df.shape[0]
-    total_departments = df[dept_col].nunique() if dept_col else 0
-    new_hires = 0
-    if hire_col:
+    if df.empty: return
+    cm = {c.lower(): c for c in df.columns}
+    d_col, h_col = cm.get("department"), cm.get("hire date") or cm.get("hire_date")
+    total, depts, hires = df.shape[0], (df[d_col].nunique() if d_col else 0), 0
+    if h_col:
         try:
-            df[hire_col] = pd.to_datetime(df[hire_col], errors="coerce")
-            new_hires = df[df[hire_col] >= (pd.Timestamp.now() - pd.Timedelta(days=30))].shape[0]
-        except Exception:
-            new_hires = 0
+            df[h_col] = pd.to_datetime(df[h_col], errors="coerce")
+            hires = df[df[h_col] >= (pd.Timestamp.now() - pd.Timedelta(days=30))].shape[0]
+        except: hires = 0
     c1, c2, c3 = st.columns(3)
-    c1.metric("Total Employees", total_employees)
-    c2.metric("Departments", total_departments)
-    c3.metric("New Hires (30 days)", new_hires)
-    st.markdown("---")
-    st.markdown("### Employees per Department (table)")
-    if dept_col:
-        dept_counts = df[dept_col].fillna("Unknown").value_counts().reset_index()
-        dept_counts.columns = ["Department", "Employee Count"]
-        st.table(dept_counts.sort_values("Employee Count", ascending=False).reset_index(drop=True))
-    else:
-        st.info("Department column not found.")
-    st.markdown("---")
-    buf = BytesIO()
-    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Employees")
-    buf.seek(0)
-    st.download_button("Download Full Employees Excel", data=buf, file_name="employees_export.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    c1.metric("Total Employees", total); c2.metric("Departments", depts); c3.metric("New Hires (30 days)", hires)
+    if d_col:
+        dc = df[d_col].fillna("Unknown").value_counts().reset_index(); dc.columns = ["Department", "Count"]
+        st.table(dc.sort_values("Count", ascending=False).reset_index(drop=True))
+    buf = BytesIO(); 
+    with pd.ExcelWriter(buf, engine="openpyxl") as w: df.to_excel(w, index=False)
+    st.download_button("Download Full Employees Excel", data=buf.getvalue(), file_name="employees_export.xlsx")
     if st.button("Save & Push current dataset to GitHub"):
-        saved, pushed = save_and_maybe_push(df, actor=user.get("Employee Name","HR"))
-        if saved:
-            if pushed:
-                st.success("Saved locally and pushed to GitHub.")
-            else:
-                if GITHUB_TOKEN:
-                    st.warning("Saved locally but GitHub push failed.")
-                else:
-                    st.info("Saved locally. GitHub token not configured.")
-        else:
-            st.error("Failed to save dataset locally.")
+        s, p = save_and_maybe_push(df, actor=user.get("Employee Name","HR"))
+        if s: st.success("Saved!"); 
+        if p: st.success("Pushed!")
 def page_reports(user):
-    st.subheader("Reports (Placeholder)")
-    st.info("Reports section - ready to be expanded.")
+    st.subheader("Reports")
     df = st.session_state.get("df", pd.DataFrame())
-    if df.empty:
-        st.info("No data to report.")
-        return
-    st.markdown("Basic preview of dataset:")
+    if df.empty: return
     st.dataframe(df.head(200), use_container_width=True)
-    buf = BytesIO()
-    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Employees")
-    buf.seek(0)
-    st.download_button("Export Report Data (Excel)", data=buf, file_name="report_employees.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    buf = BytesIO(); 
+    with pd.ExcelWriter(buf, engine="openpyxl") as w: df.to_excel(w, index=False)
+    st.download_button("Export Report Data (Excel)", data=buf.getvalue(), file_name="report_employees.xlsx")
 def page_hr_inbox(user):
     st.subheader("📬 HR Inbox")
-    st.markdown("View employee queries and reply to them here.")
     hr_df = load_hr_queries()
-    if hr_df is None or hr_df.empty:
-        st.info("No Ask HR messages.")
-        return
+    if hr_df.empty: return
     try:
         hr_df["Date Sent_dt"] = pd.to_datetime(hr_df["Date Sent"], errors="coerce")
         hr_df = hr_df.sort_values("Date Sent_dt", ascending=False).reset_index(drop=True)
-    except Exception:
-        hr_df = hr_df.reset_index(drop=True)
+    except: hr_df = hr_df.reset_index(drop=True)
     for idx, row in hr_df.iterrows():
-        emp_code = str(row.get('Employee Code', ''))
-        emp_name = row.get('Employee Name', '') if pd.notna(row.get('Employee Name', '')) else ''
-        subj = row.get('Subject', '') if pd.notna(row.get('Subject', '')) else ''
-        msg = row.get("Message", '') if pd.notna(row.get("Message", '')) else ''
-        status = row.get('Status', '') if pd.notna(row.get('Status', '')) else ''
-        date_sent = row.get("Date Sent", '')
-        reply_existing = row.get("Reply", '') if pd.notna(row.get("Reply", '')) else ''
-        try:
-            sent_time = pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M')
-        except Exception:
-            sent_time = str(date_sent)
-        card_html = f"""
-<div class="hr-message-card">
-<div class="hr-message-title">📌 {subj if subj else 'No Subject'}</div>
-<div class="hr-message-meta">👤 {emp_name} — {emp_code} &nbsp;|&nbsp; 🕒 {sent_time} &nbsp;|&nbsp; 🏷️ {status}</div>
-<div class="hr-message-body">{msg if msg else ''}</div>
-"""
-        st.markdown(card_html, unsafe_allow_html=True)
-        if reply_existing:
-            st.markdown("**🟢 Existing reply:**")
-            st.markdown(reply_existing)
-        col1, col2 = st.columns([1, 4])
-        with col1:
-            if st.button("🗂️ Mark as Closed", key=f"close_{idx}"):
-                try:
-                    hr_df.at[idx, "Status"] = "Closed"
-                    hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
-                    save_hr_queries(hr_df)
-                    st.success("✅ Message marked as closed.")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Failed to close message: {e}")
-        reply_text = st.text_area("✍️ Write reply here:", value="", key=f"reply_{idx}", height=120)
+        ec, en, sb, ms, st_val = str(row.get('Employee Code', '')), row.get('Employee Name', ''), row.get('Subject', ''), row.get("Message", ''), row.get('Status', '')
+        dt = pd.to_datetime(row.get("Date Sent")).strftime('%d-%m-%Y %H:%M') if pd.notna(row.get("Date Sent")) else ""
+        st.markdown(f'<div class="hr-message-card"><div class="hr-message-title">📌 {sb if sb else "No Subject"}</div><div class="hr-message-meta">👤 {en} — {ec} | 🕒 {dt} | 🏷️ {st_val}</div><div class="hr-message-body">{ms}</div>', unsafe_allow_html=True)
+        if row.get("Reply"): st.markdown(f"**🟢 Existing reply:**\n{row['Reply']}")
+        c1, c2 = st.columns([1, 4])
+        if c1.button("🗂️ Mark as Closed", key=f"cl_{idx}"):
+            hr_df.at[idx, ["Status", "Date Replied"]] = ["Closed", pd.Timestamp.now()]
+            save_hr_queries(hr_df); st.success("Closed."); st.rerun()
+        rt = st.text_area("✍️ Write reply", key=f"r_{idx}", height=100)
         col1, col2, col3 = st.columns([2, 2, 1])
-        with col1:
-            if st.button("✅ Send Reply", key=f"send_reply_{idx}"):
-                try:
-                    hr_df.at[idx, "Reply"] = reply_text
-                    hr_df.at[idx, "Status"] = "Replied"
-                    hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
-                    save_hr_queries(hr_df)
-                    add_notification(emp_code, "", f"HR replied to your message: {subj}")
-                    st.success("✅ Reply sent and employee notified.")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"❌ Failed to send reply: {e}")
-        with col2:
-            if st.button("🗑️ Mark as Closed (Button 2)", key=f"close2_{idx}"):
-                try:
-                    hr_df.at[idx, "Status"] = "Closed"
-                    hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
-                    save_hr_queries(hr_df)
-                    st.success("✅ Message marked as closed.")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"❌ Failed to close message: {e}")
-        with col3:
-            if st.button("🗑️ Delete", key=f"del_inbox_{idx}"):
-                hr_df = hr_df.drop(idx).reset_index(drop=True)
-                save_hr_queries(hr_df)
-                st.success("Message deleted!")
-                st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("---")
+        if col1.button("✅ Send Reply", key=f"sr_{idx}") and rt.strip():
+            hr_df.at[idx, ["Reply", "Status", "Date Replied"]] = [rt, "Replied", pd.Timestamp.now()]
+            save_hr_queries(hr_df); add_notification(ec, "", f"HR replied: {sb}"); st.success("Sent!"); st.rerun()
+        if col3.button("🗑️ Delete", key=f"di_{idx}"):
+            save_hr_queries(hr_df.drop(idx).reset_index(drop=True)); st.success("Deleted!"); st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True); st.markdown("---")
 def page_ask_hr(user):
     st.subheader("💬 Ask HR")
-    if user is None:
-        st.error("User session not found. Please login.")
-        return
-    user_code = None
-    user_name = None
-    for key, val in user.items():
-        if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
-            user_code = str(val).strip().replace(".0", "")
-        if key.lower().replace(" ", "").replace("_", "") in ["employeename", "employee_name", "name"]:
-            user_name = str(val).strip()
-    if not user_code:
-        st.error("Your Employee Code not found in session.")
-        return
-    if not user_name:
-        user_name = user_code
+    u_c = str(user.get("Employee Code", "")).replace(".0", "")
+    u_n = user.get("Employee Name", u_c)
     hr_df = load_hr_queries()
-    with st.form("ask_hr_form"):
-        subj = st.text_input("Subject")
-        msg = st.text_area("Message", height=160)
-        submitted = st.form_submit_button("Send to HR")
-        if submitted:
-            if not subj.strip() or not msg.strip():
-                st.warning("Please fill both Subject and Message.")
-            else:
-                new_row = pd.DataFrame([{
-                    "Employee Code": user_code,
-                    "Employee Name": user_name,
-                    "Subject": subj.strip(),
-                    "Message": msg.strip(),
-                    "Reply": "",
-                    "Status": "Pending",
-                    "ID": (int(hr_df["ID"].max()) + 1) if not hr_df.empty and "ID" in hr_df.columns else 1,
-                    "Date Sent": pd.Timestamp.now(),
-                    "Date Replied": pd.NaT
-                }])
-                hr_df = pd.concat([hr_df, new_row], ignore_index=True)
-                if save_hr_queries(hr_df):
-                    add_notification("", "HR", f"New message from {user_name} (Code: {user_code})")
-                    st.success("✅ Your message has been sent to HR successfully!")
-                    st.rerun()
-                else:
-                    st.error("❌ Failed to save your message. Please try again.")
-    st.markdown("---")
-    st.markdown("### Your Previous Messages")
-    user_messages = hr_df[hr_df["Employee Code"].astype(str) == user_code].copy()
-    if user_messages.empty:
-        st.info("You haven't sent any messages to HR yet.")
-    else:
-        user_messages = user_messages.sort_values("Date Sent", ascending=False).reset_index(drop=True)
-        for idx, row in user_messages.iterrows():
-            status_badge = "🟡 Pending" if row["Status"] == "Pending" else "🟢 Replied" if row["Status"] == "Replied" else "⚪ Closed"
-            try:
-                sent_time = pd.to_datetime(row["Date Sent"]).strftime('%d-%m-%Y %H:%M')
-            except Exception:
-                sent_time = str(row["Date Sent"])
-            st.markdown(f"""
-<div class="hr-message-card">
-<div class="hr-message-title">📌 {row['Subject']}</div>
-<div class="hr-message-meta">🕒 {sent_time} &nbsp;|&nbsp; 🏷️ {status_badge}</div>
-<div class="hr-message-body">{row['Message']}</div>
-</div>
-""", unsafe_allow_html=True)
-            if pd.notna(row.get("Reply", "")) and row["Reply"].strip() != "":
-                st.markdown("**HR Reply:**")
-                st.markdown(f"<div style='background-color:#e0f2fe; padding:10px; border-radius:6px; margin-top:8px;'>{row['Reply']}</div>", unsafe_allow_html=True)
-                try:
-                    replied_time = pd.to_datetime(row["Date Replied"]).strftime('%d-%m-%Y %H:%M')
-                    st.markdown(f"<div style='color:#666666; font-size:0.9rem; margin-top:4px;'>Replied on: {replied_time}</div>", unsafe_allow_html=True)
-                except Exception:
-                    pass
-            st.markdown("</div>", unsafe_allow_html=True)
-            st.markdown("---")
+    with st.form("ask_hr"):
+        sb, ms = st.text_input("Subject"), st.text_area("Message")
+        if st.form_submit_button("Send to HR") and sb.strip() and ms.strip():
+            nr = pd.DataFrame([{"Employee Code": u_c, "Employee Name": u_n, "Subject": sb.strip(), "Message": ms.strip(), "Reply": "", "Status": "Pending", "ID": (int(hr_df["ID"].max()) + 1) if not hr_df.empty else 1, "Date Sent": pd.Timestamp.now(), "Date Replied": pd.NaT}])
+            if save_hr_queries(pd.concat([hr_df, nr], ignore_index=True)):
+                add_notification("", "HR", f"New message from {u_n}"); st.success("Sent!"); st.rerun()
+    u_msgs = hr_df[hr_df["Employee Code"].astype(str) == u_c].sort_values("Date Sent", ascending=False)
+    for i, r in u_msgs.iterrows():
+        dt = pd.to_datetime(r["Date Sent"]).strftime('%d-%m-%Y %H:%M') if pd.notna(r["Date Sent"]) else ""
+        st.markdown(f'<div class="hr-message-card"><div class="hr-message-title">📌 {r["Subject"]}</div><div class="hr-message-meta">🕒 {dt} | 🏷️ {r["Status"]}</div><div class="hr-message-body">{r["Message"]}</div></div>', unsafe_allow_html=True)
+        if r.get("Reply"): st.markdown(f"**HR Reply:**\n<div style='background-color:#e0f2fe; padding:10px; border-radius:6px;'>{r['Reply']}</div>", unsafe_allow_html=True)
 # ============================
 # Main App Logic - MODIFIED SIDEBAR NAVIGATION
 # ============================
 def main():
     render_logo_and_title()
-    if "df" not in st.session_state:
-        ensure_session_df()
-    if "logged_in" not in st.session_state:
-        st.session_state["logged_in"] = False
-        st.session_state["user"] = None
+    if "df" not in st.session_state: ensure_session_df()
+    if "logged_in" not in st.session_state: st.session_state["logged_in"], st.session_state["user"] = False, None
     if not st.session_state["logged_in"]:
         st.sidebar.markdown('<div class="sidebar-title">🔐 Login</div>', unsafe_allow_html=True)
-        with st.sidebar.form("login_form"):
-            code = st.text_input("Employee Code")
-            password = st.text_input("Password", type="password")
-            submitted = st.form_submit_button("Login")
-            if submitted:
+        with st.sidebar.form("login"):
+            code, passw = st.text_input("Employee Code"), st.text_input("Password", type="password")
+            if st.form_submit_button("Login"):
                 df = st.session_state.get("df", pd.DataFrame())
-                if df.empty:
-                    st.error("Employee data not loaded. Contact administrator.")
+                if df.empty: st.error("Data missing.")
                 else:
-                    user = login(df, code, password)
-                    if user:
-                        st.session_state["logged_in"] = True
-                        st.session_state["user"] = user
-                        st.rerun()
-                    else:
-                        st.error("Invalid code or password.")
-        # ✅ External Password Reset Link
-        if st.sidebar.button("🔑 Forgot Password / Set New Password"):
-            st.session_state["show_forgot_password"] = True
-            st.rerun()
-        if st.session_state.get("show_forgot_password", False):
-            page_forgot_password()
-            return
-    user = st.session_state["user"]
-    if not user:
-        st.session_state["logged_in"] = False
-        st.rerun()
+                    u = login(df, code, passw)
+                    if u: st.session_state["logged_in"], st.session_state["user"] = True, u; st.rerun()
+                    else: st.error("Invalid credentials.")
+        if st.sidebar.button("🔑 Forgot Password"): st.session_state["show_fp"] = True; st.rerun()
+        if st.session_state.get("show_fp"): page_forgot_password()
         return
-    user_title = str(user.get("Title", "")).strip().upper()
-    is_hr = user_title == "HR"
-    is_bum = user_title == "BUM"
-    is_am = user_title == "AM"
-    is_dm = user_title == "DM"
-    is_mr = user_title == "MR"
-    is_special = user_title in ["ASSOCIATE COMPLIANCE", "FIELD COMPLIANCE SPECIALIST", "COMPLIANCE MANAGER"]
-    # ✅ FIXED: Removed old display logic from here to prevent duplicate info in footer
+    user = st.session_state["user"]; ut = str(user.get("Title", "")).strip().upper()
+    is_hr, is_bum, is_am, is_dm, is_mr, is_sp = ut=="HR", ut=="BUM", ut=="AM", ut=="DM", ut=="MR", ut in ["ASSOCIATE COMPLIANCE", "FIELD COMPLIANCE SPECIALIST", "COMPLIANCE MANAGER"]
+    
+    # ✅ MODIFIED: Removed "Dashboard" from HR page list
+    if is_hr: pages = ["Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Recruitment", "🎓 Employee Development (HR View)", "Notifications", "Structure", "Salary Monthly", "Salary Report", "Settings"]
+    elif is_bum: pages = ["My Profile", "Team Leaves", "🎓 Team Development", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+    elif is_am or is_dm: pages = ["My Profile", "🎓 Team Development", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+    elif is_mr: pages = ["My Profile", "🚀 IDB – Individual Development Blueprint", "🌱 Self Development", "Notify Compliance", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+    elif is_sp: pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly", "📋 Report Compliance"]
+    else: pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+    
     # ✅ Profile Card at the TOP of Sidebar
-    st.sidebar.markdown(f"""
-<div class="profile-card-top">
-<h4>👤 {user.get('Employee Name', 'User')}</h4>
-<p>🔖 {user_title}</p>
-<p>🆔 {user.get('Employee Code', 'N/A')}</p>
-</div>
-""", unsafe_allow_html=True)
-    # ✅ Navigation Menu - تم حذف "Dashboard" من قائمة الـ HR فقط
-    if is_hr:
-        pages = ["Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Recruitment", "🎓 Employee Development (HR View)", "Notifications", "Structure", "Salary Monthly", "Salary Report", "Settings"]
-    elif is_bum:
-        pages = ["My Profile", "Team Leaves", "🎓 Team Development", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-    elif is_am or is_dm:
-        pages = ["My Profile", "🎓 Team Development", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-    elif is_mr:
-        pages = ["My Profile", "🚀 IDB – Individual Development Blueprint", "🌱 Self Development", "Notify Compliance", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-    elif is_special:
-        pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly", "📋 Report Compliance"]
-    else:
-        pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+    st.sidebar.markdown(f'<div class="profile-card-top"><h4>👤 {user.get("Employee Name")}</h4><p>🔖 {ut}</p><p>🆔 {user.get("Employee Code")}</p></div>', unsafe_allow_html=True)
     st.sidebar.markdown('<div class="sidebar-title">👥 Navigation</div>', unsafe_allow_html=True)
-    current_page = st.sidebar.radio("Go to", pages, index=0)
-    unread = get_unread_count(user)
-    if unread > 0:
-        st.sidebar.markdown(f'<div class="notification-bell">{unread}</div>', unsafe_allow_html=True)
+    cur_p = st.sidebar.radio("Go to", pages, index=0); unread = get_unread_count(user)
+    if unread > 0: st.sidebar.markdown(f'<div class="notification-bell">{unread}</div>', unsafe_allow_html=True)
     st.sidebar.markdown("---")
-    if st.sidebar.button("🚪 Logout"):
-        st.session_state["logged_in"] = False
-        st.session_state["user"] = None
-        st.rerun()
-    # Routing logic (unchanged)
-    if current_page == "Dashboard": page_dashboard(user)
-    elif current_page == "Reports": page_reports(user)
-    elif current_page == "HR Manager": page_hr_manager(user) if is_hr else st.error("Access denied.")
-    elif current_page == "HR Inbox": page_hr_inbox(user) if is_hr else st.error("Access denied.")
-    elif current_page == "Employee Photos": page_employee_photos(user) if is_hr else st.error("Access denied.")
-    elif current_page == "Ask Employees": page_ask_employees(user) if is_hr else st.error("Access denied.")
-    elif current_page == "Recruitment": page_recruitment(user) if is_hr else st.error("Access denied.")
-    elif current_page == "🎓 Employee Development (HR View)": page_hr_development(user) if is_hr else st.error("Access denied.")
-    elif current_page == "🎓 Team Development": page_manager_development(user) if (is_bum or is_am or is_dm) else st.error("Access denied.")
-    elif current_page == "My Profile": page_my_profile(user)
-    elif current_page == "Team Leaves": page_manager_leaves(user) if (is_bum or is_am or is_dm) else st.error("Access denied.")
-    elif current_page == "Leave Request": page_leave_request(user)
-    elif current_page == "Ask HR": page_ask_hr(user)
-    elif current_page == "Request HR": page_request_hr(user)
-    elif current_page == "Notify Compliance": page_notify_compliance(user) if is_mr else st.error("Access denied.")
-    elif current_page == "📋 Report Compliance": page_report_compliance(user) if (is_special or is_bum or is_am or is_dm) else st.error("Access denied.")
-    elif current_page == "🚀 IDB – Individual Development Blueprint": page_idb_mr(user) if is_mr else st.error("Access denied.")
-    elif current_page == "🌱 Self Development": page_self_development(user) if is_mr else st.error("Access denied.")
-    elif current_page == "Notifications": page_notifications(user)
-    elif current_page == "Structure": page_directory(user)
-    elif current_page == "Salary Monthly": page_salary_monthly(user)
-    elif current_page == "Salary Report": page_salary_report(user) if is_hr else st.error("Access denied.")
-    elif current_page == "Settings": page_settings(user) if is_hr
+    if st.sidebar.button("🚪 Logout"): st.session_state["logged_in"] = False; st.session_state["user"] = None; st.rerun()
+    
+    # Routing
+    if cur_p == "Dashboard": page_dashboard(user)
+    elif cur_p == "Reports": page_reports(user)
+    elif cur_p == "HR Manager": page_hr_manager(user) if is_hr else st.error("Denied.")
+    elif cur_p == "HR Inbox": page_hr_inbox(user) if is_hr else st.error("Denied.")
+    elif cur_p == "Employee Photos": page_employee_photos(user) if is_hr else st.error("Denied.")
+    elif cur_p == "Ask Employees": page_ask_employees(user) if is_hr else st.error("Denied.")
+    elif cur_p == "Recruitment": page_recruitment(user) if is_hr else st.error("Denied.")
+    elif cur_p == "🎓 Employee Development (HR View)": page_hr_development(user) if is_hr else st.error("Denied.")
+    elif cur_p == "🎓 Team Development": page_manager_development(user) if (is_bum or is_am or is_dm) else st.error("Denied.")
+    elif cur_p == "My Profile": page_my_profile(user)
+    elif cur_p == "Team Leaves": page_manager_leaves(user) if (is_bum or is_am or is_dm) else st.error("Denied.")
+    elif cur_p == "Leave Request": page_leave_request(user)
+    elif cur_p == "Ask HR": page_ask_hr(user)
+    elif cur_p == "Request HR": page_request_hr(user)
+    elif cur_p == "Notify Compliance": page_notify_compliance(user) if is_mr else st.error("Denied.")
+    elif cur_p == "📋 Report Compliance": page_report_compliance(user) if (is_sp or is_bum or is_am or is_dm) else st.error("Denied.")
+    elif cur_p == "🚀 IDB – Individual Development Blueprint": page_idb_mr(user) if is_mr else st.error("Denied.")
+    elif cur_p == "🌱 Self Development": page_self_development(user) if is_mr else st.error("Denied.")
+    elif cur_p == "Notifications": page_notifications(user)
+    elif cur_p == "Structure": page_directory(user)
+    elif cur_p == "Salary Monthly": page_salary_monthly(user)
+    elif cur_p == "Salary Report": page_salary_report(user) if is_hr else st.error("Denied.")
+    elif cur_p == "Settings": page_settings(user) if is_hr else st.error("Denied.")
+
+if __name__ == "__main__":
+    main()
