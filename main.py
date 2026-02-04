@@ -322,10 +322,31 @@ updated_css = """
 }
 
 /* ========== GENERAL TEXT & CARDS ========== */
+/* ========== GENERAL TEXT & CARDS ========== */
+html, body, p, span { color: #2E2E2E !important; }
+[data-testid="stMarkdownContainer"] p { color: #2E2E2E !important; }
 h1, h2, h3, h4, h5 { color: var(--primary) !important; font-weight: 600; }
-.hr-message-card { background-color: #FFFFFF; border-left: 4px solid var(--primary); padding: 12px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
-.stButton > button { background-color: #1E88E5 !important; color: white !important; border: none !important; font-weight: 600; padding: 0.5rem 1rem; border-radius: 6px; }
-.stButton > button:hover { background-color: #dc2626 !important; color: white !important; }
+
+.hr-message-card { 
+    background-color: #FFFFFF; 
+    border-left: 4px solid var(--primary); 
+    padding: 12px; 
+    margin: 10px 0; 
+    border-radius: 8px; 
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05); 
+}
+
+/* الأزرار تبقى كما هي لأنك قلت أنها أصبحت جيدة */
+.stButton > button { 
+    background-color: #1E88E5 !important; 
+    color: white !important; 
+    border: none !important; 
+    font-weight: 600; 
+    padding: 0.5rem 1rem; 
+    border-radius: 6px; 
+}
+.stButton > button:hover { background-color: #dc2626 !important; }
+
 [data-testid="stAppViewContainer"] { background-color: #F2F2F2 !important; }
 
 /* إخفاء أي نصوص تظهر أسفل السايدبار خارج التنسيق المعتاد */
