@@ -3059,7 +3059,7 @@ with st.sidebar:
             elif is_special:
                 # ❌ Special titles: ONLY Leave Request (no Team Leaves)
                 pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-    else:
+        else:
     # Default fallback (e.g., unknown titles): allow basic access
     pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
 
