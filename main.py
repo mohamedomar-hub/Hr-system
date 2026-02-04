@@ -50,13 +50,13 @@ def encrypt_salary_value(value) -> str:
 
 def decrypt_salary_value(encrypted_str: str) -> float:
     try:
-        if not encrypted_str or pd.isna(encrypted_str): [cite: 3]
+        if not encrypted_str or pd.isna(encrypted_str):
             return 0.0
         try:
             encrypted_bytes = base64.urlsafe_b64decode(encrypted_str.encode())
             decrypted = fernet_salary.decrypt(encrypted_bytes)
             return float(decrypted.decode())
-        [cite_start]except Exception: [cite: 4]
+        except Exception:
             return float(encrypted_str)
     except (InvalidToken, ValueError, Exception):
         return 0.0
