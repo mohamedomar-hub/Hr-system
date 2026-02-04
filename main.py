@@ -50,7 +50,7 @@ def encrypt_salary_value(value) -> str:
 
 def decrypt_salary_value(encrypted_str: str) -> float:
     try:
-        [cite_start]if not encrypted_str or pd.isna(encrypted_str): [cite: 3]
+        if not encrypted_str or pd.isna(encrypted_str): [cite: 3]
             return 0.0
         try:
             encrypted_bytes = base64.urlsafe_b64decode(encrypted_str.encode())
