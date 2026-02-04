@@ -322,7 +322,7 @@ updated_css = """
 }
 
 /* ========== GENERAL TEXT & CARDS ========== */
-html, body, p, span, .stMarkdown p { color: #2E2E2E !important; }
+html, body, p, span, .stMarkdown p { color: #05445E !important; }
 [data-testid="stMarkdownContainer"] p { color: #2E2E2E !important; }
 h1, h2, h3, h4, h5 { color: var(--primary) !important; font-weight: 600; }
 
