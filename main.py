@@ -390,7 +390,7 @@ z-index: 100;
 }
 /* الأزرار */
 .stButton > button {
-background-color: var(--primary) !important;
+background-color: #1E88E5 !important; /* أزرق سماوي فاتح */
 color: white !important;
 border: none !important;
 font-weight: 600;
@@ -398,7 +398,7 @@ padding: 0.5rem 1rem;
 border-radius: 6px;
 }
 .stButton > button:hover {
-background-color: #0A5C73 !important; /* 🔴 RED on hover */
+background-color: #dc2626 !important; /* 🔴 RED on hover */
 color: white !important;
 }
 /* الخلفية العامة */
