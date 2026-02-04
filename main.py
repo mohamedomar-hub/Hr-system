@@ -1,4 +1,4 @@
-# hr_system_with_config_json.py — FULLY CONVERTED TO JSON (NO LINE DELETED) + TEAM DEVELOPMENT FOR DM/AM/BUM
+# hr_system_with_config_json.py — FULLY CONVERTED TO JSON (NO LINE DELETED)
 import streamlit as st
 import pandas as pd
 import requests
@@ -263,170 +263,170 @@ updated_css = """
 <style>
 /* ========== COLORS SYSTEM ========== */
 :root {
---primary: #05445E;
---secondary: #0A5C73;
---text-main: #2E2E2E;
---text-muted: #6B7280;
---card-bg: #FFFFFF;
---soft-bg: #F2F6F8;
---border-soft: #E5E7EB;
+    --primary: #05445E;
+    --secondary: #0A5C73;
+    --text-main: #2E2E2E;
+    --text-muted: #6B7280;
+    --card-bg: #FFFFFF;
+    --soft-bg: #F2F6F8;
+    --border-soft: #E5E7EB;
 }
 /* ========== GENERAL TEXT ========== */
 html, body, p, span, label {
-color: var(--text-main) !important;
+    color: var(--text-main) !important;
 }
 /* ========== HEADERS ========== */
 h1, h2, h3, h4, h5 {
-color: var(--primary) !important;
-font-weight: 600;
+    color: var(--primary) !important;
+    font-weight: 600;
 }
 /* ========== SIDEBAR USER NAME ========== */
 section[data-testid="stSidebar"] h4,
 section[data-testid="stSidebar"] h5,
 section[data-testid="stSidebar"] p {
-color: #FFFFFF !important;
-font-weight: 600;
+    color: #FFFFFF !important;
+    font-weight: 600;
 }
 /* ========== INPUT LABELS ========== */
 label {
-color: var(--primary) !important;
-font-weight: 500;
+    color: var(--primary) !important;
+    font-weight: 500;
 }
 /* ========== CARDS ========== */
 .card {
-background-color: var(--card-bg);
-border-radius: 16px;
-padding: 18px;
-box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-border: 1px solid var(--border-soft);
+    background-color: var(--card-bg);
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    border: 1px solid var(--border-soft);
 }
 /* ========== INFO TEXT (No data, help text) ========== */
 .info-text {
-color: var(--text-muted) !important;
-font-size: 14px;
+    color: var(--text-muted) !important;
+    font-size: 14px;
 }
 /* ========== SECTION HEADER BOX ========== */
 .section-box {
-background-color: var(--soft-bg);
-padding: 14px 20px;
-border-radius: 14px;
-margin: 25px 0 15px 0;
+    background-color: var(--soft-bg);
+    padding: 14px 20px;
+    border-radius: 14px;
+    margin: 25px 0 15px 0;
 }
 /* ========== إضافات ضرورية للوظائف ========== */
 .sidebar-title {
-font-size: 1.4rem;
-font-weight: bold;
-color: var(--primary);
-text-align: center;
-margin-bottom: 10px;
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: var(--primary);
+    text-align: center;
+    margin-bottom: 10px;
 }
 .hr-message-card {
-background-color: #FFFFFF;
-border-left: 4px solid var(--primary);
-padding: 12px;
-margin: 10px 0;
-border-radius: 8px;
-box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    background-color: #FFFFFF;
+    border-left: 4px solid var(--primary);
+    padding: 12px;
+    margin: 10px 0;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 .hr-message-title {
-color: var(--primary);
-font-weight: bold;
-font-size: 1.1rem;
+    color: var(--primary);
+    font-weight: bold;
+    font-size: 1.1rem;
 }
 .hr-message-meta {
-color: #666666;
-font-size: 0.9rem;
-margin: 4px 0;
+    color: #666666;
+    font-size: 0.9rem;
+    margin: 4px 0;
 }
 .hr-message-body {
-color: var(--text-main) !important;
-margin-top: 6px;
+    color: var(--text-main) !important;
+    margin-top: 6px;
 }
 .leave-balance-card,
 .team-structure-card {
-background-color: #FFFFFF !important;
-border-radius: 8px;
-padding: 12px;
-text-align: center;
-border: 1px solid #E6E6E6;
-box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    background-color: #FFFFFF !important;
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+    border: 1px solid #E6E6E6;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 .leave-balance-title,
 .team-structure-title {
-color: #666666;
-font-size: 0.9rem;
+    color: #666666;
+    font-size: 0.9rem;
 }
 .leave-balance-value,
 .team-structure-value {
-color: var(--primary);
-font-size: 1.4rem;
-font-weight: bold;
-margin-top: 4px;
+    color: var(--primary);
+    font-size: 1.4rem;
+    font-weight: bold;
+    margin-top: 4px;
 }
 .leave-balance-value.used {
-color: #dc2626;
+    color: #dc2626;
 }
 .leave-balance-value.remaining {
-color: #059669;
+    color: #059669;
 }
 .team-structure-value.am { color: var(--primary); }
 .team-structure-value.dm { color: var(--secondary); }
 .team-structure-value.mr { color: #dc2626; }
 .notification-bell {
-position: absolute;
-top: 20px;
-right: 20px;
-background-color: #ef4444;
-color: white;
-width: 24px;
-height: 24px;
-border-radius: 50%;
-display: flex;
-justify-content: center;
-align-items: center;
-font-weight: bold;
-font-size: 0.8rem;
-z-index: 100;
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background-color: #ef4444;
+    color: white;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    font-size: 0.8rem;
+    z-index: 100;
 }
 /* الأزرار */
 .stButton > button {
-background-color: var(--primary) !important;
-color: white !important;
-border: none !important;
-font-weight: 600;
-padding: 0.5rem 1rem;
-border-radius: 6px;
+    background-color: var(--primary) !important;
+    color: white !important;
+    border: none !important;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
 }
 .stButton > button:hover {
-background-color: #dc2626 !important; /* 🔴 RED on hover */
-color: white !important;
+    background-color: #dc2626 !important; /* 🔴 RED on hover */
+    color: white !important;
 }
 /* الخلفية العامة */
 [data-testid="stAppViewContainer"] {
-background-color: #F2F2F2 !important;
+    background-color: #F2F2F2 !important;
 }
 /* ضمان وضوح جميع النصوص */
 body, .stApp, .stMarkdown, .stText, .stDataFrame, .stTable, .stSelectbox, .stTextInput, .stDateInput, .stTextArea {
-color: var(--text-main) !important;
+    color: var(--text-main) !important;
 }
 /* تحسين الجداول */
 table, td, th {
-color: var(--text-main) !important;
-background-color: #FFFFFF !important;
+    color: var(--text-main) !important;
+    background-color: #FFFFFF !important;
 }
 /* حقول الإدخال */
 input[type="text"], input[type="password"], input[type="number"], textarea {
-color: var(--text-main) !important;
-background-color: #FFFFFF !important;
-border: 1px solid #E6E6E6 !important;
+    color: var(--text-main) !important;
+    background-color: #FFFFFF !important;
+    border: 1px solid #E6E6E6 !important;
 }
 /* علامات التبويب */
 .stTabs [data-baseweb="tab-list"] button {
-color: var(--text-main) !important;
+    color: var(--text-main) !important;
 }
 .stTabs [data-baseweb="tab-panel"] {
-color: var(--text-main) !important;
-background-color: #FFFFFF !important;
+    color: var(--text-main) !important;
+    background-color: #FFFFFF !important;
 }
 /* إخفاء عناصر Streamlit */
 #MainMenu {visibility: hidden;}
@@ -1044,8 +1044,8 @@ def page_salary_report(user):
     current_salary_df = st.session_state.get("salary_df")
     if current_salary_df is None:
         current_salary_df = load_json_file(SALARIES_FILE_PATH)
-        if current_salary_df is not None:
-            st.session_state["salary_df"] = current_salary_df
+    if current_salary_df is not None:
+        st.session_state["salary_df"] = current_salary_df
     if current_salary_df is not None and not current_salary_df.empty:
         st.dataframe(current_salary_df.head(100), use_container_width=True)
         buf = BytesIO()
@@ -1648,138 +1648,15 @@ def page_hr_development(user):
                     # ✅ FIXED: Download with original file format
                     with open(filepath, "rb") as f:
                         file_bytes = f.read()
-                    st.download_button(
-                        label=f"📥 Download {row['File']}",
-                        data=file_bytes,
-                        file_name=row["File"],  # نفس اسم الملف الأصلي
-                        mime="application/octet-stream",  # صيغة عامة تحافظ على نوع الملف
-                        key=f"dl_cert_{idx}"
-                    )
+                        st.download_button(
+                            label=f"📥 Download {row['File']}",
+                            data=file_bytes,
+                            file_name=row["File"],  # نفس اسم الملف الأصلي
+                            mime="application/octet-stream",  # صيغة عامة تحافظ على نوع الملف
+                            key=f"dl_cert_{idx}"
+                        )
         else:
             st.info("📭 No certifications uploaded.")
-# ============================
-# 🆕 PAGE: Team Development View for DM/AM/BUM (NEW)
-# ============================
-def get_team_mr_codes(df, manager_code, manager_title):
-    """Helper function to get all MR codes under a manager's hierarchy"""
-    hierarchy = build_team_hierarchy_recursive(df, manager_code, manager_title)
-    if not hierarchy:
-        return []
-    
-    mr_codes = []
-    
-    def collect_mr_codes(node):
-        if not node:
-            return
-        # إذا كان هذا العقدة تحتوي على فريق، نفحص الأبناء
-        for child in node.get("Team", []):
-            # إذا كان الطفل لديه فريق فرعي، نستدعي الدالة بشكل متكرر
-            if child.get("Team"):
-                collect_mr_codes(child)
-            else:
-                # إذا لم يكن لديه فريق فرعي، فهذا يعني أنه MR (النهاية في الشجرة)
-                child_code = child.get("Manager Code", "")
-                if child_code:
-                    mr_codes.append(child_code)
-    
-    collect_mr_codes(hierarchy)
-    return mr_codes
-
-def page_team_development(user):
-    st.subheader("🎓 Team Development Reports")
-    st.info("View IDB reports and certifications for your Medical Representatives (MRs).")
-    
-    df = st.session_state.get("df", pd.DataFrame())
-    if df.empty:
-        st.error("Employee data not loaded.")
-        return
-    
-    user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
-    user_title = str(user.get("Title", "")).strip().upper()
-    
-    # جلب جميع أكواد الـ MRs التابعين لهذا المدير
-    team_mr_codes = get_team_mr_codes(df, user_code, user_title)
-    
-    if not team_mr_codes:
-        st.info("No Medical Representatives (MRs) found in your team.")
-        return
-    
-    st.markdown(f"### 👥 Your Team MRs ({len(team_mr_codes)} members)")
-    col_map = {c.lower().strip(): c for c in df.columns}
-    emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
-    emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
-    
-    if emp_code_col and emp_name_col:
-        df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
-        team_mr_df = df[df[emp_code_col].isin(team_mr_codes)][[emp_code_col, emp_name_col]].copy()
-        team_mr_df.columns = ["Employee Code", "Employee Name"]
-        st.dataframe(team_mr_df, use_container_width=True)
-    
-    tab_idb, tab_certs = st.tabs(["📋 IDB Reports", "📜 Certifications"])
-    
-    with tab_idb:
-        idb_df = load_idb_reports()
-        if not idb_df.empty:
-            # ✅ تصفية التقارير لعرض تقارير الـ MRs التابعين فقط
-            team_idb_df = idb_df[idb_df["Employee Code"].astype(str).isin(team_mr_codes)].copy()
-            
-            if not team_idb_df.empty:
-                # تحويل القوائم النصية إلى سلاسل
-                team_idb_df["Selected Departments"] = team_idb_df["Selected Departments"].apply(
-                    lambda x: ", ".join(eval(x)) if isinstance(x, str) else ", ".join(x)
-                )
-                team_idb_df["Strengths"] = team_idb_df["Strengths"].apply(
-                    lambda x: "; ".join(eval(x)) if isinstance(x, str) else "; ".join(x)
-                )
-                team_idb_df["Development Areas"] = team_idb_df["Development Areas"].apply(
-                    lambda x: "; ".join(eval(x)) if isinstance(x, str) else "; ".join(x)
-                )
-                # عرض الأعمدة المطلوبة
-                display_cols = ["Employee Code", "Employee Name", "Selected Departments", "Strengths", "Development Areas", "Action Plan", "Updated At"]
-                st.dataframe(team_idb_df[display_cols], use_container_width=True)
-                
-                # زر التنزيل
-                buf = BytesIO()
-                with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-                    team_idb_df.to_excel(writer, index=False, sheet_name="Team_IDB_Reports")
-                buf.seek(0)
-                st.download_button(
-                    "📥 Download Team IDB Reports",
-                    data=buf,
-                    file_name=f"Team_IDB_{user_code}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-            else:
-                st.info("📭 No IDB reports from your team MRs yet.")
-        else:
-            st.info("📭 No IDB reports in the system yet.")
-    
-    with tab_certs:
-        cert_log = load_json_file("certifications_log.json")
-        if not cert_log.empty:
-            # ✅ تصفية الشهادات لعرض شهادات الـ MRs التابعين فقط
-            team_certs_df = cert_log[cert_log["Employee Code"].astype(str).isin(team_mr_codes)].copy()
-            
-            if not team_certs_df.empty:
-                st.dataframe(team_certs_df, use_container_width=True)
-                
-                # عرض وتنزيل الملفات
-                for idx, row in team_certs_df.iterrows():
-                    filepath = os.path.join("certifications", row["File"])
-                    if os.path.exists(filepath):
-                        with open(filepath, "rb") as f:
-                            file_bytes = f.read()
-                        st.download_button(
-                            label=f"📥 Download {row['File']} ({row.get('Employee Code', 'N/A')})",
-                            data=file_bytes,
-                            file_name=row["File"],
-                            mime="application/octet-stream",
-                            key=f"dl_team_cert_{idx}"
-                        )
-            else:
-                st.info("📭 No certifications from your team MRs yet.")
-        else:
-            st.info("📭 No certifications uploaded in the system yet.")
 # ============================
 # Remaining Page Functions (unchanged)
 # ============================
@@ -1889,20 +1766,20 @@ def page_my_profile(user):
                 st.image(photo_path, width=150, caption="Your current photo")
             else:
                 st.info("No photo uploaded yet.")
-        uploaded_file = st.file_uploader(
-            "Upload your personal photo (JPG/PNG)",
-            type=["jpg", "jpeg", "png"],
-            key="photo_uploader"
-        )
-        if uploaded_file:
-            if st.button("✅ Save Photo"):
-                try:
-                    filename = save_employee_photo(emp_code_clean, uploaded_file)
-                    add_notification("", "HR", f"Employee {emp_code_clean} uploaded a new photo.")
-                    st.success(f"Photo saved as: {filename}")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Failed to save photo: {e}")
+            uploaded_file = st.file_uploader(
+                "Upload your personal photo (JPG/PNG)",
+                type=["jpg", "jpeg", "png"],
+                key="photo_uploader"
+            )
+            if uploaded_file:
+                if st.button("✅ Save Photo"):
+                    try:
+                        filename = save_employee_photo(emp_code_clean, uploaded_file)
+                        add_notification("", "HR", f"Employee {emp_code_clean} uploaded a new photo.")
+                        st.success(f"Photo saved as: {filename}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed to save photo: {e}")
     st.markdown("---")
     st.markdown("### 🔐 Change Your Password")
     with st.form("change_password_form"):
@@ -2199,42 +2076,42 @@ def page_my_team(user, role="AM"):
     st.markdown("""
 <style>
 .team-node {
-background-color: #FFFFFF;
-border-left: 4px solid #05445E;
-padding: 12px;
-margin: 8px 0;
-border-radius: 6px;
-box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    background-color: #FFFFFF;
+    border-left: 4px solid #05445E;
+    padding: 12px;
+    margin: 8px 0;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 .team-node-header {
-display: flex;
-justify-content: space-between;
-align-items: center;
-font-weight: 600;
-color: #05445E;
-margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    color: #05445E;
+    margin-bottom: 8px;
 }
 .team-node-summary {
-font-size: 0.9rem;
-color: #666666;
-margin-top: 4px;
+    font-size: 0.9rem;
+    color: #666666;
+    margin-top: 4px;
 }
 .team-node-children {
-margin-left: 20px;
-margin-top: 8px;
+    margin-left: 20px;
+    margin-top: 8px;
 }
 .team-member {
-display: flex;
-align-items: center;
-padding: 6px 12px;
-background-color: #f8fafc;
-border-radius: 4px;
-margin: 4px 0;
-font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    padding: 6px 12px;
+    background-color: #f8fafc;
+    border-radius: 4px;
+    margin: 4px 0;
+    font-size: 0.95rem;
 }
 .team-member-icon {
-margin-right: 8px;
-font-size: 1.1rem;
+    margin-right: 8px;
+    font-size: 1.1rem;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -2662,13 +2539,13 @@ After applicants submit, download the Excel responses from Google Sheets and upl
                 with col2:
                     with open(os.path.join(RECRUITMENT_CV_DIR, cv), "rb") as f:
                         st.download_button("📥", f, file_name=cv, key=f"dl_cv_{cv}")
-            if st.button("📦 Download All CVs (ZIP)"):
-                zip_path = "all_cvs.zip"
-                with zipfile.ZipFile(zip_path, 'w') as zipf:
-                    for cv in cv_files:
-                        zipf.write(os.path.join(RECRUITMENT_CV_DIR, cv), cv)
-                with open(zip_path, "rb") as f:
-                    st.download_button("Download ZIP", f, file_name="Recruitment_CVs.zip", mime="application/zip")
+        if st.button("📦 Download All CVs (ZIP)"):
+            zip_path = "all_cvs.zip"
+            with zipfile.ZipFile(zip_path, 'w') as zipf:
+                for cv in cv_files:
+                    zipf.write(os.path.join(RECRUITMENT_CV_DIR, cv), cv)
+            with open(zip_path, "rb") as f:
+                st.download_button("Download ZIP", f, file_name="Recruitment_CVs.zip", mime="application/zip")
     with tab_db:
         st.markdown("### Upload Recruitment Data from Google Forms")
         uploaded_db = st.file_uploader("Upload Excel from Google Forms", type=["xlsx"])
@@ -3048,59 +2925,50 @@ with st.sidebar:
             if is_hr:
                 pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Recruitment", "🎓 Employee Development (HR View)", "Notifications", "Structure", "Salary Monthly", "Salary Report", "Settings"]
             elif is_bum:
-                # ✅ BUM gets Team Leaves + Team Structure + Team Development
-                pages = ["My Profile", "Team Leaves", "Team Structure", "🎓 Team Development", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+                # ✅ BUM gets Team Leaves + Team Structure
+                pages = ["My Profile", "Team Leaves", "Team Structure", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             elif is_am or is_dm:
-                # ✅ AM/DM get Team Structure + Team Development (but NOT Team Leaves)
-                pages = ["My Profile", "Team Structure", "🎓 Team Development", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+                # ✅ AM/DM get Team Structure (but NOT Team Leaves)
+                pages = ["My Profile", "Team Structure", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             elif is_mr:
                 # ✅ MR gets Notify Compliance + IDB + Self Development
                 pages = ["My Profile", "🚀 IDB – Individual Development Blueprint", "🌱 Self Development", "Notify Compliance", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             elif is_special:
                 # ❌ Special titles: ONLY Leave Request (no Team Leaves)
-    
+                pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+            else:
                 # Default fallback (e.g., unknown titles): allow basic access
-                pages = [
-                    "My Profile", 
-                    "Ask HR", 
-                    "Request HR", 
-                    "Notifications", 
-                    "Structure", 
-                    "Salary Monthly"]
-
-# ✅ إضافة صفحة Report Compliance لفريق الـ Compliance + المدراء (AM, DM)
-compliance_and_managers = {
-    "ASSOCIATE COMPLIANCE",
-    "FIELD COMPLIANCE SPECIALIST",
-    "COMPLIANCE MANAGER",
-    "AM",
-    "DM"
-}
-if title_val in compliance_and_managers:
-    pages.insert(1, "Report Compliance")  # بعد My Profile مباشرة
-
-unread_count = get_unread_count(user)
-for p in pages:
-    if p == "Notifications":
-        if unread_count > 0:
-            button_label = f"Notifications ({unread_count})"
-        else:
-            button_label = "Notifications"
-        if st.button(button_label, key=f"nav_{p}", use_container_width=True):
-            st.session_state["current_page"] = p
-            st.rerun()
-    else:
-        if st.button(p, key=f"nav_{p}", use_container_width=True):
-            st.session_state["current_page"] = p
-            st.rerun()
-
-st.markdown("---")
-if st.button("🚪 Logout", use_container_width=True):
-    st.session_state["logged_in_user"] = None
-    st.session_state["current_page"] = "My Profile"
-    st.success("You have been logged out.")
-    st.rerun()
-
+                pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+            # ✅ إضافة صفحة Report Compliance لفريق الـ Compliance + المدراء (AM, DM)
+            compliance_and_managers = {
+                "ASSOCIATE COMPLIANCE",
+                "FIELD COMPLIANCE SPECIALIST",
+                "COMPLIANCE MANAGER",
+                "AM",
+                "DM"
+            }
+            if title_val in compliance_and_managers:
+                pages.insert(1, "Report Compliance")  # بعد My Profile مباشرة
+            unread_count = get_unread_count(user)
+            for p in pages:
+                if p == "Notifications":
+                    if unread_count > 0:
+                        button_label = f"Notifications ({unread_count})"
+                    else:
+                        button_label = "Notifications"
+                    if st.button(button_label, key=f"nav_{p}", use_container_width=True):
+                        st.session_state["current_page"] = p
+                        st.rerun()
+                else:
+                    if st.button(p, key=f"nav_{p}", use_container_width=True):
+                        st.session_state["current_page"] = p
+                        st.rerun()
+            st.markdown("---")
+            if st.button("🚪 Logout", use_container_width=True):
+                st.session_state["logged_in_user"] = None
+                st.session_state["current_page"] = "My Profile"
+                st.success("You have been logged out.")
+                st.rerun()
 if st.session_state["external_password_page"]:
     page_forgot_password()
 else:
@@ -3130,7 +2998,6 @@ else:
             "OFFICE BOY"
         }
         is_special = title_val in SPECIAL_TITLES
-
         # ✅ إضافة شرط صفحة Report Compliance
         compliance_and_managers_set = {
             "ASSOCIATE COMPLIANCE",
@@ -3139,7 +3006,6 @@ else:
             "AM",
             "DM"
         }
-
         if current_page == "My Profile":
             page_my_profile(user)
         elif current_page == "Notifications":
@@ -3228,10 +3094,5 @@ else:
                 page_hr_development(user)
             else:
                 st.error("Access denied. HR only.")
-        elif current_page == "🎓 Team Development":
-            if is_bum or is_am or is_dm:
-                page_team_development(user)
-            else:
-                st.error("Access denied. BUM, AM, or DM only.")
         else:
             st.info("Please log in to access the system.")
