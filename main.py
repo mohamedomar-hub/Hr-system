@@ -263,170 +263,170 @@ updated_css = """
 <style>
 /* ========== COLORS SYSTEM ========== */
 :root {
-    --primary: #05445E;
-    --secondary: #0A5C73;
-    --text-main: #2E2E2E;
-    --text-muted: #6B7280;
-    --card-bg: #FFFFFF;
-    --soft-bg: #F2F6F8;
-    --border-soft: #E5E7EB;
+--primary: #05445E;
+--secondary: #0A5C73;
+--text-main: #2E2E2E;
+--text-muted: #6B7280;
+--card-bg: #FFFFFF;
+--soft-bg: #F2F6F8;
+--border-soft: #E5E7EB;
 }
 /* ========== GENERAL TEXT ========== */
 html, body, p, span, label {
-    color: var(--text-main) !important;
+color: var(--text-main) !important;
 }
 /* ========== HEADERS ========== */
 h1, h2, h3, h4, h5 {
-    color: var(--primary) !important;
-    font-weight: 600;
+color: var(--primary) !important;
+font-weight: 600;
 }
 /* ========== SIDEBAR USER NAME ========== */
 section[data-testid="stSidebar"] h4,
 section[data-testid="stSidebar"] h5,
 section[data-testid="stSidebar"] p {
-    color: #FFFFFF !important;
-    font-weight: 600;
+color: #FFFFFF !important;
+font-weight: 600;
 }
 /* ========== INPUT LABELS ========== */
 label {
-    color: var(--primary) !important;
-    font-weight: 500;
+color: var(--primary) !important;
+font-weight: 500;
 }
 /* ========== CARDS ========== */
 .card {
-    background-color: var(--card-bg);
-    border-radius: 16px;
-    padding: 18px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-    border: 1px solid var(--border-soft);
+background-color: var(--card-bg);
+border-radius: 16px;
+padding: 18px;
+box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+border: 1px solid var(--border-soft);
 }
 /* ========== INFO TEXT (No data, help text) ========== */
 .info-text {
-    color: var(--text-muted) !important;
-    font-size: 14px;
+color: var(--text-muted) !important;
+font-size: 14px;
 }
 /* ========== SECTION HEADER BOX ========== */
 .section-box {
-    background-color: var(--soft-bg);
-    padding: 14px 20px;
-    border-radius: 14px;
-    margin: 25px 0 15px 0;
+background-color: var(--soft-bg);
+padding: 14px 20px;
+border-radius: 14px;
+margin: 25px 0 15px 0;
 }
 /* ========== إضافات ضرورية للوظائف ========== */
 .sidebar-title {
-    font-size: 1.4rem;
-    font-weight: bold;
-    color: var(--primary);
-    text-align: center;
-    margin-bottom: 10px;
+font-size: 1.4rem;
+font-weight: bold;
+color: var(--primary);
+text-align: center;
+margin-bottom: 10px;
 }
 .hr-message-card {
-    background-color: #FFFFFF;
-    border-left: 4px solid var(--primary);
-    padding: 12px;
-    margin: 10px 0;
-    border-radius: 8px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+background-color: #FFFFFF;
+border-left: 4px solid var(--primary);
+padding: 12px;
+margin: 10px 0;
+border-radius: 8px;
+box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 .hr-message-title {
-    color: var(--primary);
-    font-weight: bold;
-    font-size: 1.1rem;
+color: var(--primary);
+font-weight: bold;
+font-size: 1.1rem;
 }
 .hr-message-meta {
-    color: #666666;
-    font-size: 0.9rem;
-    margin: 4px 0;
+color: #666666;
+font-size: 0.9rem;
+margin: 4px 0;
 }
 .hr-message-body {
-    color: var(--text-main) !important;
-    margin-top: 6px;
+color: var(--text-main) !important;
+margin-top: 6px;
 }
 .leave-balance-card,
 .team-structure-card {
-    background-color: #FFFFFF !important;
-    border-radius: 8px;
-    padding: 12px;
-    text-align: center;
-    border: 1px solid #E6E6E6;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+background-color: #FFFFFF !important;
+border-radius: 8px;
+padding: 12px;
+text-align: center;
+border: 1px solid #E6E6E6;
+box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 .leave-balance-title,
 .team-structure-title {
-    color: #666666;
-    font-size: 0.9rem;
+color: #666666;
+font-size: 0.9rem;
 }
 .leave-balance-value,
 .team-structure-value {
-    color: var(--primary);
-    font-size: 1.4rem;
-    font-weight: bold;
-    margin-top: 4px;
+color: var(--primary);
+font-size: 1.4rem;
+font-weight: bold;
+margin-top: 4px;
 }
 .leave-balance-value.used {
-    color: #dc2626;
+color: #dc2626;
 }
 .leave-balance-value.remaining {
-    color: #059669;
+color: #059669;
 }
 .team-structure-value.am { color: var(--primary); }
 .team-structure-value.dm { color: var(--secondary); }
 .team-structure-value.mr { color: #dc2626; }
 .notification-bell {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    background-color: #ef4444;
-    color: white;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-weight: bold;
-    font-size: 0.8rem;
-    z-index: 100;
+position: absolute;
+top: 20px;
+right: 20px;
+background-color: #ef4444;
+color: white;
+width: 24px;
+height: 24px;
+border-radius: 50%;
+display: flex;
+justify-content: center;
+align-items: center;
+font-weight: bold;
+font-size: 0.8rem;
+z-index: 100;
 }
 /* الأزرار */
 .stButton > button {
-    background-color: var(--primary) !important;
-    color: white !important;
-    border: none !important;
-    font-weight: 600;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
+background-color: var(--primary) !important;
+color: white !important;
+border: none !important;
+font-weight: 600;
+padding: 0.5rem 1rem;
+border-radius: 6px;
 }
 .stButton > button:hover {
-    background-color: #dc2626 !important; /* 🔴 RED on hover */
-    color: white !important;
+background-color: #dc2626 !important; /* 🔴 RED on hover */
+color: white !important;
 }
 /* الخلفية العامة */
 [data-testid="stAppViewContainer"] {
-    background-color: #F2F2F2 !important;
+background-color: #F2F2F2 !important;
 }
 /* ضمان وضوح جميع النصوص */
 body, .stApp, .stMarkdown, .stText, .stDataFrame, .stTable, .stSelectbox, .stTextInput, .stDateInput, .stTextArea {
-    color: var(--text-main) !important;
+color: var(--text-main) !important;
 }
 /* تحسين الجداول */
 table, td, th {
-    color: var(--text-main) !important;
-    background-color: #FFFFFF !important;
+color: var(--text-main) !important;
+background-color: #FFFFFF !important;
 }
 /* حقول الإدخال */
 input[type="text"], input[type="password"], input[type="number"], textarea {
-    color: var(--text-main) !important;
-    background-color: #FFFFFF !important;
-    border: 1px solid #E6E6E6 !important;
+color: var(--text-main) !important;
+background-color: #FFFFFF !important;
+border: 1px solid #E6E6E6 !important;
 }
 /* علامات التبويب */
 .stTabs [data-baseweb="tab-list"] button {
-    color: var(--text-main) !important;
+color: var(--text-main) !important;
 }
 .stTabs [data-baseweb="tab-panel"] {
-    color: var(--text-main) !important;
-    background-color: #FFFFFF !important;
+color: var(--text-main) !important;
+background-color: #FFFFFF !important;
 }
 /* إخفاء عناصر Streamlit */
 #MainMenu {visibility: hidden;}
@@ -977,9 +977,9 @@ margin-bottom:10px; box-shadow:0 4px 8px rgba(0,0,0,0.05);">
                     file_name=f"Salary_{user_code}_{month}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-                if st.button(f"Hide Details for {month}", key=f"hide_{month}"):
-                    del st.session_state[details_key]
-                    st.rerun()
+            if st.button(f"Hide Details for {month}", key=f"hide_{month}"):
+                del st.session_state[details_key]
+                st.rerun()
     except Exception as e:
         st.error(f"❌ Error loading salary  {e}")
 # ============================
@@ -1648,13 +1648,131 @@ def page_hr_development(user):
                     # ✅ FIXED: Download with original file format
                     with open(filepath, "rb") as f:
                         file_bytes = f.read()
+                    st.download_button(
+                        label=f"📥 Download {row['File']}",
+                        data=file_bytes,
+                        file_name=row["File"],  # نفس اسم الملف الأصلي
+                        mime="application/octet-stream",  # صيغة عامة تحافظ على نوع الملف
+                        key=f"dl_cert_{idx}"
+                    )
+        else:
+            st.info("📭 No certifications uploaded.")
+# ============================
+# 🎓 صفحة عرض التطوير للمديرين (DM, AM, BUM) - NEW PAGE
+# ============================
+def page_manager_development(user):
+    st.subheader("🎓 Team Development (Manager View)")
+    st.markdown("""
+<div style="background-color:#e0f2fe; padding:12px; border-radius:8px; border-left:4px solid #05445E; margin-bottom:20px;">
+<p style="color:#05445E; font-weight:bold;">View your team's development reports and certifications.</p>
+</div>
+""", unsafe_allow_html=True)
+    
+    user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
+    user_title = str(user.get("Title", "")).strip().upper()
+    
+    # جلب بيانات الموظفين
+    df = st.session_state.get("df", pd.DataFrame())
+    if df.empty:
+        st.error("Employee data not loaded.")
+        return
+    
+    # بناء شجرة الفريق
+    hierarchy = build_team_hierarchy_recursive(df, user_code, user_title)
+    
+    # جمع كود جميع أعضاء الفريق (بما فيهم الـ MR)
+    def collect_all_team_codes(node, codes_set):
+        if node:
+            codes_set.add(node.get("Manager Code", ""))
+            for child in node.get("Team", []):
+                collect_all_team_codes(child, codes_set)
+        return codes_set
+    
+    team_codes = set()
+    collect_all_team_codes(hierarchy, team_codes)
+    team_codes.add(user_code)  # أضف كود المستخدم نفسه
+    
+    st.info(f"👥 Your team includes {len(team_codes)} members")
+    
+    tab_idb, tab_certs = st.tabs(["📋 IDB Reports", "📜 Certifications"])
+    
+    with tab_idb:
+        idb_df = load_idb_reports()
+        if not idb_df.empty:
+            # تصفية التقارير لفريق المدير فقط
+            idb_df = idb_df[idb_df["Employee Code"].astype(str).isin(team_codes)].copy()
+            
+            if not idb_df.empty:
+                # إضافة أسماء الموظفين إذا غير موجودة
+                if "Employee Name" not in idb_df.columns:
+                    df = st.session_state.get("df", pd.DataFrame())
+                    if not df.empty:
+                        col_map = {c.lower().strip(): c for c in df.columns}
+                        emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
+                        emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
+                        if emp_code_col and emp_name_col:
+                            df[emp_code_col] = df[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+                            idb_df["Employee Code"] = idb_df["Employee Code"].astype(str).str.strip()
+                            idb_df = idb_df.merge(
+                                df[[emp_code_col, emp_name_col]].rename(columns={emp_code_col: "Employee Code", emp_name_col: "Employee Name"}),
+                                on="Employee Code",
+                                how="left"
+                            )
+                
+                # تحويل القوائم النصية إلى سلاسل
+                idb_df["Selected Departments"] = idb_df["Selected Departments"].apply(
+                    lambda x: ", ".join(eval(x)) if isinstance(x, str) else ", ".join(x)
+                )
+                idb_df["Strengths"] = idb_df["Strengths"].apply(
+                    lambda x: "; ".join(eval(x)) if isinstance(x, str) else "; ".join(x)
+                )
+                idb_df["Development Areas"] = idb_df["Development Areas"].apply(
+                    lambda x: "; ".join(eval(x)) if isinstance(x, str) else "; ".join(x)
+                )
+                
+                # عرض الأعمدة المطلوبة
+                display_cols = ["Employee Code", "Employee Name", "Selected Departments", "Strengths", "Development Areas", "Action Plan", "Updated At"]
+                st.dataframe(idb_df[display_cols], use_container_width=True)
+                
+                # زر التحميل
+                buf = BytesIO()
+                with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+                    idb_df.to_excel(writer, index=False)
+                buf.seek(0)
+                st.download_button(
+                    "📥 Download Team IDB Reports",
+                    data=buf,
+                    file_name=f"Team_IDB_{user_code}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+            else:
+                st.info("📭 No IDB reports from your team yet.")
+        else:
+            st.info("📭 No IDB reports yet.")
+    
+    with tab_certs:
+        cert_log = load_json_file("certifications_log.json")
+        if not cert_log.empty:
+            # تصفية الشهادات لفريق المدير فقط
+            cert_log = cert_log[cert_log["Employee Code"].astype(str).isin(team_codes)].copy()
+            
+            if not cert_log.empty:
+                st.dataframe(cert_log, use_container_width=True)
+                
+                for idx, row in cert_log.iterrows():
+                    filepath = os.path.join("certifications", row["File"])
+                    if os.path.exists(filepath):
+                        with open(filepath, "rb") as f:
+                            file_bytes = f.read()
                         st.download_button(
                             label=f"📥 Download {row['File']}",
                             data=file_bytes,
-                            file_name=row["File"],  # نفس اسم الملف الأصلي
-                            mime="application/octet-stream",  # صيغة عامة تحافظ على نوع الملف
-                            key=f"dl_cert_{idx}"
+                            file_name=row["File"],
+                            mime="application/octet-stream",
+                            key=f"dl_cert_mgr_{idx}"
                         )
+            else:
+                st.info("📭 No certifications from your team yet.")
         else:
             st.info("📭 No certifications uploaded.")
 # ============================
@@ -2076,42 +2194,42 @@ def page_my_team(user, role="AM"):
     st.markdown("""
 <style>
 .team-node {
-    background-color: #FFFFFF;
-    border-left: 4px solid #05445E;
-    padding: 12px;
-    margin: 8px 0;
-    border-radius: 6px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+background-color: #FFFFFF;
+border-left: 4px solid #05445E;
+padding: 12px;
+margin: 8px 0;
+border-radius: 6px;
+box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 .team-node-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-weight: 600;
-    color: #05445E;
-    margin-bottom: 8px;
+display: flex;
+justify-content: space-between;
+align-items: center;
+font-weight: 600;
+color: #05445E;
+margin-bottom: 8px;
 }
 .team-node-summary {
-    font-size: 0.9rem;
-    color: #666666;
-    margin-top: 4px;
+font-size: 0.9rem;
+color: #666666;
+margin-top: 4px;
 }
 .team-node-children {
-    margin-left: 20px;
-    margin-top: 8px;
+margin-left: 20px;
+margin-top: 8px;
 }
 .team-member {
-    display: flex;
-    align-items: center;
-    padding: 6px 12px;
-    background-color: #f8fafc;
-    border-radius: 4px;
-    margin: 4px 0;
-    font-size: 0.95rem;
+display: flex;
+align-items: center;
+padding: 6px 12px;
+background-color: #f8fafc;
+border-radius: 4px;
+margin: 4px 0;
+font-size: 0.95rem;
 }
 .team-member-icon {
-    margin-right: 8px;
-    font-size: 1.1rem;
+margin-right: 8px;
+font-size: 1.1rem;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -2799,300 +2917,224 @@ def page_ask_hr(user):
                     "Message": msg.strip(),
                     "Reply": "",
                     "Status": "Pending",
+                    "ID": (int(hr_df["ID"].max()) + 1) if not hr_df.empty and "ID" in hr_df.columns else 1,
                     "Date Sent": pd.Timestamp.now(),
                     "Date Replied": pd.NaT
                 }])
-                if hr_df is None or hr_df.empty:
-                    hr_df = new_row
-                else:
-                    hr_df = pd.concat([hr_df, new_row], ignore_index=True)
+                hr_df = pd.concat([hr_df, new_row], ignore_index=True)
                 if save_hr_queries(hr_df):
-                    st.success("✅ Your message was sent to HR.")
-                    add_notification("", "HR", f"New Ask HR from {user_name} ({user_code})")
+                    add_notification("", "HR", f"New message from {user_name} (Code: {user_code})")
+                    st.success("✅ Your message has been sent to HR successfully!")
                     st.rerun()
                 else:
-                    st.error("❌ Failed to save message. Check server permissions.")
-    st.markdown("### 📜 Your previous messages")
-    if hr_df is None or hr_df.empty:
-        st.info("No messages found.")
-        return
-    try:
-        hr_df["Date Sent_dt"] = pd.to_datetime(hr_df["Date Sent"], errors="coerce")
-        my_msgs = hr_df[hr_df["Employee Code"].astype(str).str.strip() == str(user_code)].sort_values("Date Sent_dt", ascending=False)
-    except Exception:
-        my_msgs = hr_df[hr_df["Employee Code"].astype(str).str.strip() == str(user_code)]
-    if my_msgs.empty:
-        st.info("You have not sent any messages yet.")
-        return
-    for idx, row in my_msgs.iterrows():
-        subj = row.get("Subject", "")
-        msg = row.get("Message", "")
-        reply = row.get("Reply", "")
-        status = row.get("Status", "")
-        date_sent = row.get("Date Sent", "")
-        try:
-            sent_time = pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M')
-        except Exception:
-            sent_time = str(date_sent)
-        st.markdown(f"<div class='hr-message-card'><div class='hr-message-title'>{subj}</div><div class='hr-message-meta'>Sent: {sent_time} — Status: {status}</div><div class='hr-message-body'>{msg}</div>", unsafe_allow_html=True)
-        if pd.notna(reply) and str(reply).strip() != "":
-            st.markdown("**🟢 HR Reply:**")
-            st.markdown(reply)
-        else:
-            st.markdown("**🕒 HR Reply:** Pending")
-        st.markdown("</div>")
-        st.markdown("---")
-# ============================
-# Main App Flow
-# ============================
-ensure_session_df()
-if not os.path.exists(SECURE_PASSWORDS_FILE):
-    df_init = st.session_state.get("df", pd.DataFrame())
-    if not df_init.empty:
-        initialize_passwords_from_data(df_init.to_dict(orient='records'))
-# render_logo_and_title()  # ← تم حذف هذا السطر
-if "logged_in_user" not in st.session_state:
-    st.session_state["logged_in_user"] = None
-if "current_page" not in st.session_state:
-    st.session_state["current_page"] = "My Profile"
-if "external_password_page" not in st.session_state:
-    st.session_state["external_password_page"] = False
-with st.sidebar:
-    # تم حذف كل الكود الخاص باللوجو من هنا
-    st.markdown('<div class="sidebar-title">HRAS — Averroes Admin</div>', unsafe_allow_html=True)
-    st.markdown("<hr style='border: 1px solid #05445E; margin: 10px 0;'>", unsafe_allow_html=True)
-    if not st.session_state["logged_in_user"] and not st.session_state["external_password_page"]:
-        with st.container():
-            st.markdown("<div style='background-color:white; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1;'>", unsafe_allow_html=True)
-            st.markdown("### 🔐 Login Required")
-            with st.form("login_form"):
-                uid = st.text_input("Employee Code")
-                pwd = st.text_input("Password", type="password")
-                submitted = st.form_submit_button("Sign in")
-                if submitted:
-                    df = st.session_state.get("df", pd.DataFrame())
-                    if df.empty:
-                        st.error("Employee data not loaded. Please check your file.")
-                    else:
-                        user = login(df, uid, pwd)
-                        if user is None:
-                            st.error("Invalid credentials or required columns missing.")
-                        else:
-                            if "Title" not in user:
-                                user["Title"] = "Unknown"
-                            st.session_state["logged_in_user"] = user
-                            st.session_state["current_page"] = "My Profile"
-                            st.success("Login successful!")
-                            st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🔐 Change Password (No Login)", use_container_width=True):
-            st.session_state["external_password_page"] = True
-            st.rerun()
+                    st.error("❌ Failed to save your message. Please try again.")
+    st.markdown("---")
+    st.markdown("### Your Previous Messages")
+    user_messages = hr_df[hr_df["Employee Code"].astype(str) == user_code].copy()
+    if user_messages.empty:
+        st.info("You haven't sent any messages to HR yet.")
     else:
-        if st.session_state["external_password_page"]:
-            if st.button("← Back to Login", use_container_width=True):
-                st.session_state["external_password_page"] = False
-                st.rerun()
-        else:
-            user = st.session_state["logged_in_user"]
-            title_val = str(user.get("Title") or user.get("title") or "").strip().upper()
-            is_hr = "HR" in title_val
-            is_bum = title_val == "BUM"
-            is_am = title_val == "AM"
-            is_dm = title_val == "DM"
-            is_mr = title_val == "MR"
-            # ✅ Define special titles that CAN access Leave Request & Team Leaves
-            SPECIAL_TITLES = {
-                "KEY ACCOUNT SPECIALIST",
-                "SFE SPECIALIST",
-                "TRAINING SPECIALIST",
-                "SENIOR TALENT ACQUISITION",
-                "HR SPECIALIST",
-                "ASSOCIATE COMPLIANCE",
-                "FIELD COMPLIANCE SPECIALIST",
-                "OPERATION SUPERVISOR",
-                "OPERATION ADMIN",
-                "STORE SPECIALIST",
-                "DIRECT SALES",
-                "OPERATION SPECIALIST",
-                "OPERATION AND ANALYTICS SPECIALIST",
-                "OFFICE BOY"
-            }
-            is_special = title_val in SPECIAL_TITLES
-            st.write(f"👋 **Welcome, {user.get('Employee Name') or 'User'}**")
+        user_messages = user_messages.sort_values("Date Sent", ascending=False).reset_index(drop=True)
+        for idx, row in user_messages.iterrows():
+            status_badge = "🟡 Pending" if row["Status"] == "Pending" else "🟢 Replied" if row["Status"] == "Replied" else "⚪ Closed"
+            try:
+                sent_time = pd.to_datetime(row["Date Sent"]).strftime('%d-%m-%Y %H:%M')
+            except Exception:
+                sent_time = str(row["Date Sent"])
+            st.markdown(f"""
+<div class="hr-message-card">
+<div class="hr-message-title">📌 {row['Subject']}</div>
+<div class="hr-message-meta">🕒 {sent_time} &nbsp;|&nbsp; 🏷️ {status_badge}</div>
+<div class="hr-message-body">{row['Message']}</div>
+""")
+            if pd.notna(row.get("Reply", "")) and row["Reply"].strip() != "":
+                st.markdown("**HR Reply:**")
+                st.markdown(f"<div style='background-color:#e0f2fe; padding:10px; border-radius:6px; margin-top:8px;'>{row['Reply']}</div>", unsafe_allow_html=True)
+                try:
+                    replied_time = pd.to_datetime(row["Date Replied"]).strftime('%d-%m-%Y %H:%M')
+                    st.markdown(f"<div style='color:#666666; font-size:0.9rem; margin-top:4px;'>Replied on: {replied_time}</div>", unsafe_allow_html=True)
+                except Exception:
+                    pass
+            st.markdown("</div>", unsafe_allow_html=True)
             st.markdown("---")
-            if is_hr:
-                pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Recruitment", "🎓 Employee Development (HR View)", "Notifications", "Structure", "Salary Monthly", "Salary Report", "Settings"]
-            elif is_bum:
-                # ✅ BUM gets Team Leaves + Team Structure
-                pages = ["My Profile", "Team Leaves", "Team Structure", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-            elif is_am or is_dm:
-                # ✅ AM/DM get Team Structure (but NOT Team Leaves)
-                pages = ["My Profile", "Team Structure", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-            elif is_mr:
-                # ✅ MR gets Notify Compliance + IDB + Self Development
-                pages = ["My Profile", "🚀 IDB – Individual Development Blueprint", "🌱 Self Development", "Notify Compliance", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-            elif is_special:
-                # ❌ Special titles: ONLY Leave Request (no Team Leaves)
-                pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-            else:
-                # Default fallback (e.g., unknown titles): allow basic access
-                pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-            # ✅ إضافة صفحة Report Compliance لفريق الـ Compliance + المدراء (AM, DM)
-            compliance_and_managers = {
-                "ASSOCIATE COMPLIANCE",
-                "FIELD COMPLIANCE SPECIALIST",
-                "COMPLIANCE MANAGER",
-                "AM",
-                "DM"
-            }
-            if title_val in compliance_and_managers:
-                pages.insert(1, "Report Compliance")  # بعد My Profile مباشرة
-            unread_count = get_unread_count(user)
-            for p in pages:
-                if p == "Notifications":
-                    if unread_count > 0:
-                        button_label = f"Notifications ({unread_count})"
-                    else:
-                        button_label = "Notifications"
-                    if st.button(button_label, key=f"nav_{p}", use_container_width=True):
-                        st.session_state["current_page"] = p
-                        st.rerun()
+# ============================
+# Main App Logic
+# ============================
+def main():
+    render_logo_and_title()
+    if "df" not in st.session_state:
+        ensure_session_df()
+    if "logged_in" not in st.session_state:
+        st.session_state["logged_in"] = False
+        st.session_state["user"] = None
+    if not st.session_state["logged_in"]:
+        st.sidebar.markdown('<div class="sidebar-title">🔐 Login</div>', unsafe_allow_html=True)
+        with st.sidebar.form("login_form"):
+            code = st.text_input("Employee Code")
+            password = st.text_input("Password", type="password")
+            submitted = st.form_submit_button("Login")
+            if submitted:
+                df = st.session_state.get("df", pd.DataFrame())
+                if df.empty:
+                    st.error("Employee data not loaded. Contact administrator.")
                 else:
-                    if st.button(p, key=f"nav_{p}", use_container_width=True):
-                        st.session_state["current_page"] = p
+                    user = login(df, code, password)
+                    if user:
+                        st.session_state["logged_in"] = True
+                        st.session_state["user"] = user
                         st.rerun()
-            st.markdown("---")
-            if st.button("🚪 Logout", use_container_width=True):
-                st.session_state["logged_in_user"] = None
-                st.session_state["current_page"] = "My Profile"
-                st.success("You have been logged out.")
-                st.rerun()
-if st.session_state["external_password_page"]:
-    page_forgot_password()
-else:
-    if st.session_state["logged_in_user"]:
-        current_page = st.session_state["current_page"]
-        user = st.session_state["logged_in_user"]
-        title_val = str(user.get("Title") or "").strip().upper()
-        is_hr = "HR" in title_val
-        is_bum = title_val == "BUM"
-        is_am = title_val == "AM"
-        is_dm = title_val == "DM"
-        is_mr = title_val == "MR"
-        SPECIAL_TITLES = {
-            "KEY ACCOUNT SPECIALIST",
-            "SFE SPECIALIST",
-            "TRAINING SPECIALIST",
-            "SENIOR TALENT ACQUISITION",
-            "HR SPECIALIST",
-            "ASSOCIATE COMPLIANCE",
-            "FIELD COMPLIANCE SPECIALIST",
-            "OPERATION SUPERVISOR",
-            "OPERATION ADMIN",
-            "STORE SPECIALIST",
-            "DIRECT SALES",
-            "OPERATION SPECIALIST",
-            "OPERATION AND ANALYTICS SPECIALIST",
-            "OFFICE BOY"
-        }
-        is_special = title_val in SPECIAL_TITLES
-        # ✅ إضافة شرط صفحة Report Compliance
-        compliance_and_managers_set = {
-            "ASSOCIATE COMPLIANCE",
-            "FIELD COMPLIANCE SPECIALIST",
-            "COMPLIANCE MANAGER",
-            "AM",
-            "DM"
-        }
-        if current_page == "My Profile":
-            page_my_profile(user)
-        elif current_page == "Notifications":
-            page_notifications(user)
-        elif current_page == "Leave Request":
-            if is_special:
-                page_leave_request(user)
-            else:
-                st.error("Access denied. Only specific roles can request leave.")
-        elif current_page == "Team Leaves":
-            if is_bum:
-                page_manager_leaves(user)
-            else:
-                st.error("Access denied. Only BUM can view team leaves.")
-        elif current_page == "Dashboard":
-            page_dashboard(user)
-        elif current_page == "Reports":
-            page_reports(user)
-        elif current_page == "HR Manager":
+                    else:
+                        st.error("Invalid code or password.")
+        # ✅ External Password Reset Link
+        if st.sidebar.button("🔑 Forgot Password / Set New Password"):
+            st.session_state["show_forgot_password"] = True
+            st.rerun()
+        if st.session_state.get("show_forgot_password", False):
+            page_forgot_password()
+        return
+    user = st.session_state["user"]
+    if not user:
+        st.session_state["logged_in"] = False
+        st.rerun()
+        return
+    user_title = str(user.get("Title", "")).strip().upper()
+    is_hr = user_title == "HR"
+    is_bum = user_title == "BUM"
+    is_am = user_title == "AM"
+    is_dm = user_title == "DM"
+    is_mr = user_title == "MR"
+    is_special = user_title in ["ASSOCIATE COMPLIANCE", "FIELD COMPLIANCE SPECIALIST", "COMPLIANCE MANAGER"]
+    # ✅ MODIFIED: Page lists - REMOVED "Team Structure" for DM/AM/BUM, ADDED "🎓 Team Development"
+    if is_hr:
+        pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Recruitment", "🎓 Employee Development (HR View)", "Notifications", "Structure", "Salary Monthly", "Salary Report", "Settings"]
+    elif is_bum:
+        # ✅ BUM: Removed "Team Structure", added "🎓 Team Development"
+        pages = ["My Profile", "Team Leaves", "🎓 Team Development", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+    elif is_am or is_dm:
+        # ✅ AM/DM: Removed "Team Structure", added "🎓 Team Development"
+        pages = ["My Profile", "🎓 Team Development", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+    elif is_mr:
+        # ✅ MR: Unchanged (keeps IDB & Self Development)
+        pages = ["My Profile", "🚀 IDB – Individual Development Blueprint", "🌱 Self Development", "Notify Compliance", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+    elif is_special:
+        # ✅ Compliance roles: Unchanged
+        pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly", "📋 Report Compliance"]
+    else:
+        # Default fallback
+        pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+    st.sidebar.markdown('<div class="sidebar-title">👥 Navigation</div>', unsafe_allow_html=True)
+    current_page = st.sidebar.radio("Go to", pages, index=0)
+    unread = get_unread_count(user)
+    if unread > 0:
+        st.sidebar.markdown(f'<div class="notification-bell">{unread}</div>', unsafe_allow_html=True)
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(f"**👤 {user.get('Employee Name', 'User')}**")
+    st.sidebar.markdown(f"**🔖 {user_title}**")
+    st.sidebar.markdown(f"**🆔 {user.get('Employee Code', 'N/A')}**")
+    if st.sidebar.button("🚪 Logout"):
+        st.session_state["logged_in"] = False
+        st.session_state["user"] = None
+        st.rerun()
+    if current_page == "Dashboard":
+        page_dashboard(user)
+    elif current_page == "Reports":
+        page_reports(user)
+    elif current_page == "HR Manager":
+        if is_hr:
             page_hr_manager(user)
-        elif current_page == "Team Structure":
-            if is_bum or is_am or is_dm:
-                page_my_team(user, role=title_val)
-            else:
-                st.error("Access denied. BUM, AM, or DM only.")
-        elif current_page == "HR Inbox":
-            if is_hr:
-                page_hr_inbox(user)
-            else:
-                st.error("Access denied. HR only.")
-        elif current_page == "Employee Photos":
-            if is_hr:
-                page_employee_photos(user)
-            else:
-                st.error("Access denied. HR only.")
-        elif current_page == "Ask HR":
-            page_ask_hr(user)
-        elif current_page == "Ask Employees":
-            if is_hr:
-                page_ask_employees(user)
-            else:
-                st.error("Access denied. HR only.")
-        elif current_page == "Request HR":
-            page_request_hr(user)
-        elif current_page == "Structure":
-            page_directory(user)
-        elif current_page == "Salary Monthly":
-            page_salary_monthly(user)
-        elif current_page == "Salary Report":
-            if is_hr:
-                page_salary_report(user)
-            else:
-                st.error("Access denied. HR only.")
-        elif current_page == "Recruitment":
-            if is_hr:
-                page_recruitment(user)
-            else:
-                st.error("Access denied. HR only.")
-        elif current_page == "Settings":
-            if is_hr:
-                page_settings(user)
-            else:
-                st.error("Access denied. HR only.")
-        elif current_page == "Notify Compliance":
-            if is_mr:
-                page_notify_compliance(user)
-            else:
-                st.error("Access denied. MR only.")
-        elif current_page == "Report Compliance":
-            if title_val in compliance_and_managers_set:
-                page_report_compliance(user)
-            else:
-                st.error("Access denied. Compliance or Managers only.")
-        elif current_page == "🚀 IDB – Individual Development Blueprint":
-            if is_mr:
-                page_idb_mr(user)
-            else:
-                st.error("Access denied. MR only.")
-        elif current_page == "🌱 Self Development":
-            if is_mr:
-                page_self_development(user)
-            else:
-                st.error("Access denied. MR only.")
-        elif current_page.startswith("🎓 Employee Development"):
-            if is_hr:
-                page_hr_development(user)
-            else:
-                st.error("Access denied. HR only.")
         else:
-            st.info("Please log in to access the system.")
+            st.error("Access denied. HR only.")
+    elif current_page == "HR Inbox":
+        if is_hr:
+            page_hr_inbox(user)
+        else:
+            st.error("Access denied. HR only.")
+    elif current_page == "Employee Photos":
+        if is_hr:
+            page_employee_photos(user)
+        else:
+            st.error("Access denied. HR only.")
+    elif current_page == "Ask Employees":
+        if is_hr:
+            page_ask_employees(user)
+        else:
+            st.error("Access denied. HR only.")
+    elif current_page == "Recruitment":
+        if is_hr:
+            page_recruitment(user)
+        else:
+            st.error("Access denied. HR only.")
+    elif current_page == "🎓 Employee Development (HR View)":
+        if is_hr:
+            page_hr_development(user)
+        else:
+            st.error("Access denied. HR only.")
+    elif current_page == "🎓 Team Development":
+        if is_bum or is_am or is_dm:
+            page_manager_development(user)
+        else:
+            st.error("Access denied. BUM, AM, or DM only.")
+    elif current_page == "My Profile":
+        page_my_profile(user)
+    elif current_page == "My Team Structure":
+        # ❌ This page is REMOVED from sidebar menus for DM/AM/BUM per request
+        # But kept in code for potential future use
+        if is_am:
+            page_my_team(user, role="AM")
+        elif is_dm:
+            page_my_team(user, role="DM")
+        elif is_bum:
+            page_my_team(user, role="BUM")
+        else:
+            st.error("Access denied.")
+    elif current_page == "Team Leaves":
+        if is_bum or is_am or is_dm:
+            page_manager_leaves(user)
+        else:
+            st.error("Access denied. Managers only.")
+    elif current_page == "Leave Request":
+        page_leave_request(user)
+    elif current_page == "Ask HR":
+        page_ask_hr(user)
+    elif current_page == "Request HR":
+        page_request_hr(user)
+    elif current_page == "Notify Compliance":
+        if is_mr:
+            page_notify_compliance(user)
+        else:
+            st.error("Access denied. MR only.")
+    elif current_page == "📋 Report Compliance":
+        if is_special or is_bum or is_am or is_dm:
+            page_report_compliance(user)
+        else:
+            st.error("Access denied. Compliance team or managers only.")
+    elif current_page == "🚀 IDB – Individual Development Blueprint":
+        if is_mr:
+            page_idb_mr(user)
+        else:
+            st.error("Access denied. MR only.")
+    elif current_page == "🌱 Self Development":
+        if is_mr:
+            page_self_development(user)
+        else:
+            st.error("Access denied. MR only.")
+    elif current_page == "Notifications":
+        page_notifications(user)
+    elif current_page == "Structure":
+        page_directory(user)
+    elif current_page == "Salary Monthly":
+        page_salary_monthly(user)
+    elif current_page == "Salary Report":
+        if is_hr:
+            page_salary_report(user)
+        else:
+            st.error("Access denied. HR only.")
+    elif current_page == "Settings":
+        if is_hr:
+            page_settings(user)
+        else:
+            st.error("Access denied. HR only.")
+    else:
+        st.info(f"Page '{current_page}' not implemented yet.")
+if __name__ == "__main__":
+    main()
