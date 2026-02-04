@@ -322,7 +322,6 @@ updated_css = """
 }
 
 /* ========== GENERAL TEXT & CARDS ========== */
-html, body, p, span, label { color: var(--text-main) !important; }
 h1, h2, h3, h4, h5 { color: var(--primary) !important; font-weight: 600; }
 .hr-message-card { background-color: #FFFFFF; border-left: 4px solid var(--primary); padding: 12px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
 .stButton > button { background-color: #1E88E5 !important; color: white !important; border: none !important; font-weight: 600; padding: 0.5rem 1rem; border-radius: 6px; }
