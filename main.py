@@ -398,7 +398,7 @@ padding: 0.5rem 1rem;
 border-radius: 6px;
 }
 .stButton > button:hover {
-background-color: #dc2626 !important; /* 🔴 RED on hover */
+background-color: #0A5C73 !important; /* 🔴 RED on hover */
 color: white !important;
 }
 /* الخلفية العامة */
@@ -2946,7 +2946,8 @@ def page_ask_hr(user):
 <div class="hr-message-title">📌 {row['Subject']}</div>
 <div class="hr-message-meta">🕒 {sent_time} &nbsp;|&nbsp; 🏷️ {status_badge}</div>
 <div class="hr-message-body">{row['Message']}</div>
-""")
+</div>
+""", unsafe_allow_html=True)
             if pd.notna(row.get("Reply", "")) and row["Reply"].strip() != "":
                 st.markdown("**HR Reply:**")
                 st.markdown(f"<div style='background-color:#e0f2fe; padding:10px; border-radius:6px; margin-top:8px;'>{row['Reply']}</div>", unsafe_allow_html=True)
