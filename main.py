@@ -263,17 +263,16 @@ updated_css = """
 <style>
 /* ========== COLORS SYSTEM ========== */
 :root {
---primary: #05445E;
---secondary: #0A5C73;
---sky-blue: #1E88E5; /* أزرق سماوي */
---hover-red: #dc2626; /* أحمر للهوفر */
---text-main: #2E2E2E;
---text-muted: #6B7280;
---card-bg: #FFFFFF;
---soft-bg: #F2F6F8;
---border-soft: #E5E7EB;
+    --primary: #05445E;
+    --secondary: #0A5C73;
+    --sky-blue: #1E88E5; /* أزرق سماوي */
+    --hover-red: #dc2626; /* أحمر للهوفر */
+    --text-main: #2E2E2E;
+    --text-muted: #6B7280;
+    --card-bg: #FFFFFF;
+    --soft-bg: #F2F6F8;
+    --border-soft: #E5E7EB;
 }
-
 /* ========== TOP PROFILE CARD ========== */
 .profile-card-top {
     background: linear-gradient(135deg, var(--primary), var(--secondary));
@@ -287,7 +286,6 @@ updated_css = """
 }
 .profile-card-top h4 { color: white !important; margin: 0; font-size: 1.15rem; font-weight: 700; }
 .profile-card-top p { color: white !important; margin: 4px 0; font-size: 1.15rem; font-weight: 700; }
-
 /* ========== SIDEBAR NAVIGATION BOXES ========== */
 [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
     gap: 12px;
@@ -320,34 +318,29 @@ updated_css = """
     background-color: var(--primary) !important;
     border: 2px solid white !important;
 }
-
 /* ========== GENERAL TEXT & CARDS ========== */
-html, body, p, span, .stMarkdown p { color: #000000 !important; }
+html, body, p, span, .stMarkdown p { color: #2E2E2E !important; }
 [data-testid="stMarkdownContainer"] p { color: #2E2E2E !important; }
-h1, h2, h3, h4, h5 { color: var(--#05445E) !important; font-weight: 600; }
-
-.hr-message-card { 
-    background-color: #FFFFFF; 
-    border-left: 4px solid var(--primary); 
-    padding: 12px; 
-    margin: 10px 0; 
-    border-radius: 8px; 
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05); 
+h1, h2, h3, h4, h5 { color: var(--primary) !important; font-weight: 600; }
+.hr-message-card {
+    background-color: #FFFFFF;
+    border-left: 4px solid var(--primary);
+    padding: 12px;
+    margin: 10px 0;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
-
 /* الأزرار تبقى كما هي لأنك قلت أنها أصبحت جيدة */
-.stButton > button { 
-    background-color: #1E88E5 !important; 
-    color: white !important; 
-    border: none !important; 
-    font-weight: 600; 
-    padding: 0.5rem 1rem; 
-    border-radius: 6px; 
+.stButton > button {
+    background-color: #1E88E5 !important;
+    color: white !important;
+    border: none !important;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
 }
 .stButton > button:hover { background-color: #dc2626 !important; }
-
 [data-testid="stAppViewContainer"] { background-color: #F2F2F2 !important; }
-
 /* إخفاء أي نصوص تظهر أسفل السايدبار خارج التنسيق المعتاد */
 [data-testid="stSidebar"] .stMarkdown p:not(.profile-card-top p) { font-weight: 500; }
 </style>
@@ -364,7 +357,7 @@ def page_forgot_password():
         new_pwd = st.text_input("New Password", type="password")
         confirm_pwd = st.text_input("Confirm New Password", type="password")
         submitted = st.form_submit_button("Set New Password")
-    if submitted:
+        if submitted:
             if not emp_code.strip() or not new_pwd or not confirm_pwd:
                 st.error("All fields are required.")
             elif new_pwd != confirm_pwd:
@@ -883,9 +876,9 @@ def page_salary_monthly(user):
                     file_name=f"Salary_{user_code}_{month}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-            if st.button(f"Hide Details for {month}", key=f"hide_{month}"):
-                del st.session_state[details_key]
-                st.rerun()
+                if st.button(f"Hide Details for {month}", key=f"hide_{month}"):
+                    del st.session_state[details_key]
+                    st.rerun()
     except Exception as e:
         st.error(f"❌ Error loading salary  {e}")
 # ============================
@@ -1556,13 +1549,13 @@ def page_hr_development(user):
                     # ✅ FIXED: Download with original file format
                     with open(filepath, "rb") as f:
                         file_bytes = f.read()
-                    st.download_button(
-                        label=f"📥 Download {row['File']}",
-                        data=file_bytes,
-                        file_name=row["File"],  # نفس اسم الملف الأصلي
-                        mime="application/octet-stream",  # صيغة عامة تحافظ على نوع الملف
-                        key=f"dl_cert_{idx}"
-                    )
+                        st.download_button(
+                            label=f"📥 Download {row['File']}",
+                            data=file_bytes,
+                            file_name=row["File"],  # نفس اسم الملف الأصلي
+                            mime="application/octet-stream",  # صيغة عامة تحافظ على نوع الملف
+                            key=f"dl_cert_{idx}"
+                        )
         else:
             st.info("📭 No certifications uploaded.")
 # ============================
@@ -1576,19 +1569,15 @@ border-radius:8px; border-left:4px solid #05445E; margin-bottom:20px;">
 <p style="color:#05445E; font-weight:bold;">View your team's development reports and certifications.</p>
 </div>
 """, unsafe_allow_html=True)
-    
     user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
     user_title = str(user.get("Title", "")).strip().upper()
-    
     # جلب بيانات الموظفين
     df = st.session_state.get("df", pd.DataFrame())
     if df.empty:
         st.error("Employee data not loaded.")
         return
-    
     # بناء شجرة الفريق
     hierarchy = build_team_hierarchy_recursive(df, user_code, user_title)
-    
     # جمع كود جميع أعضاء الفريق (بما فيهم الـ MR)
     def collect_all_team_codes(node, codes_set):
         if node:
@@ -1596,21 +1585,16 @@ border-radius:8px; border-left:4px solid #05445E; margin-bottom:20px;">
             for child in node.get("Team", []):
                 collect_all_team_codes(child, codes_set)
         return codes_set
-    
     team_codes = set()
     collect_all_team_codes(hierarchy, team_codes)
     team_codes.add(user_code)  # أضف كود المستخدم نفسه
-    
     st.info(f"👥 Your team includes {len(team_codes)} members")
-    
     tab_idb, tab_certs = st.tabs(["📋 IDB Reports", "📜 Certifications"])
-    
     with tab_idb:
         idb_df = load_idb_reports()
         if not idb_df.empty:
             # تصفية التقارير لفريق المدير فقط
             idb_df = idb_df[idb_df["Employee Code"].astype(str).isin(team_codes)].copy()
-            
             if not idb_df.empty:
                 # إضافة أسماء الموظفين إذا غير موجودة
                 if "Employee Name" not in idb_df.columns:
@@ -1627,7 +1611,6 @@ border-radius:8px; border-left:4px solid #05445E; margin-bottom:20px;">
                                 on="Employee Code",
                                 how="left"
                             )
-                
                 # تحويل القوائم النصية إلى سلاسل
                 idb_df["Selected Departments"] = idb_df["Selected Departments"].apply(
                     lambda x: ", ".join(eval(x)) if isinstance(x, str) else ", ".join(x)
@@ -1638,11 +1621,9 @@ border-radius:8px; border-left:4px solid #05445E; margin-bottom:20px;">
                 idb_df["Development Areas"] = idb_df["Development Areas"].apply(
                     lambda x: "; ".join(eval(x)) if isinstance(x, str) else "; ".join(x)
                 )
-                
                 # عرض الأعمدة المطلوبة
                 display_cols = ["Employee Code", "Employee Name", "Selected Departments", "Strengths", "Development Areas", "Action Plan", "Updated At"]
                 st.dataframe(idb_df[display_cols], use_container_width=True)
-                
                 # زر التحميل
                 buf = BytesIO()
                 with pd.ExcelWriter(buf, engine="openpyxl") as writer:
@@ -1658,28 +1639,25 @@ border-radius:8px; border-left:4px solid #05445E; margin-bottom:20px;">
                 st.info("📭 No IDB reports from your team yet.")
         else:
             st.info("📭 No IDB reports yet.")
-    
     with tab_certs:
         cert_log = load_json_file("certifications_log.json")
         if not cert_log.empty:
             # تصفية الشهادات لفريق المدير فقط
             cert_log = cert_log[cert_log["Employee Code"].astype(str).isin(team_codes)].copy()
-            
             if not cert_log.empty:
                 st.dataframe(cert_log, use_container_width=True)
-                
                 for idx, row in cert_log.iterrows():
                     filepath = os.path.join("certifications", row["File"])
                     if os.path.exists(filepath):
                         with open(filepath, "rb") as f:
                             file_bytes = f.read()
-                        st.download_button(
-                            label=f"📥 Download {row['File']}",
-                            data=file_bytes,
-                            file_name=row["File"],
-                            mime="application/octet-stream",
-                            key=f"dl_cert_mgr_{idx}"
-                        )
+                            st.download_button(
+                                label=f"📥 Download {row['File']}",
+                                data=file_bytes,
+                                file_name=row["File"],
+                                mime="application/octet-stream",
+                                key=f"dl_cert_mgr_{idx}"
+                            )
             else:
                 st.info("📭 No certifications from your team yet.")
         else:
@@ -2103,42 +2081,42 @@ def page_my_team(user, role="AM"):
     st.markdown("""
 <style>
 .team-node {
-background-color: #FFFFFF;
-border-left: 4px solid #05445E;
-padding: 12px;
-margin: 8px 0;
-border-radius: 6px;
-box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    background-color: #FFFFFF;
+    border-left: 4px solid #05445E;
+    padding: 12px;
+    margin: 8px 0;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 .team-node-header {
-display: flex;
-justify-content: space-between;
-align-items: center;
-font-weight: 600;
-color: #05445E;
-margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    color: #05445E;
+    margin-bottom: 8px;
 }
 .team-node-summary {
-font-size: 0.9rem;
-color: #666666;
-margin-top: 4px;
+    font-size: 0.9rem;
+    color: #666666;
+    margin-top: 4px;
 }
 .team-node-children {
-margin-left: 20px;
-margin-top: 8px;
+    margin-left: 20px;
+    margin-top: 8px;
 }
 .team-member {
-display: flex;
-align-items: center;
-padding: 6px 12px;
-background-color: #f8fafc;
-border-radius: 4px;
-margin: 4px 0;
-font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    padding: 6px 12px;
+    background-color: #f8fafc;
+    border-radius: 4px;
+    margin: 4px 0;
+    font-size: 0.95rem;
 }
 .team-member-icon {
-margin-right: 8px;
-font-size: 1.1rem;
+    margin-right: 8px;
+    font-size: 1.1rem;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -2561,7 +2539,7 @@ After applicants submit, download the Excel responses from Google Sheets and upl
                 with col2:
                     with open(os.path.join(RECRUITMENT_CV_DIR, cv), "rb") as f:
                         st.download_button("📥", f, file_name=cv, key=f"dl_cv_{cv}")
-    if st.button("📦 Download All CVs (ZIP)"):
+        if st.button("📦 Download All CVs (ZIP)"):
             zip_path = "all_cvs.zip"
             with zipfile.ZipFile(zip_path, 'w') as zipf:
                 for cv in cv_files:
@@ -2896,7 +2874,7 @@ def main():
             st.rerun()
         if st.session_state.get("show_forgot_password", False):
             page_forgot_password()
-        return
+            return
     user = st.session_state["user"]
     if not user:
         st.session_state["logged_in"] = False
@@ -2909,20 +2887,18 @@ def main():
     is_dm = user_title == "DM"
     is_mr = user_title == "MR"
     is_special = user_title in ["ASSOCIATE COMPLIANCE", "FIELD COMPLIANCE SPECIALIST", "COMPLIANCE MANAGER"]
-    
     # ✅ FIXED: Removed old display logic from here to prevent duplicate info in footer
     # ✅ Profile Card at the TOP of Sidebar
     st.sidebar.markdown(f"""
-    <div class="profile-card-top">
-        <h4>👤 {user.get('Employee Name', 'User')}</h4>
-        <p>🔖 {user_title}</p>
-        <p>🆔 {user.get('Employee Code', 'N/A')}</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # ✅ Navigation Menu
+<div class="profile-card-top">
+<h4>👤 {user.get('Employee Name', 'User')}</h4>
+<p>🔖 {user_title}</p>
+<p>🆔 {user.get('Employee Code', 'N/A')}</p>
+</div>
+""", unsafe_allow_html=True)
+    # ✅ Navigation Menu - تم حذف "Dashboard" من قائمة الـ HR فقط
     if is_hr:
-        pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Recruitment", "🎓 Employee Development (HR View)", "Notifications", "Structure", "Salary Monthly", "Salary Report", "Settings"]
+        pages = ["Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Recruitment", "🎓 Employee Development (HR View)", "Notifications", "Structure", "Salary Monthly", "Salary Report", "Settings"]
     elif is_bum:
         pages = ["My Profile", "Team Leaves", "🎓 Team Development", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
     elif is_am or is_dm:
@@ -2933,19 +2909,16 @@ def main():
         pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly", "📋 Report Compliance"]
     else:
         pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-    
     st.sidebar.markdown('<div class="sidebar-title">👥 Navigation</div>', unsafe_allow_html=True)
     current_page = st.sidebar.radio("Go to", pages, index=0)
     unread = get_unread_count(user)
     if unread > 0:
         st.sidebar.markdown(f'<div class="notification-bell">{unread}</div>', unsafe_allow_html=True)
-    
     st.sidebar.markdown("---")
     if st.sidebar.button("🚪 Logout"):
         st.session_state["logged_in"] = False
         st.session_state["user"] = None
         st.rerun()
-    
     # Routing logic (unchanged)
     if current_page == "Dashboard": page_dashboard(user)
     elif current_page == "Reports": page_reports(user)
@@ -2969,7 +2942,4 @@ def main():
     elif current_page == "Structure": page_directory(user)
     elif current_page == "Salary Monthly": page_salary_monthly(user)
     elif current_page == "Salary Report": page_salary_report(user) if is_hr else st.error("Access denied.")
-    elif current_page == "Settings": page_settings(user) if is_hr else st.error("Access denied.")
-
-if __name__ == "__main__":
-    main()
+    elif current_page == "Settings": page_settings(user) if is_hr
