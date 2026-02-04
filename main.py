@@ -3058,10 +3058,15 @@ with st.sidebar:
                 pages = ["My Profile", "🚀 IDB – Individual Development Blueprint", "🌱 Self Development", "Notify Compliance", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             elif is_special:
                 # ❌ Special titles: ONLY Leave Request (no Team Leaves)
-                pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-        else:
-    # Default fallback (e.g., unknown titles): allow basic access
-    pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+    
+                # Default fallback (e.g., unknown titles): allow basic access
+                pages = [
+                    "My Profile", 
+                    "Ask HR", 
+                    "Request HR", 
+                    "Notifications", 
+                    "Structure", 
+                    "Salary Monthly"]
 
 # ✅ إضافة صفحة Report Compliance لفريق الـ Compliance + المدراء (AM, DM)
 compliance_and_managers = {
