@@ -286,7 +286,7 @@ updated_css = """
     border: 1px solid rgba(255,255,255,0.1);
 }
 .profile-card-top h4 { color: white !important; margin: 0; font-size: 1.15rem; font-weight: 700; }
-.profile-card-top p { color: #E0E0E0 !important; margin: 4px 0; font-size: 0.9rem; font-weight: 500; }
+.profile-card-top p { color: white !important; margin: 4px 0; font-size: 1.15rem; font-weight: 700; }
 
 /* ========== SIDEBAR NAVIGATION BOXES ========== */
 [data-testid="stSidebar"] .stRadio div[role="radiogroup"] {
@@ -322,8 +322,7 @@ updated_css = """
 }
 
 /* ========== GENERAL TEXT & CARDS ========== */
-/* ========== GENERAL TEXT & CARDS ========== */
-html, body, p, span { color: #2E2E2E !important; }
+html, body, p, span, .stMarkdown p { color: #2E2E2E !important; }
 [data-testid="stMarkdownContainer"] p { color: #2E2E2E !important; }
 h1, h2, h3, h4, h5 { color: var(--primary) !important; font-weight: 600; }
 
