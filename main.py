@@ -2958,7 +2958,7 @@ def page_ask_hr(user):
             st.markdown("</div>", unsafe_allow_html=True)
             st.markdown("---")
 # ============================
-# Main App Logic
+# Main App Logic - MODIFIED SIDEBAR NAVIGATION
 # ============================
 def main():
     render_logo_and_title()
@@ -3004,6 +3004,7 @@ def main():
     is_dm = user_title == "DM"
     is_mr = user_title == "MR"
     is_special = user_title in ["ASSOCIATE COMPLIANCE", "FIELD COMPLIANCE SPECIALIST", "COMPLIANCE MANAGER"]
+    
     # ✅ MODIFIED: Page lists - REMOVED "Team Structure" for DM/AM/BUM, ADDED "🎓 Team Development"
     if is_hr:
         pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Recruitment", "🎓 Employee Development (HR View)", "Notifications", "Structure", "Salary Monthly", "Salary Report", "Settings"]
@@ -3022,6 +3023,7 @@ def main():
     else:
         # Default fallback
         pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+    
     st.sidebar.markdown('<div class="sidebar-title">👥 Navigation</div>', unsafe_allow_html=True)
     current_page = st.sidebar.radio("Go to", pages, index=0)
     unread = get_unread_count(user)
@@ -3035,6 +3037,8 @@ def main():
         st.session_state["logged_in"] = False
         st.session_state["user"] = None
         st.rerun()
+    
+    # ✅ MODIFIED: Routing - Added "🎓 Team Development" page handler
     if current_page == "Dashboard":
         page_dashboard(user)
     elif current_page == "Reports":
@@ -3054,87 +3058,4 @@ def main():
             page_employee_photos(user)
         else:
             st.error("Access denied. HR only.")
-    elif current_page == "Ask Employees":
-        if is_hr:
-            page_ask_employees(user)
-        else:
-            st.error("Access denied. HR only.")
-    elif current_page == "Recruitment":
-        if is_hr:
-            page_recruitment(user)
-        else:
-            st.error("Access denied. HR only.")
-    elif current_page == "🎓 Employee Development (HR View)":
-        if is_hr:
-            page_hr_development(user)
-        else:
-            st.error("Access denied. HR only.")
-    elif current_page == "🎓 Team Development":
-        if is_bum or is_am or is_dm:
-            page_manager_development(user)
-        else:
-            st.error("Access denied. BUM, AM, or DM only.")
-    elif current_page == "My Profile":
-        page_my_profile(user)
-    elif current_page == "My Team Structure":
-        # ❌ This page is REMOVED from sidebar menus for DM/AM/BUM per request
-        # But kept in code for potential future use
-        if is_am:
-            page_my_team(user, role="AM")
-        elif is_dm:
-            page_my_team(user, role="DM")
-        elif is_bum:
-            page_my_team(user, role="BUM")
-        else:
-            st.error("Access denied.")
-    elif current_page == "Team Leaves":
-        if is_bum or is_am or is_dm:
-            page_manager_leaves(user)
-        else:
-            st.error("Access denied. Managers only.")
-    elif current_page == "Leave Request":
-        page_leave_request(user)
-    elif current_page == "Ask HR":
-        page_ask_hr(user)
-    elif current_page == "Request HR":
-        page_request_hr(user)
-    elif current_page == "Notify Compliance":
-        if is_mr:
-            page_notify_compliance(user)
-        else:
-            st.error("Access denied. MR only.")
-    elif current_page == "📋 Report Compliance":
-        if is_special or is_bum or is_am or is_dm:
-            page_report_compliance(user)
-        else:
-            st.error("Access denied. Compliance team or managers only.")
-    elif current_page == "🚀 IDB – Individual Development Blueprint":
-        if is_mr:
-            page_idb_mr(user)
-        else:
-            st.error("Access denied. MR only.")
-    elif current_page == "🌱 Self Development":
-        if is_mr:
-            page_self_development(user)
-        else:
-            st.error("Access denied. MR only.")
-    elif current_page == "Notifications":
-        page_notifications(user)
-    elif current_page == "Structure":
-        page_directory(user)
-    elif current_page == "Salary Monthly":
-        page_salary_monthly(user)
-    elif current_page == "Salary Report":
-        if is_hr:
-            page_salary_report(user)
-        else:
-            st.error("Access denied. HR only.")
-    elif current_page == "Settings":
-        if is_hr:
-            page_settings(user)
-        else:
-            st.error("Access denied. HR only.")
-    else:
-        st.info(f"Page '{current_page}' not implemented yet.")
-if __name__ == "__main__":
-    main()
+    elif current_page == "Ask
