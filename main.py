@@ -19,7 +19,6 @@ import logging
 from typing import Dict, List, Any, Optional, Union
 import plotly.express as px
 import plotly.graph_objects as go
-from streamlit_lottie import st_lottie
 import altair as alt
 from babel.numbers import format_currency
 import calendar
