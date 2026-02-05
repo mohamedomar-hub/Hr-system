@@ -47,19 +47,25 @@ def encrypt_salary_value(value) -> str:
     except Exception:
         return ""
 
-def decrypt_salary_value(encrypted_str: str) -> float:
+def decrypt_salary_value(encrypted_str):
     try:
-         if not encrypted_str or pd.isna(encrypted_str):
+        if not encrypted_str or pd.isna(encrypted_str):
             return 0.0
-        # Try to decode as base64 first (indicating it's encrypted)
+        
+        # تحويل القيمة لنص في حال كانت رقمية لتجنب أخطاء الـ encode
+        encrypted_str = str(encrypted_str).strip()
+        
         try:
+            # محاولة فك التشفير باستخدام Base64 و Fernet
             encrypted_bytes = base64.urlsafe_b64decode(encrypted_str.encode())
             decrypted = fernet_salary.decrypt(encrypted_bytes)
             return float(decrypted.decode())
         except Exception:
-            #  If decoding fails, assume it's plain text (e.g., transitional file)
+            # إذا فشل فك التشفير، نفترض أنها قيمة نصية عادية (مثل ملف انتقالي) ونحولها لرقم
             return float(encrypted_str)
+            
     except (InvalidToken, ValueError, Exception):
+        # في حال حدوث أي خطأ نهائي في التحويل أو التشفير نرجع 0.0
         return 0.0
 
 # ============================
