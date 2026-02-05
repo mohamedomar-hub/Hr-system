@@ -52,7 +52,7 @@ def decrypt_salary_value(encrypted_str: str) -> float:
          if not encrypted_str or pd.isna(encrypted_str):
             return 0.0
         # Try to decode as base64 first (indicating it's encrypted)
-        try:
+    try:
             encrypted_bytes = base64.urlsafe_b64decode(encrypted_str.encode())
             decrypted = fernet_salary.decrypt(encrypted_bytes)
             return float(decrypted.decode())
