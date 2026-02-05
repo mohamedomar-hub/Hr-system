@@ -32,7 +32,7 @@ if not SALARY_SECRET_KEY:
 
 def get_fernet_from_secret(secret: str) -> Fernet:
     key = hashlib.sha256(secret.encode()).digest()
-     fernet_key = base64.urlsafe_b64encode(key) 
+    fernet_key = base64.urlsafe_b64encode(key) 
     return Fernet(fernet_key)
 
 fernet_salary = get_fernet_from_secret(SALARY_SECRET_KEY)
