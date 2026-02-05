@@ -768,12 +768,12 @@ def page_notifications(user):
         time_formatted = format_relative_time(row["Timestamp"])
         st.markdown(f"""
 <div style="
-background-color: {bg_color};
-border-left: 4px solid {color};
-padding: 12px;
-margin: 10px 0;
-border-radius: 8px;
-box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    background-color: {bg_color};
+    border-left: 4px solid {color};
+    padding: 12px;
+    margin: 10px 0;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 ">
 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
 <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
@@ -1766,20 +1766,20 @@ def page_my_profile(user):
                 st.image(photo_path, width=150, caption="Your current photo")
             else:
                 st.info("No photo uploaded yet.")
-            uploaded_file = st.file_uploader(
-                "Upload your personal photo (JPG/PNG)",
-                type=["jpg", "jpeg", "png"],
-                key="photo_uploader"
-            )
-            if uploaded_file:
-                if st.button("✅ Save Photo"):
-                    try:
-                        filename = save_employee_photo(emp_code_clean, uploaded_file)
-                        add_notification("", "HR", f"Employee {emp_code_clean} uploaded a new photo.")
-                        st.success(f"Photo saved as: {filename}")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Failed to save photo: {e}")
+        uploaded_file = st.file_uploader(
+            "Upload your personal photo (JPG/PNG)",
+            type=["jpg", "jpeg", "png"],
+            key="photo_uploader"
+        )
+        if uploaded_file:
+            if st.button("✅ Save Photo"):
+                try:
+                    filename = save_employee_photo(emp_code_clean, uploaded_file)
+                    add_notification("", "HR", f"Employee {emp_code_clean} uploaded a new photo.")
+                    st.success(f"Photo saved as: {filename}")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed to save photo: {e}")
     st.markdown("---")
     st.markdown("### 🔐 Change Your Password")
     with st.form("change_password_form"):
@@ -2925,11 +2925,11 @@ with st.sidebar:
             if is_hr:
                 pages = ["Dashboard", "Reports", "HR Manager", "HR Inbox", "Employee Photos", "Ask Employees", "Recruitment", "🎓 Employee Development (HR View)", "Notifications", "Structure", "Salary Monthly", "Salary Report", "Settings"]
             elif is_bum:
-                # ✅ BUM gets Team Leaves + Team Structure
-                pages = ["My Profile", "Team Leaves", "Team Structure", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+                # ✅ BUM gets Team Leaves ONLY (Team Structure removed)
+                pages = ["My Profile", "Team Leaves", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             elif is_am or is_dm:
-                # ✅ AM/DM get Team Structure (but NOT Team Leaves)
-                pages = ["My Profile", "Team Structure", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+                # ✅ AM/DM gets NO Team Structure or Team Leaves
+                pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             elif is_mr:
                 # ✅ MR gets Notify Compliance + IDB + Self Development
                 pages = ["My Profile", "🚀 IDB – Individual Development Blueprint", "🌱 Self Development", "Notify Compliance", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
@@ -3026,11 +3026,6 @@ else:
             page_reports(user)
         elif current_page == "HR Manager":
             page_hr_manager(user)
-        elif current_page == "Team Structure":
-            if is_bum or is_am or is_dm:
-                page_my_team(user, role=title_val)
-            else:
-                st.error("Access denied. BUM, AM, or DM only.")
         elif current_page == "HR Inbox":
             if is_hr:
                 page_hr_inbox(user)
