@@ -6,3 +6,4 @@ requests
 plotly
 bcrypt
 cryptography
+mysql-connector
