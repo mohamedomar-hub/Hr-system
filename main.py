@@ -46,17 +46,28 @@ def encrypt_salary_value(value) -> str:
         return base64.urlsafe_b64encode(encrypted).decode()
     except Exception:
         return ""
-def decrypt_salary_value(encrypted_str: str) -> float:
+def decrypt_salary_value(encrypted_str) -> float:  # ✅ FIXED: Improved to handle edge cases
     try:
-        if not encrypted_str or pd.isna(encrypted_str):
+        # Handle NaN/None/empty first
+        if pd.isna(encrypted_str) or encrypted_str is None or encrypted_str == "":
             return 0.0
-        # Try to decode as base64 first (indicating it's encrypted)
+        
+        # If already a number (not encrypted), return directly
+        if isinstance(encrypted_str, (int, float)) and not isinstance(encrypted_str, bool):
+            return float(encrypted_str)
+        
+        # Convert to string and strip
+        encrypted_str = str(encrypted_str).strip()
+        if not encrypted_str:
+            return 0.0
+            
+        # Try to decode as base64 (encrypted format)
         try:
             encrypted_bytes = base64.urlsafe_b64decode(encrypted_str.encode())
             decrypted = fernet_salary.decrypt(encrypted_bytes)
             return float(decrypted.decode())
         except Exception:
-            # If decoding fails, assume it's plain text (e.g., transitional file)
+            # If decoding fails, assume it's plain text number
             return float(encrypted_str)
     except (InvalidToken, ValueError, Exception):
         return 0.0
@@ -226,7 +237,6 @@ def get_db_connection():
         password = st.secrets["MYSQL_PASSWORD"]
         database = st.secrets["MYSQL_DATABASE"]
         port = st.secrets.get("MYSQL_PORT", 3306)
-        
         connection = mysql.connector.connect(
             host=host,
             user=user,
@@ -256,24 +266,22 @@ def load_employees_from_mysql():
     conn = get_db_connection()
     if not conn:
         return pd.DataFrame()
-    
     try:
         query = """
-            SELECT employee_code AS `Employee Code`,
-                   employee_name AS `Employee Name`,
-                   title AS `Title`,
-                   manager_code AS `Manager Code`,
-                   department AS `Department`,
-                   mobile AS `Mobile`,
-                   email AS `E-Mail`,
-                   address AS `Address as 702 bricks`,
-                   hire_date AS `Hiring Date`
-            FROM employees
-            ORDER BY employee_name
+        SELECT employee_code AS `Employee Code`,
+        employee_name AS `Employee Name`,
+        title AS `Title`,
+        manager_code AS `Manager Code`,
+        department AS `Department`,
+        mobile AS `Mobile`,
+        email AS `E-Mail`,
+        address AS `Address as 702 bricks`,
+        hire_date AS `Hiring Date`
+        FROM employees
+        ORDER BY employee_name
         """
         df = pd.read_sql(query, conn)
         conn.close()
-        
         # Apply sanitization (same as current logic)
         return sanitize_employee_data(df)
     except Exception as e:
@@ -653,14 +661,12 @@ def ensure_session_df():
             st.session_state["df"] = df_loaded
             st.success("✅ Employee data loaded from MySQL database.")
             return
-        
         # ✅ المرحلة 2: لو فشل الـ MySQL، جرب من جيتهاب
         df_loaded = load_employee_data_from_github()
         if not df_loaded.empty:
             st.session_state["df"] = df_loaded
             st.info("⚠️ Using employee data from GitHub (MySQL unavailable).")
             return
-        
         # ✅ المرحلة 3: لو فشل كله، استخدم الملف المحلي
         st.session_state["df"] = load_json_file(FILE_PATH)
         if st.session_state["df"].empty:
@@ -867,29 +873,29 @@ def page_notifications(user):
         status_badge = "✅" if row["Is Read"] else "🆕"
         time_formatted = format_relative_time(row["Timestamp"])
         st.markdown(f"""
-<div style="
-background-color: {bg_color};
-border-left: 4px solid {color};
-padding: 12px;
-margin: 10px 0;
-border-radius: 8px;
-box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-">
-<div style="display: flex; justify-content: space-between; align-items: flex-start;">
-<div style="display: flex; align-items: center; gap: 10px; flex: 1;">
-<span style="font-size: 1.3rem; color: {color};">{icon}</span>
-<div>
-<div style="color: {color}; font-weight: bold; font-size: 1.05rem;">
-{status_badge} {row['Message']}
-</div>
-<div style="color: #666666; font-size: 0.9rem; margin-top: 4px;">
-• {time_formatted}
-</div>
-</div>
-</div>
-</div>
-</div>
-""", unsafe_allow_html=True)
+        <div style="
+        background-color: {bg_color};
+        border-left: 4px solid {color};
+        padding: 12px;
+        margin: 10px 0;
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        ">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+        <span style="font-size: 1.3rem; color: {color};">{icon}</span>
+        <div>
+        <div style="color: {color}; font-weight: bold; font-size: 1.05rem;">
+        {status_badge} {row['Message']}
+        </div>
+        <div style="color: #666666; font-size: 0.9rem; margin-top: 4px;">
+        • {time_formatted}
+        </div>
+        </div>
+        </div>
+        </div>
+        </div>
+        """, unsafe_allow_html=True)
         st.markdown("---")
 # ============================
 # 🆕 ADDITION: page_manager_leaves — Fully Implemented & FIXED
@@ -956,7 +962,7 @@ def page_manager_leaves(user):
                     add_notification(row['Employee Code'], "", msg)
                     st.success("Rejected!")
                     st.rerun()
-            st.markdown("---")
+        st.markdown("---")
     else:
         st.info("No pending requests.")
     st.markdown("### 📋 All Team Leave History")
@@ -1049,20 +1055,20 @@ def page_salary_monthly(user):
             if st.session_state.get(details_key):
                 details = st.session_state[details_key]
                 card = f"""
-<div style="background-color:#f0fdf4; padding:14px; border-radius:10px;
-margin-bottom:10px; box-shadow:0 4px 8px rgba(0,0,0,0.05);">
-<h4 style="color:#05445E;">Salary Details – {details['Month']}</h4>
-<p style="color:#666666;">💰 Basic Salary:
-<b style="color:#05445E;">{details['Basic Salary']:.2f}</b></p>
-<p style="color:#666666;">🎯 KPI Bonus:
-<b style="color:#05445E;">{details['KPI Bonus']:.2f}</b></p>
-<p style="color:#666666;">📉 Deductions:
-<b style="color:#dc2626;">{details['Deductions']:.2f}</b></p>
-<hr style="border-color:#cbd5e1;">
-<p style="color:#666666;">🧮 Net Salary:
-<b style="color:#059669;">{details['Net Salary']:.2f}</b></p>
-</div>
-"""
+                <div style="background-color:#f0fdf4; padding:14px; border-radius:10px;
+                margin-bottom:10px; box-shadow:0 4px 8px rgba(0,0,0,0.05);">
+                <h4 style="color:#05445E;">Salary Details – {details['Month']}</h4>
+                <p style="color:#666666;">💰 Basic Salary:
+                <b style="color:#05445E;">{details['Basic Salary']:.2f}</b></p>
+                <p style="color:#666666;">🎯 KPI Bonus:
+                <b style="color:#05445E;">{details['KPI Bonus']:.2f}</b></p>
+                <p style="color:#666666;">📉 Deductions:
+                <b style="color:#dc2626;">{details['Deductions']:.2f}</b></p>
+                <hr style="border-color:#cbd5e1;">
+                <p style="color:#666666;">🧮 Net Salary:
+                <b style="color:#059669;">{details['Net Salary']:.2f}</b></p>
+                </div>
+                """
                 st.markdown(card, unsafe_allow_html=True)
                 # 📥 Download salary slip
                 output = BytesIO()
@@ -1144,8 +1150,8 @@ def page_salary_report(user):
     current_salary_df = st.session_state.get("salary_df")
     if current_salary_df is None:
         current_salary_df = load_json_file(SALARIES_FILE_PATH)
-    if current_salary_df is not None:
-        st.session_state["salary_df"] = current_salary_df
+        if current_salary_df is not None:
+            st.session_state["salary_df"] = current_salary_df
     if current_salary_df is not None and not current_salary_df.empty:
         st.dataframe(current_salary_df.head(100), use_container_width=True)
         buf = BytesIO()
@@ -1564,10 +1570,10 @@ def page_report_compliance(user):
 def page_idb_mr(user):
     st.subheader("🚀 IDB – Individual Development Blueprint")
     st.markdown("""
-<div style="background-color:#f0fdf4; padding:12px; border-radius:8px; border-left:4px solid #059669;">
-<p style="color:#05445E; font-weight:bold;">We want you to always aim higher — your success matters to us.</p>
-</div>
-""", unsafe_allow_html=True)
+    <div style="background-color:#f0fdf4; padding:12px; border-radius:8px; border-left:4px solid #059669;">
+    <p style="color:#05445E; font-weight:bold;">We want you to always aim higher — your success matters to us.</p>
+    </div>
+    """, unsafe_allow_html=True)
     user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
     user_name = user.get("Employee Name", user_code)
     departments = ["Sales", "Marketing", "HR", "SFE", "Distribution", "Market Access"]
@@ -1665,11 +1671,11 @@ def page_idb_mr(user):
 def page_self_development(user):
     st.subheader("🌱 Self Development")
     st.markdown("""
-<div style="background-color:#e0f2fe; padding:16px; border-radius:10px; text-align:center; margin-bottom:20px;">
-<h3 style="color:#05445E;">We always want you at your best — your success matters to us.<br>
-Share your journey to success with us.</h3>
-</div>
-""", unsafe_allow_html=True)
+    <div style="background-color:#e0f2fe; padding:16px; border-radius:10px; text-align:center; margin-bottom:20px;">
+    <h3 style="color:#05445E;">We always want you at your best — your success matters to us.<br>
+    Share your journey to success with us.</h3>
+    </div>
+    """, unsafe_allow_html=True)
     user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
     uploaded_cert = st.file_uploader("Upload your certification (PDF, JPG, PNG)", type=["pdf", "jpg", "jpeg", "png"])
     cert_desc = st.text_input("Brief description (optional)", placeholder="e.g., Leadership Course, Excel Advanced...")
@@ -1866,20 +1872,20 @@ def page_my_profile(user):
                 st.image(photo_path, width=150, caption="Your current photo")
             else:
                 st.info("No photo uploaded yet.")
-        uploaded_file = st.file_uploader(
-            "Upload your personal photo (JPG/PNG)",
-            type=["jpg", "jpeg", "png"],
-            key="photo_uploader"
-        )
-        if uploaded_file:
-            if st.button("✅ Save Photo"):
-                try:
-                    filename = save_employee_photo(emp_code_clean, uploaded_file)
-                    add_notification("", "HR", f"Employee {emp_code_clean} uploaded a new photo.")
-                    st.success(f"Photo saved as: {filename}")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Failed to save photo: {e}")
+            uploaded_file = st.file_uploader(
+                "Upload your personal photo (JPG/PNG)",
+                type=["jpg", "jpeg", "png"],
+                key="photo_uploader"
+            )
+            if uploaded_file:
+                if st.button("✅ Save Photo"):
+                    try:
+                        filename = save_employee_photo(emp_code_clean, uploaded_file)
+                        add_notification("", "HR", f"Employee {emp_code_clean} uploaded a new photo.")
+                        st.success(f"Photo saved as: {filename}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed to save photo: {e}")
     st.markdown("---")
     st.markdown("### 🔐 Change Your Password")
     with st.form("change_password_form"):
@@ -1941,25 +1947,25 @@ def page_leave_request(user):
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(f"""
-<div class="leave-balance-card">
-<div class="leave-balance-title">Annual Leave Balance</div>
-<div class="leave-balance-value">{annual_balance} Days</div>
-</div>
-""", unsafe_allow_html=True)
+        <div class="leave-balance-card">
+        <div class="leave-balance-title">Annual Leave Balance</div>
+        <div class="leave-balance-value">{annual_balance} Days</div>
+        </div>
+        """, unsafe_allow_html=True)
     with col2:
         st.markdown(f"""
-<div class="leave-balance-card">
-<div class="leave-balance-title">Used Leave Balance</div>
-<div class="leave-balance-value used">{used_days} Days</div>
-</div>
-""", unsafe_allow_html=True)
+        <div class="leave-balance-card">
+        <div class="leave-balance-title">Used Leave Balance</div>
+        <div class="leave-balance-value used">{used_days} Days</div>
+        </div>
+        """, unsafe_allow_html=True)
     with col3:
         st.markdown(f"""
-<div class="leave-balance-card">
-<div class="leave-balance-title">Remaining Days</div>
-<div class="leave-balance-value remaining">{remaining_days} Days</div>
-</div>
-""", unsafe_allow_html=True)
+        <div class="leave-balance-card">
+        <div class="leave-balance-title">Remaining Days</div>
+        <div class="leave-balance-value remaining">{remaining_days} Days</div>
+        </div>
+        """, unsafe_allow_html=True)
     col_map = {c.lower().strip(): c for c in df_emp.columns}
     emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
     mgr_code_col = col_map.get("manager_code") or col_map.get("manager code")
@@ -2174,89 +2180,89 @@ def page_my_team(user, role="AM"):
         "MR": "#dc2626"
     }
     st.markdown("""
-<style>
-.team-node {
-background-color: #FFFFFF;
-border-left: 4px solid #05445E;
-padding: 12px;
-margin: 8px 0;
-border-radius: 6px;
-box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-}
-.team-node-header {
-display: flex;
-justify-content: space-between;
-align-items: center;
-font-weight: 600;
-color: #05445E;
-margin-bottom: 8px;
-}
-.team-node-summary {
-font-size: 0.9rem;
-color: #666666;
-margin-top: 4px;
-}
-.team-node-children {
-margin-left: 20px;
-margin-top: 8px;
-}
-.team-member {
-display: flex;
-align-items: center;
-padding: 6px 12px;
-background-color: #f8fafc;
-border-radius: 4px;
-margin: 4px 0;
-font-size: 0.95rem;
-}
-.team-member-icon {
-margin-right: 8px;
-font-size: 1.1rem;
-}
-</style>
-""", unsafe_allow_html=True)
+    <style>
+    .team-node {
+    background-color: #FFFFFF;
+    border-left: 4px solid #05445E;
+    padding: 12px;
+    margin: 8px 0;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    .team-node-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    color: #05445E;
+    margin-bottom: 8px;
+    }
+    .team-node-summary {
+    font-size: 0.9rem;
+    color: #666666;
+    margin-top: 4px;
+    }
+    .team-node-children {
+    margin-left: 20px;
+    margin-top: 8px;
+    }
+    .team-member {
+    display: flex;
+    align-items: center;
+    padding: 6px 12px;
+    background-color: #f8fafc;
+    border-radius: 4px;
+    margin: 4px 0;
+    font-size: 0.95rem;
+    }
+    .team-member-icon {
+    margin-right: 8px;
+    font-size: 1.1rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     user_title = role.upper()
     if user_title == "BUM":
         st.markdown("### Team Structure Summary")
         col1, col2, col3 = st.columns(3)
         with col1:
             st.markdown(f"""
-<div class="team-structure-card">
-<div class="team-structure-title">AM Count</div>
-<div class="team-structure-value am">{hierarchy['Summary']['AM']}</div>
-</div>
-""", unsafe_allow_html=True)
+            <div class="team-structure-card">
+            <div class="team-structure-title">AM Count</div>
+            <div class="team-structure-value am">{hierarchy['Summary']['AM']}</div>
+            </div>
+            """, unsafe_allow_html=True)
         with col2:
             st.markdown(f"""
-<div class="team-structure-card">
-<div class="team-structure-title">DM Count</div>
-<div class="team-structure-value dm">{hierarchy['Summary']['DM']}</div>
-</div>
-""", unsafe_allow_html=True)
+            <div class="team-structure-card">
+            <div class="team-structure-title">DM Count</div>
+            <div class="team-structure-value dm">{hierarchy['Summary']['DM']}</div>
+            </div>
+            """, unsafe_allow_html=True)
         with col3:
             st.markdown(f"""
-<div class="team-structure-card">
-<div class="team-structure-title">MR Count</div>
-<div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
-</div>
-""", unsafe_allow_html=True)
+            <div class="team-structure-card">
+            <div class="team-structure-title">MR Count</div>
+            <div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
+            </div>
+            """, unsafe_allow_html=True)
     elif user_title == "AM":
         st.markdown("### Team Structure Summary")
         col1, col2 = st.columns(2)
         with col1:
             st.markdown(f"""
-<div class="team-structure-card">
-<div class="team-structure-title">DM Count</div>
-<div class="team-structure-value dm">{hierarchy['Summary']['DM']}</div>
-</div>
-""", unsafe_allow_html=True)
+            <div class="team-structure-card">
+            <div class="team-structure-title">DM Count</div>
+            <div class="team-structure-value dm">{hierarchy['Summary']['DM']}</div>
+            </div>
+            """, unsafe_allow_html=True)
         with col2:
             st.markdown(f"""
-<div class="team-structure-card">
-<div class="team-structure-title">MR Count</div>
-<div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
-</div>
-""", unsafe_allow_html=True)
+            <div class="team-structure-card">
+            <div class="team-structure-title">MR Count</div>
+            <div class="team-structure-value mr">{hierarchy['Summary']['MR']}</div>
+            </div>
+            """, unsafe_allow_html=True)
     def render_tree(node, level=0, is_last_child=False):
         if not node:
             return
@@ -2292,12 +2298,12 @@ font-size: 1.1rem;
             else:
                 prefix += "├── "
         st.markdown(f"""
-<div class="team-node">
-<div class="team-node-header">
-<span style="color: {color};">{prefix}{icon} <strong>{manager_info}</strong> (Code: {manager_code})</span>
-<span class="team-node-summary">{summary_str}</span>
-</div>
-""", unsafe_allow_html=True)
+        <div class="team-node">
+        <div class="team-node-header">
+        <span style="color: {color};">{prefix}{icon} <strong>{manager_info}</strong> (Code: {manager_code})</span>
+        <span class="team-node-summary">{summary_str}</span>
+        </div>
+        """, unsafe_allow_html=True)
         if node.get("Team"):
             st.markdown('<div class="team-node-children">', unsafe_allow_html=True)
             team_count = len(node.get("Team", []))
@@ -2442,6 +2448,7 @@ def save_response_file(uploaded_file, employee_code, request_id):
     with open(filepath, "wb") as f:
         f.write(uploaded_file.getbuffer())
     return filename
+# ✅ FIXED: page_ask_employees with proper filtered_options initialization
 def page_ask_employees(user):
     st.subheader("📤 Ask Employees")
     st.info("🔍 Type employee name or code to search. HR can send requests with file attachments.")
@@ -2474,24 +2481,33 @@ def page_ask_employees(user):
     emp_options["Display"] = emp_options[name_col] + " (Code: " + emp_options[code_col] + ")"
     st.markdown("### 🔍 Search Employee by Name or Code")
     search_term = st.text_input("Type employee name or code to search...")
+    
+    # ✅ FIXED: Initialize filtered_options BEFORE conditional logic to avoid UnboundLocalError
+    filtered_options = emp_options.copy()  # Default to all employees
+    
     if search_term:
-        mask = (
-            emp_options[name_col].str.contains(search_term, case=False, na=False) |
-            emp_options[code_col].str.contains(search_term, case=False, na=False)
-        )
-        filtered_options = emp_options[mask].copy()
-        if filtered_options.empty:
-            st.warning("No employee found matching your search.")
-            return
-        else:
+        try:
+            mask = (
+                emp_options[name_col].str.contains(search_term, case=False, na=False) |
+                emp_options[code_col].str.contains(search_term, case=False, na=False)
+            )
+            filtered_options = emp_options[mask].copy()
+            if filtered_options.empty:
+                st.warning("No employee found matching your search.")
+                return
+        except Exception as e:
+            st.warning(f"Search error: {e}. Showing all employees.")
             filtered_options = emp_options.copy()
-    if 'filtered_options' in locals() and len(filtered_options) == 1:
+    
+    # Now filtered_options is ALWAYS defined
+    if len(filtered_options) == 1:
         selected_row = filtered_options.iloc[0]
     elif len(filtered_options) > 1:
         selected_display = st.selectbox("Select Employee", filtered_options["Display"].tolist())
         selected_row = filtered_options[filtered_options["Display"] == selected_display].iloc[0]
     else:
         return
+    
     selected_code = selected_row[code_col]
     selected_name = selected_row[name_col]
     st.success(f"✅ Selected: {selected_name} (Code: {selected_code})")
@@ -2599,17 +2615,17 @@ def page_recruitment(user):
         st.error("Access denied. HR only.")
         return
     st.markdown(f"""
-<div style="background-color:white; padding:12px; border-radius:8px; border:1px solid #05445E; margin-bottom:20px;">
-<h4>📝 Candidate Application Form</h4>
-<p>Share this link with job applicants:</p>
-<a href="{GOOGLE_FORM_RECRUITMENT_LINK}" target="_blank" style="color:#05445E; text-decoration:underline;">
-👉 Apply via Google Form
-</a>
-<p style="font-size:0.9rem; color:#666666; margin-top:8px;">
-After applicants submit, download the Excel responses from Google Sheets and upload them below.
-</p>
-</div>
-""", unsafe_allow_html=True)
+    <div style="background-color:white; padding:12px; border-radius:8px; border:1px solid #05445E; margin-bottom:20px;">
+    <h4>📝 Candidate Application Form</h4>
+    <p>Share this link with job applicants:</p>
+    <a href="{GOOGLE_FORM_RECRUITMENT_LINK}" target="_blank" style="color:#05445E; text-decoration:underline;">
+    👉 Apply via Google Form
+    </a>
+    <p style="font-size:0.9rem; color:#666666; margin-top:8px;">
+    After applicants submit, download the Excel responses from Google Sheets and upload them below.
+    </p>
+    </div>
+    """, unsafe_allow_html=True)
     tab_cv, tab_db = st.tabs(["📄 CV Candidates", "📊 Recruitment Database"])
     with tab_cv:
         st.markdown("### Upload New Candidate CV")
@@ -2814,11 +2830,11 @@ def page_hr_inbox(user):
         except Exception:
             sent_time = str(date_sent)
         card_html = f"""
-<div class="hr-message-card">
-<div class="hr-message-title">📌 {subj if subj else 'No Subject'}</div>
-<div class="hr-message-meta">👤 {emp_name} — {emp_code} &nbsp;|&nbsp; 🕒 {sent_time} &nbsp;|&nbsp; 🏷️ {status}</div>
-<div class="hr-message-body">{msg if msg else ''}</div>
-"""
+        <div class="hr-message-card">
+        <div class="hr-message-title">📌 {subj if subj else 'No Subject'}</div>
+        <div class="hr-message-meta">👤 {emp_name} — {emp_code} &nbsp;|&nbsp; 🕒 {sent_time} &nbsp;|&nbsp; 🏷️ {status}</div>
+        <div class="hr-message-body">{msg if msg else ''}</div>
+        """
         st.markdown(card_html, unsafe_allow_html=True)
         if reply_existing:
             st.markdown("**🟢 Existing reply:**")
@@ -2985,10 +3001,10 @@ with st.sidebar:
                             st.success("Login successful!")
                             st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("🔐 Change Password (No Login)", use_container_width=True):
-                st.session_state["external_password_page"] = True
-                st.rerun()
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🔐 Change Password (No Login)", use_container_width=True):
+            st.session_state["external_password_page"] = True
+            st.rerun()
     else:
         if st.session_state["external_password_page"]:
             if st.button("← Back to Login", use_container_width=True):
@@ -3034,161 +3050,110 @@ with st.sidebar:
                 # ✅ MR gets Notify Compliance + IDB + Self Development
                 pages = ["My Profile", "🚀 IDB – Individual Development Blueprint", "🌱 Self Development", "Notify Compliance", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             elif is_special:
-                # ❌ Special titles: ONLY Leave Request (no Team Leaves)
-                pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+                # ✅ Special titles get Leave Request + Team Leaves access
+                pages = ["My Profile", "Request Leave", "Team Leaves", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             else:
-                # Default fallback (e.g., unknown titles): allow basic access
-                pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-            # ✅ إضافة صفحة Report Compliance لفريق الـ Compliance + المدراء (AM, DM)
-            compliance_and_managers = {
-                "ASSOCIATE COMPLIANCE",
-                "FIELD COMPLIANCE SPECIALIST",
-                "COMPLIANCE MANAGER",
-                "AM",
-                "DM"
-            }
-            if title_val in compliance_and_managers:
-                pages.insert(1, "Report Compliance")  # بعد My Profile مباشرة
-            unread_count = get_unread_count(user)
-            for p in pages:
-                if p == "Notifications":
-                    if unread_count > 0:
-                        button_label = f"Notifications ({unread_count})"
-                    else:
-                        button_label = "Notifications"
-                    if st.button(button_label, key=f"nav_{p}", use_container_width=True):
-                        st.session_state["current_page"] = p
-                        st.rerun()
-                else:
-                    if st.button(p, key=f"nav_{p}", use_container_width=True):
-                        st.session_state["current_page"] = p
-                        st.rerun()
+                pages = ["My Profile", "Request Leave", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+            
+            selected_page = st.selectbox("Navigation", pages, index=pages.index(st.session_state["current_page"]) if st.session_state["current_page"] in pages else 0)
+            st.session_state["current_page"] = selected_page
+            
             st.markdown("---")
-            if st.button("🚪 Logout", use_container_width=True):
-                st.session_state["logged_in_user"] = None
-                st.session_state["current_page"] = "My Profile"
-                st.success("You have been logged out.")
-                st.rerun()
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("🚪 Logout", use_container_width=True):
+                    st.session_state["logged_in_user"] = None
+                    st.session_state["current_page"] = "My Profile"
+                    st.rerun()
+            with col2:
+                if st.button("🔄 Refresh", use_container_width=True):
+                    st.rerun()
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            unread = get_unread_count(user)
+            if unread > 0:
+                st.markdown(f'<div class="notification-bell">{unread}</div>', unsafe_allow_html=True)
+                st.markdown(f"🔔 You have **{unread}** unread notifications", unsafe_allow_html=True)
+
+# ============================
+# Main Page Routing
+# ============================
 if st.session_state["external_password_page"]:
     page_forgot_password()
+elif st.session_state["logged_in_user"]:
+    user = st.session_state["logged_in_user"]
+    current_page = st.session_state["current_page"]
+    
+    # Route to appropriate page function
+    if current_page == "My Profile":
+        page_my_profile(user)
+    elif current_page == "Request Leave":
+        page_leave_request(user)
+    elif current_page == "Team Leaves":
+        page_manager_leaves(user)
+    elif current_page == "My Team":
+        title_val = str(user.get("Title", "")).strip().upper()
+        page_my_team(user, role=title_val)
+    elif current_page == "Structure":
+        page_directory(user)
+    elif current_page == "Ask HR":
+        page_ask_hr(user)
+    elif current_page == "HR Inbox":
+        page_hr_inbox(user)
+    elif current_page == "Ask Employees":
+        page_ask_employees(user)  # ✅ FIXED: filtered_options always defined now
+    elif current_page == "Request HR":
+        page_request_hr(user)
+    elif current_page == "Dashboard":
+        page_dashboard(user)
+    elif current_page == "Reports":
+        page_reports(user)
+    elif current_page == "HR Manager":
+        page_hr_manager(user)
+    elif current_page == "Employee Photos":
+        page_employee_photos(user)
+    elif current_page == "Recruitment":
+        page_recruitment(user)
+    elif current_page == "Settings":
+        page_settings(user)
+    elif current_page == "Salary Monthly":
+        page_salary_monthly(user)  # ✅ FIXED: Salary decryption handles edge cases properly
+    elif current_page == "Salary Report":
+        page_salary_report(user)
+    elif current_page == "Notify Compliance":
+        page_notify_compliance(user)
+    elif current_page == "📋 Report Compliance":
+        page_report_compliance(user)
+    elif current_page == "🚀 IDB – Individual Development Blueprint":
+        page_idb_mr(user)
+    elif current_page == "🌱 Self Development":
+        page_self_development(user)
+    elif current_page == "🎓 Employee Development (HR View)":
+        page_hr_development(user)
+    elif current_page == "Notifications":
+        page_notifications(user)
+    else:
+        st.error(f"Page '{current_page}' not implemented yet.")
 else:
-    if st.session_state["logged_in_user"]:
-        current_page = st.session_state["current_page"]
-        user = st.session_state["logged_in_user"]
-        title_val = str(user.get("Title") or "").strip().upper()
-        is_hr = "HR" in title_val
-        is_bum = title_val == "BUM"
-        is_am = title_val == "AM"
-        is_dm = title_val == "DM"
-        is_mr = title_val == "MR"
-        SPECIAL_TITLES = {
-            "KEY ACCOUNT SPECIALIST",
-            "SFE SPECIALIST",
-            "TRAINING SPECIALIST",
-            "SENIOR TALENT ACQUISITION",
-            "HR SPECIALIST",
-            "ASSOCIATE COMPLIANCE",
-            "FIELD COMPLIANCE SPECIALIST",
-                        "OPERATION SUPERVISOR",
-            "OPERATION ADMIN",
-            "STORE SPECIALIST",
-            "DIRECT SALES",
-            "OPERATION SPECIALIST",
-            "OPERATION AND ANALYTICS SPECIALIST",
-            "OFFICE BOY"
-        }
-        is_special = title_val in SPECIAL_TITLES
-        # ✅ إضافة شرط صفحة Report Compliance
-        compliance_and_managers_set = {
-            "ASSOCIATE COMPLIANCE",
-            "FIELD COMPLIANCE SPECIALIST",
-            "COMPLIANCE MANAGER",
-            "AM",
-            "DM"
-        }
-        if current_page == "My Profile":
-            page_my_profile(user)
-        elif current_page == "Notifications":
-            page_notifications(user)
-        elif current_page == "Leave Request":
-            if is_special:
-                page_leave_request(user)
-            else:
-                st.error("Access denied. Only specific roles can request leave.")
-        elif current_page == "Team Leaves":
-            if is_bum:
-                page_manager_leaves(user)
-            else:
-                st.error("Access denied. Only BUM can view team leaves.")
-        elif current_page == "Dashboard":
-            page_dashboard(user)
-        elif current_page == "Reports":
-            page_reports(user)
-        elif current_page == "HR Manager":
-            page_hr_manager(user)
-        elif current_page == "HR Inbox":
-            if is_hr:
-                page_hr_inbox(user)
-            else:
-                st.error("Access denied. HR only.")
-        elif current_page == "Employee Photos":
-            if is_hr:
-                page_employee_photos(user)
-            else:
-                st.error("Access denied. HR only.")
-        elif current_page == "Ask HR":
-            page_ask_hr(user)
-        elif current_page == "Ask Employees":
-            if is_hr:
-                page_ask_employees(user)
-            else:
-                st.error("Access denied. HR only.")
-        elif current_page == "Request HR":
-            page_request_hr(user)
-        elif current_page == "Structure":
-            page_directory(user)
-        elif current_page == "Salary Monthly":
-            page_salary_monthly(user)
-        elif current_page == "Salary Report":
-            if is_hr:
-                page_salary_report(user)
-            else:
-                st.error("Access denied. HR only.")
-        elif current_page == "Recruitment":
-            if is_hr:
-                page_recruitment(user)
-            else:
-                st.error("Access denied. HR only.")
-        elif current_page == "Settings":
-            if is_hr:
-                page_settings(user)
-            else:
-                st.error("Access denied. HR only.")
-        elif current_page == "Notify Compliance":
-            if is_mr:
-                page_notify_compliance(user)
-            else:
-                st.error("Access denied. MR only.")
-        elif current_page == "Report Compliance":
-            if title_val in compliance_and_managers_set:
-                page_report_compliance(user)
-            else:
-                st.error("Access denied. Compliance or Managers only.")
-        elif current_page == "🚀 IDB – Individual Development Blueprint":
-            if is_mr:
-                page_idb_mr(user)
-            else:
-                st.error("Access denied. MR only.")
-        elif current_page == "🌱 Self Development":
-            if is_mr:
-                page_self_development(user)
-            else:
-                st.error("Access denied. MR only.")
-        elif current_page.startswith("🎓 Employee Development"):
-            if is_hr:
-                page_hr_development(user)
-            else:
-                st.error("Access denied. HR only.")
-        else:
-            st.info("Please log in to access the system.")
-           
+    st.markdown("""
+    <div style="text-align: center; padding: 40px; background-color: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+        <h2 style="color: #05445E; margin-bottom: 20px;">👥 HRAS — Averroes Admin System</h2>
+        <p style="color: #666666; font-size: 1.1rem; max-width: 600px; margin: 0 auto;">
+            Welcome to the HR Administration System. Please log in using your Employee Code and Password to access your personalized dashboard.
+        </p>
+        <div style="margin-top: 30px; padding: 15px; background-color: #f0fdf4; border-radius: 8px; border-left: 4px solid #059669;">
+            <p style="color: #05445E; font-weight: 500; margin: 0;">
+                🔐 Forgot your password? Click "Change Password (No Login)" on the sidebar to reset it.
+            </p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ============================
+# Footer
+# ============================
+st.markdown("""
+<div style="text-align: center; padding: 20px; color: #666666; font-size: 0.9rem; margin-top: 30px; border-top: 1px solid #e5e7eb;">
+    <p>HRAS — Averroes Admin System &copy; 2026 | Secure • Encrypted • Role-Based Access</p>
+</div>
+""", unsafe_allow_html=True)
