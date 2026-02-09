@@ -2485,7 +2485,7 @@ def page_ask_employees(user):
             return
         else:
             filtered_options = emp_options.copy()
-    if len(filtered_options) == 1:
+    if 'filtered_options' in locals() and len(filtered_options) == 1:
         selected_row = filtered_options.iloc[0]
     elif len(filtered_options) > 1:
         selected_display = st.selectbox("Select Employee", filtered_options["Display"].tolist())
