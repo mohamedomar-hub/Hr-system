@@ -2788,7 +2788,7 @@ def page_dashboard(user):
                 if GITHUB_TOKEN:
                     st.warning("Saved locally but GitHub push failed.")
                 else:
-                    st.info("Saved locally. GitHub token not configured.")
+                    st.info("Saved locally. GitHub not configured.")
         else:
             st.error("Failed to save dataset locally.")
 def page_reports(user):
@@ -3046,8 +3046,11 @@ with st.sidebar:
             else:
                 pages = ["My Profile", "Request Leave", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             
-            selected_page = st.selectbox("Navigation", pages, index=pages.index(st.session_state["current_page"]) if st.session_state["current_page"] in pages else 0)
-            st.session_state["current_page"] = selected_page
+            # ✅ FIXED: استبدال st.selectbox بأزرار فردية
+            for page in pages:
+                if st.button(page, use_container_width=True, key=f"nav_{page}"):
+                    st.session_state["current_page"] = page
+                    st.rerun()
             
             st.markdown("---")
             col1, col2 = st.columns(2)
