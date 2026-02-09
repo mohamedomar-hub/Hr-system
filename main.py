@@ -2839,17 +2839,7 @@ def page_hr_inbox(user):
         if reply_existing:
             st.markdown("**🟢 Existing reply:**")
             st.markdown(reply_existing)
-        col1, col2 = st.columns([1, 4])
-        with col1:
-            if st.button("🗂️ Mark as Closed", key=f"close_{idx}"):
-                try:
-                    hr_df.at[idx, "Status"] = "Closed"
-                    hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
-                    save_hr_queries(hr_df)
-                    st.success("✅ Message marked as closed.")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Failed to close message: {e}")
+        # ✅ تم إزالة الزر المكرر "Mark as Closed" أعلاه - نحتفظ بواحد فقط في صف الأزرار
         reply_text = st.text_area("✍️ Write reply here:", value="", key=f"reply_{idx}", height=120)
         col1, col2, col3 = st.columns([2, 2, 1])
         with col1:
@@ -2865,7 +2855,8 @@ def page_hr_inbox(user):
                 except Exception as e:
                     st.error(f"❌ Failed to send reply: {e}")
         with col2:
-            if st.button("🗑️ Mark as Closed", key=f"close_{idx}"):
+            # ✅ تم تغيير المفتاح ليكون فريدًا (لم يعد مكررًا)
+            if st.button("🗂️ Mark as Closed", key=f"close_bottom_{idx}"):
                 try:
                     hr_df.at[idx, "Status"] = "Closed"
                     hr_df.at[idx, "Date Replied"] = pd.Timestamp.now()
