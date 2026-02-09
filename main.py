@@ -1,4 +1,4 @@
-# hr_system_with_config_json.py — FULLY CONVERTED TO JSON (NO LINE DELETED)
+# hr_system_with_mysql.py — FULLY CONVERTED TO JSON + MYSQL INTEGRATION (NO LINE DELETED)
 import streamlit as st
 import pandas as pd
 import requests
@@ -10,12 +10,13 @@ import shutil
 import zipfile
 import json
 import bcrypt
-import mysql.connector
-from mysql.connector import Error
 from openpyxl import Workbook  # ✅ إضافة مكتبة openpyxl
 # 🔐 NEW: For salary encryption
 from cryptography.fernet import Fernet, InvalidToken
 import hashlib
+# ✅ إضافة مكتبة الاتصال بـ MySQL (السطر 14)
+import mysql.connector
+from mysql.connector import Error
 # ============================
 # COMPLIANCE MESSAGES FILE PATH
 # ============================
@@ -171,23 +172,6 @@ def load_config():
         st.error(f"Error loading config.json: {e}. Using defaults.")
         return default_config
 CONFIG = load_config()
-    # ============================
-# MySQL Database Connection
-# ============================
-def get_db_connection():
-    try:
-        connection = mysql.connector.connect(
-            host=st.secrets.get("MYSQL_HOST", "localhost"),
-            user=st.secrets.get("MYSQL_USER", "root"),
-            password=st.secrets.get("MYSQL_PASSWORD", ""),
-            database=st.secrets.get("MYSQL_DATABASE", "hr_system"),
-            charset='utf8mb4',
-            collation='utf8mb4_unicode_ci'
-        )
-        return connection
-    except Error as e:
-        st.error(f"MySQL Connection Error: {e}")
-        return None
 # ============================
 # Configuration from CONFIG
 # ============================
@@ -230,7 +214,73 @@ def initialize_passwords_from_data(data_list):
         pwd = str(row.get("Password", "")).strip()
         if emp_code and pwd and emp_code not in hashes:
             hashes[emp_code] = hash_password(pwd)
-    save_password_hashes(hashes)
+            save_password_hashes(hashes)
+# ============================
+# ✅ MySQL Connection Function with Fallback (السطر 250)
+# ============================
+def get_db_connection():
+    try:
+        # ❌ لا تستخدم قيم افتراضية للـ password والـ user
+        host = st.secrets["MYSQL_HOST"]
+        user = st.secrets["MYSQL_USER"]
+        password = st.secrets["MYSQL_PASSWORD"]
+        database = st.secrets["MYSQL_DATABASE"]
+        port = st.secrets.get("MYSQL_PORT", 3306)
+        
+        connection = mysql.connector.connect(
+            host=host,
+            user=user,
+            password=password,
+            database=database,
+            port=port,  # ✅ أضف هذا السطر
+            charset='utf8mb4',
+            collation='utf8mb4_unicode_ci',
+            connect_timeout=3
+        )
+        if connection.is_connected():
+            return connection
+        else:
+            st.warning("⚠️ MySQL connection established but not active. Falling back to JSON files.")
+            return None
+    except KeyError as e:
+        st.error(f"❌ Missing required secret: {str(e)}. Please configure Streamlit Secrets.")
+        st.stop()
+    except Exception as e:
+        st.warning(f"MySQL Connection Failed: {str(e)[:80]}. Using JSON files instead.")
+        return None
+# ============================
+# ✅ Load Employees from MySQL (السطر 280)
+# ============================
+def load_employees_from_mysql():
+    """Load employees from MySQL database with fallback to empty DataFrame"""
+    conn = get_db_connection()
+    if not conn:
+        return pd.DataFrame()
+    
+    try:
+        query = """
+            SELECT employee_code AS `Employee Code`,
+                   employee_name AS `Employee Name`,
+                   title AS `Title`,
+                   manager_code AS `Manager Code`,
+                   department AS `Department`,
+                   mobile AS `Mobile`,
+                   email AS `E-Mail`,
+                   address AS `Address as 702 bricks`,
+                   hire_date AS `Hiring Date`
+            FROM employees
+            ORDER BY employee_name
+        """
+        df = pd.read_sql(query, conn)
+        conn.close()
+        
+        # Apply sanitization (same as current logic)
+        return sanitize_employee_data(df)
+    except Exception as e:
+        st.warning(f"MySQL query failed: {e}. Falling back to JSON files.")
+        if conn:
+            conn.close()
+        return pd.DataFrame()
 # ============================
 # JSON File Helpers (REPLACES EXCEL) — ✅ MODIFIED TO ENCRYPT SALARIES BEFORE SAVING
 # ============================
@@ -282,170 +332,170 @@ updated_css = """
 <style>
 /* ========== COLORS SYSTEM ========== */
 :root {
-    --primary: #05445E;
-    --secondary: #0A5C73;
-    --text-main: #2E2E2E;
-    --text-muted: #6B7280;
-    --card-bg: #FFFFFF;
-    --soft-bg: #F2F6F8;
-    --border-soft: #E5E7EB;
+--primary: #05445E;
+--secondary: #0A5C73;
+--text-main: #2E2E2E;
+--text-muted: #6B7280;
+--card-bg: #FFFFFF;
+--soft-bg: #F2F6F8;
+--border-soft: #E5E7EB;
 }
 /* ========== GENERAL TEXT ========== */
 html, body, p, span, label {
-    color: var(--text-main) !important;
+color: var(--text-main) !important;
 }
 /* ========== HEADERS ========== */
 h1, h2, h3, h4, h5 {
-    color: var(--primary) !important;
-    font-weight: 600;
+color: var(--primary) !important;
+font-weight: 600;
 }
 /* ========== SIDEBAR USER NAME ========== */
 section[data-testid="stSidebar"] h4,
 section[data-testid="stSidebar"] h5,
 section[data-testid="stSidebar"] p {
-    color: #FFFFFF !important;
-    font-weight: 600;
+color: #FFFFFF !important;
+font-weight: 600;
 }
 /* ========== INPUT LABELS ========== */
 label {
-    color: var(--primary) !important;
-    font-weight: 500;
+color: var(--primary) !important;
+font-weight: 500;
 }
 /* ========== CARDS ========== */
 .card {
-    background-color: var(--card-bg);
-    border-radius: 16px;
-    padding: 18px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-    border: 1px solid var(--border-soft);
+background-color: var(--card-bg);
+border-radius: 16px;
+padding: 18px;
+box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+border: 1px solid var(--border-soft);
 }
 /* ========== INFO TEXT (No data, help text) ========== */
 .info-text {
-    color: var(--text-muted) !important;
-    font-size: 14px;
+color: var(--text-muted) !important;
+font-size: 14px;
 }
 /* ========== SECTION HEADER BOX ========== */
 .section-box {
-    background-color: var(--soft-bg);
-    padding: 14px 20px;
-    border-radius: 14px;
-    margin: 25px 0 15px 0;
+background-color: var(--soft-bg);
+padding: 14px 20px;
+border-radius: 14px;
+margin: 25px 0 15px 0;
 }
 /* ========== إضافات ضرورية للوظائف ========== */
 .sidebar-title {
-    font-size: 1.4rem;
-    font-weight: bold;
-    color: var(--primary);
-    text-align: center;
-    margin-bottom: 10px;
+font-size: 1.4rem;
+font-weight: bold;
+color: var(--primary);
+text-align: center;
+margin-bottom: 10px;
 }
 .hr-message-card {
-    background-color: #FFFFFF;
-    border-left: 4px solid var(--primary);
-    padding: 12px;
-    margin: 10px 0;
-    border-radius: 8px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+background-color: #FFFFFF;
+border-left: 4px solid var(--primary);
+padding: 12px;
+margin: 10px 0;
+border-radius: 8px;
+box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 .hr-message-title {
-    color: var(--primary);
-    font-weight: bold;
-    font-size: 1.1rem;
+color: var(--primary);
+font-weight: bold;
+font-size: 1.1rem;
 }
 .hr-message-meta {
-    color: #666666;
-    font-size: 0.9rem;
-    margin: 4px 0;
+color: #666666;
+font-size: 0.9rem;
+margin: 4px 0;
 }
 .hr-message-body {
-    color: var(--text-main) !important;
-    margin-top: 6px;
+color: var(--text-main) !important;
+margin-top: 6px;
 }
 .leave-balance-card,
 .team-structure-card {
-    background-color: #FFFFFF !important;
-    border-radius: 8px;
-    padding: 12px;
-    text-align: center;
-    border: 1px solid #E6E6E6;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+background-color: #FFFFFF !important;
+border-radius: 8px;
+padding: 12px;
+text-align: center;
+border: 1px solid #E6E6E6;
+box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 .leave-balance-title,
 .team-structure-title {
-    color: #666666;
-    font-size: 0.9rem;
+color: #666666;
+font-size: 0.9rem;
 }
 .leave-balance-value,
 .team-structure-value {
-    color: var(--primary);
-    font-size: 1.4rem;
-    font-weight: bold;
-    margin-top: 4px;
+color: var(--primary);
+font-size: 1.4rem;
+font-weight: bold;
+margin-top: 4px;
 }
 .leave-balance-value.used {
-    color: #dc2626;
+color: #dc2626;
 }
 .leave-balance-value.remaining {
-    color: #059669;
+color: #059669;
 }
 .team-structure-value.am { color: var(--primary); }
 .team-structure-value.dm { color: var(--secondary); }
 .team-structure-value.mr { color: #dc2626; }
 .notification-bell {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    background-color: #ef4444;
-    color: white;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-weight: bold;
-    font-size: 0.8rem;
-    z-index: 100;
+position: absolute;
+top: 20px;
+right: 20px;
+background-color: #ef4444;
+color: white;
+width: 24px;
+height: 24px;
+border-radius: 50%;
+display: flex;
+justify-content: center;
+align-items: center;
+font-weight: bold;
+font-size: 0.8rem;
+z-index: 100;
 }
 /* الأزرار */
 .stButton > button {
-    background-color: var(--primary) !important;
-    color: white !important;
-    border: none !important;
-    font-weight: 600;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
+background-color: var(--primary) !important;
+color: white !important;
+border: none !important;
+font-weight: 600;
+padding: 0.5rem 1rem;
+border-radius: 6px;
 }
 .stButton > button:hover {
-    background-color: #dc2626 !important; /* 🔴 RED on hover */
-    color: white !important;
+background-color: #dc2626 !important; /* 🔴 RED on hover */
+color: white !important;
 }
 /* الخلفية العامة */
 [data-testid="stAppViewContainer"] {
-    background-color: #F2F2F2 !important;
+background-color: #F2F2F2 !important;
 }
 /* ضمان وضوح جميع النصوص */
 body, .stApp, .stMarkdown, .stText, .stDataFrame, .stTable, .stSelectbox, .stTextInput, .stDateInput, .stTextArea {
-    color: var(--text-main) !important;
+color: var(--text-main) !important;
 }
 /* تحسين الجداول */
 table, td, th {
-    color: var(--text-main) !important;
-    background-color: #FFFFFF !important;
+color: var(--text-main) !important;
+background-color: #FFFFFF !important;
 }
 /* حقول الإدخال */
 input[type="text"], input[type="password"], input[type="number"], textarea {
-    color: var(--text-main) !important;
-    background-color: #FFFFFF !important;
-    border: 1px solid #E6E6E6 !important;
+color: var(--text-main) !important;
+background-color: #FFFFFF !important;
+border: 1px solid #E6E6E6 !important;
 }
 /* علامات التبويب */
 .stTabs [data-baseweb="tab-list"] button {
-    color: var(--text-main) !important;
+color: var(--text-main) !important;
 }
 .stTabs [data-baseweb="tab-panel"] {
-    color: var(--text-main) !important;
-    background-color: #FFFFFF !important;
+color: var(--text-main) !important;
+background-color: #FFFFFF !important;
 }
 /* إخفاء عناصر Streamlit */
 #MainMenu {visibility: hidden;}
@@ -526,28 +576,20 @@ def github_headers():
     if GITHUB_TOKEN:
         headers["Authorization"] = f"token {GITHUB_TOKEN}"
     return headers
-def load_employees_from_mysql():
-    """Load employees from MySQL instead of GitHub/JSON"""
-    conn = get_db_connection()
-    if not conn:
-        return pd.DataFrame()
-    
+def load_employee_data_from_github():
     try:
-        query = """
-            SELECT employee_code, employee_name, title, manager_code, department, 
-                   mobile, email, address, hire_date, annual_leave_balance
-            FROM employees
-            ORDER BY employee_name
-        """
-        df = pd.read_sql(query, conn)
-        conn.close()
-        
-        # Apply sanitization (same as current logic)
-        return sanitize_employee_data(df)
-    except Error as e:
-        st.error(f"Error loading employees from MySQL: {e}")
-        if conn:
-            conn.close()
+        url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}?ref={BRANCH}"
+        resp = requests.get(url, headers=github_headers(), timeout=30)
+        if resp.status_code == 200:
+            content = resp.json()
+            file_content = base64.b64decode(content["content"])
+            data = json.loads(file_content.decode('utf-8'))
+            df = pd.DataFrame(data)
+            # 🆕 Sanitize immediately after loading from GitHub
+            return sanitize_employee_data(df)
+        else:
+            return pd.DataFrame()
+    except Exception:
         return pd.DataFrame()
 def get_file_sha(filepath):
     try:
@@ -594,17 +636,46 @@ def upload_json_to_github(filepath, data_list, commit_message):
     except Exception:
         return False
 # ============================
-# Helpers
+# ✅ MODIFIED: ensure_session_df with MySQL Fallback (السطر 680)
 # ============================
 def ensure_session_df():
+    """
+    Priority order for loading employee data:
+    1. MySQL Database (if available and connected)
+    2. GitHub (if configured)
+    3. Local JSON file (employees.json)
+    4. Demo data (if all else fails)
+    """
     if "df" not in st.session_state:
-        # ✅ Load from MySQL instead of GitHub/JSON
+        # ✅ المرحلة 1: جرب من قاعدة البيانات أولاً
         df_loaded = load_employees_from_mysql()
         if not df_loaded.empty:
             st.session_state["df"] = df_loaded
-        else:
-            st.session_state["df"] = pd.DataFrame()
-            st.warning("No employee data found in MySQL database.")
+            st.success("✅ Employee data loaded from MySQL database.")
+            return
+        
+        # ✅ المرحلة 2: لو فشل الـ MySQL، جرب من جيتهاب
+        df_loaded = load_employee_data_from_github()
+        if not df_loaded.empty:
+            st.session_state["df"] = df_loaded
+            st.info("⚠️ Using employee data from GitHub (MySQL unavailable).")
+            return
+        
+        # ✅ المرحلة 3: لو فشل كله، استخدم الملف المحلي
+        st.session_state["df"] = load_json_file(FILE_PATH)
+        if st.session_state["df"].empty:
+            # ✅ المرحلة 4: بيانات تجريبية احتياطية
+            st.warning("⚠️ No employee data found. Using demo data for testing.")
+            st.session_state["df"] = pd.DataFrame([{
+                "Employee Code": "1001",
+                "Employee Name": "محمد عمر",
+                "Title": "HR",
+                "Manager Code": "",
+                "Department": "HR",
+                "Mobile": "01000000000",
+                "E-Mail": "mohamed@example.com",
+                "Password": "1234"
+            }])
 # ============================
 # Login & Save Helpers
 # ============================
@@ -797,12 +868,12 @@ def page_notifications(user):
         time_formatted = format_relative_time(row["Timestamp"])
         st.markdown(f"""
 <div style="
-    background-color: {bg_color};
-    border-left: 4px solid {color};
-    padding: 12px;
-    margin: 10px 0;
-    border-radius: 8px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+background-color: {bg_color};
+border-left: 4px solid {color};
+padding: 12px;
+margin: 10px 0;
+border-radius: 8px;
+box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 ">
 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
 <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
@@ -885,7 +956,7 @@ def page_manager_leaves(user):
                     add_notification(row['Employee Code'], "", msg)
                     st.success("Rejected!")
                     st.rerun()
-        st.markdown("---")
+            st.markdown("---")
     else:
         st.info("No pending requests.")
     st.markdown("### 📋 All Team Leave History")
@@ -1010,7 +1081,7 @@ margin-bottom:10px; box-shadow:0 4px 8px rgba(0,0,0,0.05);">
                     del st.session_state[details_key]
                     st.rerun()
     except Exception as e:
-        st.error(f"❌ Error loading salary  {e}")
+        st.error(f"❌ Error loading salary data: {e}")
 # ============================
 # Salary Report Page — Encrypt on Upload
 # ============================
@@ -2105,42 +2176,42 @@ def page_my_team(user, role="AM"):
     st.markdown("""
 <style>
 .team-node {
-    background-color: #FFFFFF;
-    border-left: 4px solid #05445E;
-    padding: 12px;
-    margin: 8px 0;
-    border-radius: 6px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+background-color: #FFFFFF;
+border-left: 4px solid #05445E;
+padding: 12px;
+margin: 8px 0;
+border-radius: 6px;
+box-shadow: 0 2px 6px rgba(0,0,0,0.05);
 }
 .team-node-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-weight: 600;
-    color: #05445E;
-    margin-bottom: 8px;
+display: flex;
+justify-content: space-between;
+align-items: center;
+font-weight: 600;
+color: #05445E;
+margin-bottom: 8px;
 }
 .team-node-summary {
-    font-size: 0.9rem;
-    color: #666666;
-    margin-top: 4px;
+font-size: 0.9rem;
+color: #666666;
+margin-top: 4px;
 }
 .team-node-children {
-    margin-left: 20px;
-    margin-top: 8px;
+margin-left: 20px;
+margin-top: 8px;
 }
 .team-member {
-    display: flex;
-    align-items: center;
-    padding: 6px 12px;
-    background-color: #f8fafc;
-    border-radius: 4px;
-    margin: 4px 0;
-    font-size: 0.95rem;
+display: flex;
+align-items: center;
+padding: 6px 12px;
+background-color: #f8fafc;
+border-radius: 4px;
+margin: 4px 0;
+font-size: 0.95rem;
 }
 .team-member-icon {
-    margin-right: 8px;
-    font-size: 1.1rem;
+margin-right: 8px;
+font-size: 1.1rem;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -2334,7 +2405,7 @@ def save_hr_queries(df):
             for idx in df[df["ID"].isna()].index:
                 existing_max += 1
                 df.at[idx, "ID"] = existing_max
-        df["ID"] = df["ID"].astype(int)
+            df["ID"] = df["ID"].astype(int)
     return save_json_file(df, HR_QUERIES_FILE_PATH)
 def load_hr_requests():
     return load_json_file(HR_REQUESTS_FILE_PATH, default_columns=[
@@ -2353,7 +2424,7 @@ def save_hr_requests(df):
             for idx in df[df["ID"].isna()].index:
                 existing_max += 1
                 df.at[idx, "ID"] = existing_max
-        df["ID"] = df["ID"].astype(int)
+            df["ID"] = df["ID"].astype(int)
     return save_json_file(df, HR_REQUESTS_FILE_PATH)
 def save_request_file(uploaded_file, employee_code, request_id):
     os.makedirs("hr_request_files", exist_ok=True)
@@ -2412,8 +2483,8 @@ def page_ask_employees(user):
         if filtered_options.empty:
             st.warning("No employee found matching your search.")
             return
-    else:
-        filtered_options = emp_options.copy()
+        else:
+            filtered_options = emp_options.copy()
     if len(filtered_options) == 1:
         selected_row = filtered_options.iloc[0]
     elif len(filtered_options) > 1:
@@ -2914,10 +2985,10 @@ with st.sidebar:
                             st.success("Login successful!")
                             st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("🔐 Change Password (No Login)", use_container_width=True):
-            st.session_state["external_password_page"] = True
-            st.rerun()
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("🔐 Change Password (No Login)", use_container_width=True):
+                st.session_state["external_password_page"] = True
+                st.rerun()
     else:
         if st.session_state["external_password_page"]:
             if st.button("← Back to Login", use_container_width=True):
@@ -3018,7 +3089,7 @@ else:
             "HR SPECIALIST",
             "ASSOCIATE COMPLIANCE",
             "FIELD COMPLIANCE SPECIALIST",
-            "OPERATION SUPERVISOR",
+                        "OPERATION SUPERVISOR",
             "OPERATION ADMIN",
             "STORE SPECIALIST",
             "DIRECT SALES",
@@ -3120,3 +3191,4 @@ else:
                 st.error("Access denied. HR only.")
         else:
             st.info("Please log in to access the system.")
+           
