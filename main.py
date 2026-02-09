@@ -2829,17 +2829,18 @@ def page_hr_inbox(user):
             sent_time = pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M')
         except Exception:
             sent_time = str(date_sent)
+        # ✅ FIXED: إغلاق الـ div داخل نفس الكتلة
         card_html = f"""
         <div class="hr-message-card">
-        <div class="hr-message-title">📌 {subj if subj else 'No Subject'}</div>
-        <div class="hr-message-meta">👤 {emp_name} — {emp_code} &nbsp;|&nbsp; 🕒 {sent_time} &nbsp;|&nbsp; 🏷️ {status}</div>
-        <div class="hr-message-body">{msg if msg else ''}</div>
+            <div class="hr-message-title">📌 {subj if subj else 'No Subject'}</div>
+            <div class="hr-message-meta">👤 {emp_name} — {emp_code} &nbsp;|&nbsp; 🕒 {sent_time} &nbsp;|&nbsp; 🏷️ {status}</div>
+            <div class="hr-message-body">{msg if msg else ''}</div>
+        </div>
         """
         st.markdown(card_html, unsafe_allow_html=True)
         if reply_existing:
             st.markdown("**🟢 Existing reply:**")
             st.markdown(reply_existing)
-        # ✅ تم إزالة الزر المكرر "Mark as Closed" أعلاه - نحتفظ بواحد فقط في صف الأزرار
         reply_text = st.text_area("✍️ Write reply here:", value="", key=f"reply_{idx}", height=120)
         col1, col2, col3 = st.columns([2, 2, 1])
         with col1:
@@ -2855,7 +2856,6 @@ def page_hr_inbox(user):
                 except Exception as e:
                     st.error(f"❌ Failed to send reply: {e}")
         with col2:
-            # ✅ تم تغيير المفتاح ليكون فريدًا (لم يعد مكررًا)
             if st.button("🗂️ Mark as Closed", key=f"close_bottom_{idx}"):
                 try:
                     hr_df.at[idx, "Status"] = "Closed"
@@ -2871,7 +2871,6 @@ def page_hr_inbox(user):
                 save_hr_queries(hr_df)
                 st.success("Message deleted!")
                 st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("---")
 def page_ask_hr(user):
     st.subheader("💬 Ask HR")
@@ -2941,13 +2940,20 @@ def page_ask_hr(user):
             sent_time = pd.to_datetime(date_sent).strftime('%d-%m-%Y %H:%M')
         except Exception:
             sent_time = str(date_sent)
-        st.markdown(f"<div class='hr-message-card'><div class='hr-message-title'>{subj}</div><div class='hr-message-meta'>Sent: {sent_time} — Status: {status}</div><div class='hr-message-body'>{msg}</div>", unsafe_allow_html=True)
+        # ✅ FIXED: إغلاق الـ div داخل نفس الكتلة
+        message_html = f"""
+        <div class='hr-message-card'>
+            <div class='hr-message-title'>{subj}</div>
+            <div class='hr-message-meta'>Sent: {sent_time} — Status: {status}</div>
+            <div class='hr-message-body'>{msg}</div>
+        </div>
+        """
+        st.markdown(message_html, unsafe_allow_html=True)
         if pd.notna(reply) and str(reply).strip() != "":
             st.markdown("**🟢 HR Reply:**")
             st.markdown(reply)
         else:
             st.markdown("**🕒 HR Reply:** Pending")
-        st.markdown("</div>")
         st.markdown("---")
 # ============================
 # Main App Flow
