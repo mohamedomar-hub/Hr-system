@@ -1,4 +1,4 @@
-# hr_system_with_mysql.py — FULLY CONVERTED TO JSON + MYSQL INTEGRATION (NO LINE DELETED)
+# hr_system_with_mysql.py — FULLY CONVERTED TO JSON + MYSQL INTEGRATION (FIXED SALARY ENCRYPTION & GITHUB PUSH)
 import streamlit as st
 import pandas as pd
 import requests
@@ -51,16 +51,13 @@ def decrypt_salary_value(encrypted_str) -> float:  # ✅ FIXED: Improved to hand
         # Handle NaN/None/empty first
         if pd.isna(encrypted_str) or encrypted_str is None or encrypted_str == "":
             return 0.0
-        
         # If already a number (not encrypted), return directly
         if isinstance(encrypted_str, (int, float)) and not isinstance(encrypted_str, bool):
             return float(encrypted_str)
-        
         # Convert to string and strip
         encrypted_str = str(encrypted_str).strip()
         if not encrypted_str:
             return 0.0
-            
         # Try to decode as base64 (encrypted format)
         try:
             encrypted_bytes = base64.urlsafe_b64decode(encrypted_str.encode())
@@ -577,7 +574,7 @@ def save_recruitment_cv(uploaded_file):
         f.write(uploaded_file.getbuffer())
     return filename
 # ============================
-# GitHub helpers (JSON version) — ✅ MODIFIED TO SANITIZE + ENCRYPT BEFORE UPLOAD
+# GitHub helpers (JSON version) — ✅ FIXED: REMOVED DOUBLE ENCRYPTION
 # ============================
 def github_headers():
     headers = {"Accept": "application/vnd.github.v3+json"}
@@ -610,38 +607,34 @@ def get_file_sha(filepath):
             return None
     except Exception:
         return None
+# ✅ FIXED: Removed double encryption - data is already encrypted by save_json_file
 def upload_json_to_github(filepath, data_list, commit_message):
     if not GITHUB_TOKEN:
+        st.warning("⚠️ GitHub token not configured. Skipping GitHub push.")
         return False
     try:
-        # 🆕 Sanitize the data BEFORE encryption/upload
-        df_temp = pd.DataFrame(data_list)
-        df_sanitized = sanitize_employee_data(df_temp)
-        data_list_sanitized = df_sanitized.to_dict(orient='records')
-        # 🔒 Encrypt sensitive columns before uploading to GitHub
-        sensitive_cols = ["Basic Salary", "KPI Bonus", "Deductions", "Net Salary"]
-        data_list_copy = [row.copy() for row in data_list_sanitized]
-        for item in data_list_copy:
-            for col in sensitive_cols:
-                if col in item and item[col] is not None:
-                    if isinstance(item[col], str):
-                        try:
-                            base64.urlsafe_b64decode(item[col].encode())
-                            continue
-                        except Exception:
-                            item[col] = encrypt_salary_value(item[col])
-                    else:
-                        item[col] = encrypt_salary_value(item[col])
-        json_content = json.dumps(data_list_copy, ensure_ascii=False, indent=2).encode('utf-8')
+        # 🆕 IMPORTANT: Data is ALREADY encrypted by save_json_file
+        # Do NOT encrypt again here to avoid double encryption (which causes zeros on decrypt)
+        json_content = json.dumps(data_list, ensure_ascii=False, indent=2).encode('utf-8')
         file_content_b64 = base64.b64encode(json_content).decode("utf-8")
+        
         url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{filepath}"
         sha = get_file_sha(filepath)
         payload = {"message": commit_message, "content": file_content_b64, "branch": BRANCH}
         if sha:
             payload["sha"] = sha
+        
         put_resp = requests.put(url, headers=github_headers(), json=payload, timeout=60)
-        return put_resp.status_code in (200, 201)
-    except Exception:
+        
+        # ✅ FIXED: Proper error handling with actual GitHub API response
+        if put_resp.status_code not in (200, 201):
+            error_msg = put_resp.json().get("message", "Unknown error")
+            st.error(f"❌ GitHub API Error ({put_resp.status_code}): {error_msg}")
+            return False
+        
+        return True
+    except Exception as e:
+        st.error(f"❌ Error uploading to GitHub: {str(e)}")
         return False
 # ============================
 # ✅ MODIFIED: ensure_session_df with MySQL Fallback (السطر 680)
@@ -1089,7 +1082,7 @@ def page_salary_monthly(user):
     except Exception as e:
         st.error(f"❌ Error loading salary data: {e}")
 # ============================
-# Salary Report Page — Encrypt on Upload
+# ✅ FIXED: Salary Report Page — NO DOUBLE ENCRYPTION + PROPER GITHUB ERROR HANDLING
 # ============================
 def page_salary_report(user):
     st.subheader("Salary Report")
@@ -1102,49 +1095,84 @@ def page_salary_report(user):
             if not all(col in new_salary_df.columns for col in required_cols):
                 st.error("Missing required columns. Must include: Employee Code, Month, Basic Salary, KPI Bonus, Deductions.")
                 return
-            cols_to_encrypt = ["Basic Salary", "KPI Bonus", "Deductions"]
-            for col in cols_to_encrypt:
-                new_salary_df[col] = new_salary_df[col].apply(encrypt_salary_value)
-            if "Net Salary" in new_salary_df.columns:
-                new_salary_df["Net Salary"] = new_salary_df["Net Salary"].apply(encrypt_salary_value)
+            
+            # ✅ FIXED: DO NOT encrypt here - save_json_file will handle encryption ONCE
+            # Removed manual encryption that caused double encryption
+            
             st.session_state["uploaded_salary_df_preview"] = new_salary_df.copy()
-            st.success("File loaded and encrypted. Preview below (values appear as encrypted strings).")
+            st.success("File loaded successfully. Preview below (values will be encrypted on save).")
             st.dataframe(new_salary_df.head(50), use_container_width=True)
+            
             col1, col2 = st.columns(2)
             with col1:
+                # ✅ FIXED: Save AND push to GitHub on replace
                 if st.button("Replace In-Memory Salary Dataset with Uploaded File"):
-                    save_json_file(new_salary_df, SALARIES_FILE_PATH)
-                    st.session_state["salary_df"] = new_salary_df.copy()
-                    st.success("✅ Salary data encrypted and saved locally.")
+                    # Save locally first (encrypts data)
+                    saved = save_json_file(new_salary_df, SALARIES_FILE_PATH)
+                    if saved:
+                        st.session_state["salary_df"] = new_salary_df.copy()
+                        # Then push to GitHub
+                        pushed_to_github = False
+                        if GITHUB_TOKEN:
+                            data_list = new_salary_df.where(pd.notnull(new_salary_df), None).to_dict(orient='records')
+                            pushed_to_github = upload_json_to_github(
+                                SALARIES_FILE_PATH, 
+                                data_list, 
+                                f"Update salary report via HR by {user.get('Employee Name', 'HR')}"
+                            )
+                        
+                        # Show proper status messages
+                        if pushed_to_github:
+                            st.success("✅ Salary data encrypted, saved locally, AND pushed to GitHub.")
+                        elif GITHUB_TOKEN:
+                            st.warning("⚠️ Saved locally and encrypted, but GitHub push failed. Check error messages above.")
+                        else:
+                            st.info("✅ Saved locally and encrypted. GitHub token not configured.")
+                    else:
+                        st.error("❌ Failed to save locally.")
+            
             with col2:
                 if st.button("Preview only (do not replace)"):
                     st.info("Preview shown above.")
         except Exception as e:
             st.error(f"Failed to process uploaded file: {e}")
+    
     st.markdown("---")
-    st.markdown("### Save & Push Salary Report to GitHub")
+    st.markdown("### Save & Push Current Salary Dataset to GitHub")
+    
+    # ✅ FIXED: Proper save + push button with clear status messages
     if st.button("Save current salary dataset locally and push to GitHub"):
         current_salary_df = st.session_state.get("salary_df")
         if current_salary_df is None:
             current_salary_df = load_json_file(SALARIES_FILE_PATH)
-        if current_salary_df is None:
-            st.error(f"Could not load salary data from {SALARIES_FILE_PATH}. Upload a file first.")
+        
+        if current_salary_df is None or current_salary_df.empty:
+            st.error(f"❌ Could not load salary data from {SALARIES_FILE_PATH}. Upload a file first.")
             return
+        
+        # Save locally first (encrypts data)
         saved = save_json_file(current_salary_df, SALARIES_FILE_PATH)
         pushed_to_github = False
+        
         if saved and GITHUB_TOKEN:
             data_list = current_salary_df.where(pd.notnull(current_salary_df), None).to_dict(orient='records')
-            pushed_to_github = upload_json_to_github(SALARIES_FILE_PATH, data_list, f"Update salary report via HR by {user.get('Employee Name', 'HR')}")
+            pushed_to_github = upload_json_to_github(
+                SALARIES_FILE_PATH, 
+                data_list, 
+                f"Update salary report via HR by {user.get('Employee Name', 'HR')}"
+            )
+        
+        # Show proper status messages
         if saved:
             if pushed_to_github:
-                st.success("✅ Salary data saved and pushed to GitHub.")
+                st.success("✅ Salary data saved locally, encrypted, AND successfully pushed to GitHub.")
+            elif GITHUB_TOKEN:
+                st.warning("⚠️ Saved locally and encrypted, but GitHub push failed. Check error messages above.")
             else:
-                if GITHUB_TOKEN:
-                    st.warning("✅ Saved locally, but GitHub push failed.")
-                else:
-                    st.info("✅ Saved locally. GitHub token not configured.")
+                st.info("✅ Saved locally and encrypted. GitHub token not configured.")
         else:
             st.error("❌ Failed to save locally.")
+    
     st.markdown("---")
     st.markdown("### Current Salary Data (Encrypted View)")
     current_salary_df = st.session_state.get("salary_df")
@@ -1152,6 +1180,7 @@ def page_salary_report(user):
         current_salary_df = load_json_file(SALARIES_FILE_PATH)
         if current_salary_df is not None:
             st.session_state["salary_df"] = current_salary_df
+    
     if current_salary_df is not None and not current_salary_df.empty:
         st.dataframe(current_salary_df.head(100), use_container_width=True)
         buf = BytesIO()
@@ -1872,20 +1901,20 @@ def page_my_profile(user):
                 st.image(photo_path, width=150, caption="Your current photo")
             else:
                 st.info("No photo uploaded yet.")
-            uploaded_file = st.file_uploader(
-                "Upload your personal photo (JPG/PNG)",
-                type=["jpg", "jpeg", "png"],
-                key="photo_uploader"
-            )
-            if uploaded_file:
-                if st.button("✅ Save Photo"):
-                    try:
-                        filename = save_employee_photo(emp_code_clean, uploaded_file)
-                        add_notification("", "HR", f"Employee {emp_code_clean} uploaded a new photo.")
-                        st.success(f"Photo saved as: {filename}")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Failed to save photo: {e}")
+        uploaded_file = st.file_uploader(
+            "Upload your personal photo (JPG/PNG)",
+            type=["jpg", "jpeg", "png"],
+            key="photo_uploader"
+        )
+        if uploaded_file:
+            if st.button("✅ Save Photo"):
+                try:
+                    filename = save_employee_photo(emp_code_clean, uploaded_file)
+                    add_notification("", "HR", f"Employee {emp_code_clean} uploaded a new photo.")
+                    st.success(f"Photo saved as: {filename}")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Failed to save photo: {e}")
     st.markdown("---")
     st.markdown("### 🔐 Change Your Password")
     with st.form("change_password_form"):
@@ -2411,7 +2440,7 @@ def save_hr_queries(df):
             for idx in df[df["ID"].isna()].index:
                 existing_max += 1
                 df.at[idx, "ID"] = existing_max
-            df["ID"] = df["ID"].astype(int)
+        df["ID"] = df["ID"].astype(int)
     return save_json_file(df, HR_QUERIES_FILE_PATH)
 def load_hr_requests():
     return load_json_file(HR_REQUESTS_FILE_PATH, default_columns=[
@@ -2430,7 +2459,7 @@ def save_hr_requests(df):
             for idx in df[df["ID"].isna()].index:
                 existing_max += 1
                 df.at[idx, "ID"] = existing_max
-            df["ID"] = df["ID"].astype(int)
+        df["ID"] = df["ID"].astype(int)
     return save_json_file(df, HR_REQUESTS_FILE_PATH)
 def save_request_file(uploaded_file, employee_code, request_id):
     os.makedirs("hr_request_files", exist_ok=True)
@@ -2481,10 +2510,8 @@ def page_ask_employees(user):
     emp_options["Display"] = emp_options[name_col] + " (Code: " + emp_options[code_col] + ")"
     st.markdown("### 🔍 Search Employee by Name or Code")
     search_term = st.text_input("Type employee name or code to search...")
-    
     # ✅ FIXED: Initialize filtered_options BEFORE conditional logic to avoid UnboundLocalError
     filtered_options = emp_options.copy()  # Default to all employees
-    
     if search_term:
         try:
             mask = (
@@ -2498,7 +2525,6 @@ def page_ask_employees(user):
         except Exception as e:
             st.warning(f"Search error: {e}. Showing all employees.")
             filtered_options = emp_options.copy()
-    
     # Now filtered_options is ALWAYS defined
     if len(filtered_options) == 1:
         selected_row = filtered_options.iloc[0]
@@ -2507,7 +2533,6 @@ def page_ask_employees(user):
         selected_row = filtered_options[filtered_options["Display"] == selected_display].iloc[0]
     else:
         return
-    
     selected_code = selected_row[code_col]
     selected_name = selected_row[name_col]
     st.success(f"✅ Selected: {selected_name} (Code: {selected_code})")
@@ -2832,9 +2857,9 @@ def page_hr_inbox(user):
         # ✅ FIXED: إغلاق الـ div داخل نفس الكتلة
         card_html = f"""
         <div class="hr-message-card">
-            <div class="hr-message-title">📌 {subj if subj else 'No Subject'}</div>
-            <div class="hr-message-meta">👤 {emp_name} — {emp_code} &nbsp;|&nbsp; 🕒 {sent_time} &nbsp;|&nbsp; 🏷️ {status}</div>
-            <div class="hr-message-body">{msg if msg else ''}</div>
+        <div class="hr-message-title">📌 {subj if subj else 'No Subject'}</div>
+        <div class="hr-message-meta">👤 {emp_name} — {emp_code} &nbsp;|&nbsp; 🕒 {sent_time} &nbsp;|&nbsp; 🏷️ {status}</div>
+        <div class="hr-message-body">{msg if msg else ''}</div>
         </div>
         """
         st.markdown(card_html, unsafe_allow_html=True)
@@ -2943,9 +2968,9 @@ def page_ask_hr(user):
         # ✅ FIXED: إغلاق الـ div داخل نفس الكتلة
         message_html = f"""
         <div class='hr-message-card'>
-            <div class='hr-message-title'>{subj}</div>
-            <div class='hr-message-meta'>Sent: {sent_time} — Status: {status}</div>
-            <div class='hr-message-body'>{msg}</div>
+        <div class='hr-message-title'>{subj}</div>
+        <div class='hr-message-meta'>Sent: {sent_time} — Status: {status}</div>
+        <div class='hr-message-body'>{msg}</div>
         </div>
         """
         st.markdown(message_html, unsafe_allow_html=True)
@@ -3040,120 +3065,146 @@ with st.sidebar:
             elif is_bum:
                 # ✅ BUM gets Team Leaves ONLY (Team Structure removed)
                 pages = ["My Profile", "Team Leaves", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-            elif is_am or is_dm:
-                # ✅ AM/DM gets NO Team Structure or Team Leaves
-                pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+            elif is_am:
+                pages = ["My Profile", "My Team", "Team Leaves", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+            elif is_dm:
+                pages = ["My Profile", "My Team", "Team Leaves", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             elif is_mr:
-                # ✅ MR gets Notify Compliance + IDB + Self Development
-                pages = ["My Profile", "🚀 IDB – Individual Development Blueprint", "🌱 Self Development", "Notify Compliance", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+                pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly", "🚀 IDB – Individual Development Blueprint", "🌱 Self Development", "📨 Notify Compliance"]
             elif is_special:
-                # ✅ Special titles get Leave Request + Team Leaves access
-                pages = ["My Profile", "Request Leave", "Team Leaves", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+                # ✅ Special titles get Leave Request (like MR) but NOT Team Leaves
+                pages = ["My Profile", "Leave Request", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             else:
-                pages = ["My Profile", "Request Leave", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
-            
-            # ✅ FIXED: استبدال st.selectbox بأزرار فردية
-            for page in pages:
-                if st.button(page, use_container_width=True, key=f"nav_{page}"):
-                    st.session_state["current_page"] = page
-                    st.rerun()
-            
+                pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
+            st.markdown("### 📱 Navigation")
+            selected_page = st.radio(
+                "Go to",
+                pages,
+                index=pages.index(st.session_state.get("current_page", pages[0])),
+                label_visibility="collapsed"
+            )
+            if selected_page != st.session_state.get("current_page"):
+                st.session_state["current_page"] = selected_page
+                st.rerun()
             st.markdown("---")
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("🚪 Logout", use_container_width=True):
-                    st.session_state["logged_in_user"] = None
-                    st.session_state["current_page"] = "My Profile"
-                    st.rerun()
-            with col2:
-                if st.button("🔄 Refresh", use_container_width=True):
-                    st.rerun()
-            
-            st.markdown("<br>", unsafe_allow_html=True)
             unread = get_unread_count(user)
             if unread > 0:
                 st.markdown(f'<div class="notification-bell">{unread}</div>', unsafe_allow_html=True)
-                st.markdown(f"🔔 You have **{unread}** unread notifications", unsafe_allow_html=True)
-
+            if st.button("🚪 Logout", use_container_width=True):
+                st.session_state["logged_in_user"] = None
+                st.session_state["current_page"] = "My Profile"
+                st.success("Logged out successfully.")
+                st.rerun()
 # ============================
-# Main Page Routing
+# Page Router
 # ============================
 if st.session_state["external_password_page"]:
     page_forgot_password()
-elif st.session_state["logged_in_user"]:
-    user = st.session_state["logged_in_user"]
-    current_page = st.session_state["current_page"]
-    
-    # Route to appropriate page function
-    if current_page == "My Profile":
-        page_my_profile(user)
-    elif current_page == "Request Leave":
-        page_leave_request(user)
-    elif current_page == "Team Leaves":
-        page_manager_leaves(user)
-    elif current_page == "My Team":
-        title_val = str(user.get("Title", "")).strip().upper()
-        page_my_team(user, role=title_val)
-    elif current_page == "Structure":
-        page_directory(user)
-    elif current_page == "Ask HR":
-        page_ask_hr(user)
-    elif current_page == "HR Inbox":
-        page_hr_inbox(user)
-    elif current_page == "Ask Employees":
-        page_ask_employees(user)  # ✅ FIXED: filtered_options always defined now
-    elif current_page == "Request HR":
-        page_request_hr(user)
-    elif current_page == "Dashboard":
-        page_dashboard(user)
-    elif current_page == "Reports":
-        page_reports(user)
-    elif current_page == "HR Manager":
-        page_hr_manager(user)
-    elif current_page == "Employee Photos":
-        page_employee_photos(user)
-    elif current_page == "Recruitment":
-        page_recruitment(user)
-    elif current_page == "Settings":
-        page_settings(user)
-    elif current_page == "Salary Monthly":
-        page_salary_monthly(user)  # ✅ FIXED: Salary decryption handles edge cases properly
-    elif current_page == "Salary Report":
-        page_salary_report(user)
-    elif current_page == "Notify Compliance":
-        page_notify_compliance(user)
-    elif current_page == "📋 Report Compliance":
-        page_report_compliance(user)
-    elif current_page == "🚀 IDB – Individual Development Blueprint":
-        page_idb_mr(user)
-    elif current_page == "🌱 Self Development":
-        page_self_development(user)
-    elif current_page == "🎓 Employee Development (HR View)":
-        page_hr_development(user)
-    elif current_page == "Notifications":
-        page_notifications(user)
-    else:
-        st.error(f"Page '{current_page}' not implemented yet.")
 else:
-    st.markdown("""
-    <div style="text-align: center; padding: 40px; background-color: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
-        <h2 style="color: #05445E; margin-bottom: 20px;">👥 HRAS — Averroes Admin System</h2>
-        <p style="color: #666666; font-size: 1.1rem; max-width: 600px; margin: 0 auto;">
-            Welcome to the HR Administration System. Please log in using your Employee Code and Password to access your personalized dashboard.
-        </p>
-        <div style="margin-top: 30px; padding: 15px; background-color: #f0fdf4; border-radius: 8px; border-left: 4px solid #059669;">
-            <p style="color: #05445E; font-weight: 500; margin: 0;">
-                🔐 Forgot your password? Click "Change Password (No Login)" on the sidebar to reset it.
-            </p>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-# ============================
-# Footer
-# ============================
-st.markdown("""
-<div style="text-align: center; padding: 20px; color: #666666; font-size: 0.9rem; margin-top: 30px; border-top: 1px solid #e5e7eb;">
-    <p>HRAS — Averroes Admin System &copy; 2026 | Secure • Encrypted • Role-Based Access</p>
-</div>
-""", unsafe_allow_html=True)
+    user = st.session_state["logged_in_user"]
+    if not user:
+        st.info("Please login to continue.")
+    else:
+        current_page = st.session_state.get("current_page", "My Profile")
+        title_val = str(user.get("Title") or user.get("title") or "").strip().upper()
+        is_hr = "HR" in title_val
+        is_bum = title_val == "BUM"
+        is_am = title_val == "AM"
+        is_dm = title_val == "DM"
+        is_mr = title_val == "MR"
+        SPECIAL_TITLES = {
+            "KEY ACCOUNT SPECIALIST",
+            "SFE SPECIALIST",
+            "TRAINING SPECIALIST",
+            "SENIOR TALENT ACQUISITION",
+            "HR SPECIALIST",
+            "ASSOCIATE COMPLIANCE",
+            "FIELD COMPLIANCE SPECIALIST",
+            "OPERATION SUPERVISOR",
+            "OPERATION ADMIN",
+            "STORE SPECIALIST",
+            "DIRECT SALES",
+            "OPERATION SPECIALIST",
+            "OPERATION AND ANALYTICS SPECIALIST",
+            "OFFICE BOY"
+        }
+        is_special = title_val in SPECIAL_TITLES
+        if current_page == "Dashboard":
+            page_dashboard(user)
+        elif current_page == "Reports":
+            page_reports(user)
+        elif current_page == "HR Manager":
+            page_hr_manager(user)
+        elif current_page == "HR Inbox":
+            page_hr_inbox(user)
+        elif current_page == "Employee Photos":
+            page_employee_photos(user)
+        elif current_page == "Ask Employees":
+            page_ask_employees(user)
+        elif current_page == "Recruitment":
+            page_recruitment(user)
+        elif current_page == "🎓 Employee Development (HR View)":
+            page_hr_development(user)
+        elif current_page == "Notifications":
+            page_notifications(user)
+        elif current_page == "Structure":
+            page_directory(user)
+        elif current_page == "Salary Monthly":
+            page_salary_monthly(user)
+        elif current_page == "Salary Report":
+            if is_hr:
+                page_salary_report(user)
+            else:
+                st.error("Access denied. HR only.")
+        elif current_page == "Settings":
+            if is_hr:
+                page_settings(user)
+            else:
+                st.error("Access denied. HR only.")
+        elif current_page == "My Profile":
+            page_my_profile(user)
+        elif current_page == "Leave Request":
+            # ✅ Allow both MR and Special titles to access Leave Request
+            if is_mr or is_special:
+                page_leave_request(user)
+            else:
+                st.error("Access denied. MR and Special Titles only.")
+        elif current_page == "My Team":
+            if is_am or is_dm:
+                page_my_team(user, role=title_val)
+            else:
+                st.error("Access denied. AM or DM only.")
+        elif current_page == "Team Leaves":
+            # ✅ BUM, AM, and DM can access Team Leaves
+            if is_bum or is_am or is_dm:
+                page_manager_leaves(user)
+            else:
+                st.error("Access denied. BUM, AM, or DM only.")
+        elif current_page == "Ask HR":
+            page_ask_hr(user)
+        elif current_page == "Request HR":
+            page_request_hr(user)
+        elif current_page == "🚀 IDB – Individual Development Blueprint":
+            if is_mr:
+                page_idb_mr(user)
+            else:
+                st.error("Access denied. MR only.")
+        elif current_page == "🌱 Self Development":
+            if is_mr:
+                page_self_development(user)
+            else:
+                st.error("Access denied. MR only.")
+        elif current_page == "📨 Notify Compliance":
+            if is_mr:
+                page_notify_compliance(user)
+            else:
+                st.error("Access denied. MR only.")
+        elif current_page == "📋 Report Compliance":
+            # ✅ Allow Compliance team and Managers (AM/DM) to view
+            is_compliance = title_val in {"ASSOCIATE COMPLIANCE", "FIELD COMPLIANCE SPECIALIST", "COMPLIANCE MANAGER"}
+            if is_compliance or is_am or is_dm:
+                page_report_compliance(user)
+            else:
+                st.error("Access denied. Compliance team or Managers only.")
+        else:
+            st.info("Page not found or not implemented yet.")
