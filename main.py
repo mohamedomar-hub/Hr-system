@@ -3026,43 +3026,43 @@ with st.sidebar:
                 pages = ["My Profile", "Request Leave", "Team Leaves", "Ask HR", "Request HR", "Structure", "Salary Monthly"]
             else:
                 pages = ["My Profile", "Request Leave", "Ask HR", "Request HR", "Structure", "Salary Monthly"]
-# ✅ FIXED: استبدال st.selectbox بأزرار فردية مع شارات الإشعارات الحمراء
-for page in pages:
-    # التحقق من وجود إشعارات غير مقروءة لهذه الصفحة
-    unread_count = 0
-    notification_pages = [
-        "Ask HR", "Request HR", "HR Inbox", "Ask Employees", 
-        "Team Leaves", "📋 Report Compliance", "🎓 Employee Development (HR View)"
-    ]
-    
-    if page in notification_pages:
-        unread_count = get_unread_count_for_page(user, page)
-    
-    # إنشاء تسمية الزر مع الشارة إذا لزم الأمر
-    button_label = page
-    if unread_count > 0:
-        button_label = f"{page} 🔴{unread_count}"
-    
-    if st.button(button_label, use_container_width=True, key=f"nav_{page}"):
-        st.session_state["current_page"] = page
-        
-        # وضع علامة مقروء تلقائياً عند فتح الصفحة
-        if page in notification_pages and unread_count > 0:
-            mark_page_as_read(user, page)
-        
-        st.rerun()
-st.markdown("---")
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("🚪 Logout", use_container_width=True):
-        st.session_state["logged_in_user"] = None
-        st.session_state["current_page"] = "My Profile"
-        st.rerun()
-with col2:
-    if st.button("🔄 Refresh", use_container_width=True):
-        st.rerun()
-st.markdown("<br>", unsafe_allow_html=True)
-# ❌ تم حذف مؤشر الإشعارات القديم (الجرس الأحمر في الزاوية)
+                # ✅ FIXED: استبدال st.selectbox بأزرار فردية مع شارات الإشعارات الحمراء
+            for page in pages:
+                # التحقق من وجود إشعارات غير مقروءة لهذه الصفحة
+                unread_count = 0
+                notification_pages = [
+                    "Ask HR", "Request HR", "HR Inbox", "Ask Employees", 
+                    "Team Leaves", "📋 Report Compliance", "🎓 Employee Development (HR View)"
+                ]
+                
+                if page in notification_pages:
+                    unread_count = get_unread_count_for_page(user, page)
+                
+                # إنشاء تسمية الزر مع الشارة إذا لزم الأمر
+                button_label = page
+                if unread_count > 0:
+                    button_label = f"{page} 🔴{unread_count}"
+                
+                if st.button(button_label, use_container_width=True, key=f"nav_{page}"):
+                    st.session_state["current_page"] = page
+                    
+                    # وضع علامة مقروء تلقائياً عند فتح الصفحة
+                    if page in notification_pages and unread_count > 0:
+                        mark_page_as_read(user, page)
+                    
+                    st.rerun()
+            st.markdown("---")
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("🚪 Logout", use_container_width=True):
+                    st.session_state["logged_in_user"] = None
+                    st.session_state["current_page"] = "My Profile"
+                    st.rerun()
+            with col2:
+                if st.button("🔄 Refresh", use_container_width=True):
+                    st.rerun()
+            st.markdown("<br>", unsafe_allow_html=True)
+            # ❌ تم حذف مؤشر الإشعارات القديم (الجرس الأحمر في الزاوية)
 # ============================
 # توجيه الصفحات الرئيسية
 # ============================
