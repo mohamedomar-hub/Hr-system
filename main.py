@@ -3077,10 +3077,17 @@ with st.sidebar:
             else:
                 pages = ["My Profile", "Ask HR", "Request HR", "Notifications", "Structure", "Salary Monthly"]
             st.markdown("### 📱 Navigation")
+            # ✅ FIXED: Prevent index error when current_page not in pages list
+            current_page_in_session = st.session_state.get("current_page")
+            if current_page_in_session in pages:
+                default_index = pages.index(current_page_in_session)
+            else:
+                default_index = 0  # Use first page as default
+            
             selected_page = st.radio(
                 "Go to",
                 pages,
-                index=pages.index(st.session_state.get("current_page", pages[0])),
+                index=default_index,
                 label_visibility="collapsed"
             )
             if selected_page != st.session_state.get("current_page"):
