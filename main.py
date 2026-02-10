@@ -46,7 +46,7 @@ def encrypt_salary_value(value) -> str:
         return base64.urlsafe_b64encode(encrypted).decode()
     except Exception:
         return ""
-def decrypt_salary_value(encrypted_str) -> float:
+def decrypt_salary_value(encrypted_str) -> float:  # ✅ FIXED: Improved to handle edge cases
     try:
         # Handle NaN/None/empty first
         if pd.isna(encrypted_str) or encrypted_str is None or encrypted_str == "":
@@ -60,20 +60,16 @@ def decrypt_salary_value(encrypted_str) -> float:
         encrypted_str = str(encrypted_str).strip()
         if not encrypted_str:
             return 0.0
-        
+            
         # Try to decode as base64 (encrypted format)
         try:
             encrypted_bytes = base64.urlsafe_b64decode(encrypted_str.encode())
             decrypted = fernet_salary.decrypt(encrypted_bytes)
             return float(decrypted.decode())
-        except (InvalidToken, ValueError):
+        except Exception:
             # If decoding fails, assume it's plain text number
-            try:
-                return float(encrypted_str)
-            except ValueError:
-                return 0.0
-    except Exception as e:
-        st.warning(f"Decryption error: {str(e)[:50]}")
+            return float(encrypted_str)
+    except (InvalidToken, ValueError, Exception):
         return 0.0
 # ============================
 # 🆕 FUNCTION: Load & Save Compliance Messages
@@ -997,38 +993,24 @@ def page_manager_leaves(user):
 # Salary Monthly Page — **REPLACED WITH IMPROVED VERSION FROM edit.txt**
 # ============================
 def page_salary_monthly(user):
-    st.subheader("💰 Monthly Salaries")
-    st.markdown("""
-    <div style="background-color:#f0fdf4; padding:12px; border-radius:8px; border-left:4px solid #059669; margin-bottom:20px;">
-    <p style="color:#05445E; font-weight:bold; margin:0;">
-    Your salary information is securely encrypted and protected.
-    </p>
-    </div>
-    """, unsafe_allow_html=True)
-    
+    st.subheader("Monthly Salaries")
     # 🔹 Normalize logged-in employee code
     user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
-    
     try:
         # 🔹 Load salaries JSON
         if not os.path.exists(SALARIES_FILE_PATH):
             st.error(f"❌ File '{SALARIES_FILE_PATH}' not found.")
             return
-        
         salary_df = load_json_file(SALARIES_FILE_PATH)
-        
         if salary_df.empty:
-            st.info("📭 No salary data available.")
+            st.info("No salary data available.")
             return
-        
         # 🔹 Ensure required columns
         required_columns = ["Employee Code", "Month", "Basic Salary", "KPI Bonus", "Deductions"]
         missing_cols = [c for c in required_columns if c not in salary_df.columns]
-        
         if missing_cols:
             st.error(f"❌ Missing columns: {missing_cols}")
             return
-        
         # 🔹 Normalize Employee Code column BEFORE filtering
         salary_df["Employee Code"] = (
             salary_df["Employee Code"]
@@ -1036,143 +1018,58 @@ def page_salary_monthly(user):
             .str.strip()
             .str.replace(".0", "", regex=False)
         )
-        
         # 🔹 Filter salaries for current user
         user_salaries = salary_df[salary_df["Employee Code"] == user_code].copy()
-        
         if user_salaries.empty:
             st.info(f"🚫 No salary records found for you (Code: {user_code}).")
             return
-        
-        # 🔐 ✅ FIX: Decrypt numeric columns CORRECTLY
+        # 🔐 Decrypt numeric columns FIRST
         for col in ["Basic Salary", "KPI Bonus", "Deductions"]:
-            if col in user_salaries.columns:
-                user_salaries[col] = user_salaries[col].apply(decrypt_salary_value)
-        
+            user_salaries[col] = user_salaries[col].apply(decrypt_salary_value)
         # 🧮 Calculate Net Salary safely
         user_salaries["Net Salary"] = (
             user_salaries["Basic Salary"]
             + user_salaries["KPI Bonus"]
             - user_salaries["Deductions"]
         )
-        
-        # 🔹 Sort by Month
-        user_salaries = user_salaries.sort_values("Month", ascending=False).reset_index(drop=True)
-        
-        # 📊 Summary Statistics
-        st.markdown("### 📈 Salary Summary")
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            avg_basic = user_salaries["Basic Salary"].mean()
-            st.metric("Avg Basic Salary", f"{avg_basic:.2f}")
-        
-        with col2:
-            avg_bonus = user_salaries["KPI Bonus"].mean()
-            st.metric("Avg KPI Bonus", f"{avg_bonus:.2f}")
-        
-        with col3:
-            avg_deductions = user_salaries["Deductions"].mean()
-            st.metric("Avg Deductions", f"{avg_deductions:.2f}")
-        
-        with col4:
-            avg_net = user_salaries["Net Salary"].mean()
-            st.metric("Avg Net Salary", f"{avg_net:.2f}")
-        
-        st.markdown("---")
-        
+        # 🔹 Sort by Month (optional but nice)
+        user_salaries = user_salaries.reset_index(drop=True)
         # 🔘 Toggle full table
-        if st.button("📊 Show/Hide All Details"):
+        if st.button("📊 Show All Details"):
             st.session_state["show_all_details"] = not st.session_state.get("show_all_details", False)
-        
         if st.session_state.get("show_all_details", False):
-            st.markdown("### 📋 All Salary Records")
-            display_df = user_salaries[["Month", "Basic Salary", "KPI Bonus", "Deductions", "Net Salary"]].copy()
-            display_df["Basic Salary"] = display_df["Basic Salary"].apply(lambda x: f"{x:.2f}")
-            display_df["KPI Bonus"] = display_df["KPI Bonus"].apply(lambda x: f"{x:.2f}")
-            display_df["Deductions"] = display_df["Deductions"].apply(lambda x: f"{x:.2f}")
-            display_df["Net Salary"] = display_df["Net Salary"].apply(lambda x: f"{x:.2f}")
-            st.dataframe(display_df, use_container_width=True)
-            
-            # 📥 Download all salaries
-            output_all = BytesIO()
-            with pd.ExcelWriter(output_all, engine="openpyxl") as writer:
-                user_salaries[["Month", "Basic Salary", "KPI Bonus", "Deductions", "Net Salary"]].to_excel(
-                    writer, index=False, sheet_name="All_Salaries"
-                )
-            output_all.seek(0)
-            st.download_button(
-                "📥 Download All Salaries (Excel)",
-                data=output_all,
-                file_name=f"All_Salaries_{user_code}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            st.markdown("### All Salary Records")
+            st.dataframe(
+                user_salaries[["Month", "Basic Salary", "KPI Bonus", "Deductions", "Net Salary"]],
+                use_container_width=True
             )
-        
-        st.markdown("---")
-        
         # 🔹 Per-month detailed cards
         for idx, row in user_salaries.iterrows():
             month = row["Month"]
             btn_key = f"show_details_{month}_{idx}"
-            
-            # Card header
-            st.markdown(f"""
-            <div style="background-color:#FFFFFF; padding:12px; border-radius:8px; 
-            border-left:4px solid #05445E; margin-bottom:10px; box-shadow:0 2px 6px rgba(0,0,0,0.05);">
-            <h4 style="color:#05445E; margin:0;">{month}</h4>
-            <p style="color:#666666; margin:8px 0 0 0; font-size:0.95rem;">
-            Net Salary: <b style="color:#059669;">{row['Net Salary']:.2f}</b>
-            </p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            if st.button(f"📄 View Details", key=btn_key):
+            if st.button(f"Show Details for {month}", key=btn_key):
                 st.session_state[f"salary_details_{month}"] = row.to_dict()
-            
+        for idx, row in user_salaries.iterrows():
+            month = row["Month"]
             details_key = f"salary_details_{month}"
-            
             if st.session_state.get(details_key):
                 details = st.session_state[details_key]
-                
-                # Detailed card
                 card = f"""
-                <div style="background-color:#f0fdf4; padding:18px; border-radius:12px;
-                margin-bottom:20px; box-shadow:0 4px 12px rgba(0,0,0,0.08); border:1px solid #d1fae5;">
-                <h4 style="color:#05445E; margin-top:0;">💰 Salary Details – {details['Month']}</h4>
-                
-                <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:15px; margin-top:15px;">
-                    <div style="background-color:white; padding:12px; border-radius:8px; border-left:3px solid #05445E;">
-                        <p style="color:#666666; margin:0; font-size:0.9rem;">Basic Salary</p>
-                        <p style="color:#05445E; margin:5px 0 0 0; font-size:1.3rem; font-weight:bold;">
-                            {details['Basic Salary']:.2f}
-                        </p>
-                    </div>
-                    
-                    <div style="background-color:white; padding:12px; border-radius:8px; border-left:3px solid #05445E;">
-                        <p style="color:#666666; margin:0; font-size:0.9rem;">KPI Bonus</p>
-                        <p style="color:#05445E; margin:5px 0 0 0; font-size:1.3rem; font-weight:bold;">
-                            {details['KPI Bonus']:.2f}
-                        </p>
-                    </div>
-                    
-                    <div style="background-color:white; padding:12px; border-radius:8px; border-left:3px solid #dc2626;">
-                        <p style="color:#666666; margin:0; font-size:0.9rem;">Deductions</p>
-                        <p style="color:#dc2626; margin:5px 0 0 0; font-size:1.3rem; font-weight:bold;">
-                            {details['Deductions']:.2f}
-                        </p>
-                    </div>
-                    
-                    <div style="background-color:white; padding:12px; border-radius:8px; border-left:3px solid #059669;">
-                        <p style="color:#666666; margin:0; font-size:0.9rem;">Net Salary</p>
-                        <p style="color:#059669; margin:5px 0 0 0; font-size:1.3rem; font-weight:bold;">
-                            {details['Net Salary']:.2f}
-                        </p>
-                    </div>
-                </div>
+                <div style="background-color:#f0fdf4; padding:14px; border-radius:10px;
+                margin-bottom:10px; box-shadow:0 4px 8px rgba(0,0,0,0.05);">
+                <h4 style="color:#05445E;">Salary Details – {details['Month']}</h4>
+                <p style="color:#666666;">💰 Basic Salary:
+                <b style="color:#05445E;">{details['Basic Salary']:.2f}</b></p>
+                <p style="color:#666666;">🎯 KPI Bonus:
+                <b style="color:#05445E;">{details['KPI Bonus']:.2f}</b></p>
+                <p style="color:#666666;">📉 Deductions:
+                <b style="color:#dc2626;">{details['Deductions']:.2f}</b></p>
+                <hr style="border-color:#cbd5e1;">
+                <p style="color:#666666;">🧮 Net Salary:
+                <b style="color:#059669;">{details['Net Salary']:.2f}</b></p>
                 </div>
                 """
                 st.markdown(card, unsafe_allow_html=True)
-                
                 # 📥 Download salary slip
                 output = BytesIO()
                 with pd.ExcelWriter(output, engine="openpyxl") as writer:
@@ -1180,102 +1077,64 @@ def page_salary_monthly(user):
                         writer, index=False, sheet_name=f"Salary_{month}"
                     )
                 output.seek(0)
-                
                 st.download_button(
                     f"📥 Download Salary Slip for {month}",
                     data=output,
-                    file_name=f"Salary_Slip_{user_code}_{month}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    key=f"download_{month}"
+                    file_name=f"Salary_{user_code}_{month}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-                
-                if st.button(f"❌ Close Details", key=f"hide_{month}"):
+                if st.button(f"Hide Details for {month}", key=f"hide_{month}"):
                     del st.session_state[details_key]
                     st.rerun()
-            
-            st.markdown("---")
-    
     except Exception as e:
         st.error(f"❌ Error loading salary data: {e}")
-        import traceback
-        st.code(traceback.format_exc())
 # ============================
 # Salary Report Page — Encrypt on Upload
 # ============================
 def page_salary_report(user):
     st.subheader("Salary Report")
     st.info("Upload the monthly salary sheet. HR can save it to update the system for all employees.")
-    
     uploaded_file = st.file_uploader("Upload Salary Excel File (.xlsx)", type=["xlsx"])
-    
     if uploaded_file:
         try:
             new_salary_df = pd.read_excel(uploaded_file)
-            
             required_cols = ["Employee Code", "Month", "Basic Salary", "KPI Bonus", "Deductions"]
             if not all(col in new_salary_df.columns for col in required_cols):
                 st.error("Missing required columns. Must include: Employee Code, Month, Basic Salary, KPI Bonus, Deductions.")
                 return
-            
-            # 🔒 Encrypt sensitive columns BEFORE preview
             cols_to_encrypt = ["Basic Salary", "KPI Bonus", "Deductions"]
             for col in cols_to_encrypt:
                 new_salary_df[col] = new_salary_df[col].apply(encrypt_salary_value)
-            
             if "Net Salary" in new_salary_df.columns:
                 new_salary_df["Net Salary"] = new_salary_df["Net Salary"].apply(encrypt_salary_value)
-            
             st.session_state["uploaded_salary_df_preview"] = new_salary_df.copy()
             st.success("File loaded and encrypted. Preview below (values appear as encrypted strings).")
             st.dataframe(new_salary_df.head(50), use_container_width=True)
-            
             col1, col2 = st.columns(2)
-            
             with col1:
-                if st.button("✅ Replace In-Memory Salary Dataset with Uploaded File"):
-                    # ✅ حفظ محلي + تحديث session state
+                if st.button("Replace In-Memory Salary Dataset with Uploaded File"):
                     save_json_file(new_salary_df, SALARIES_FILE_PATH)
                     st.session_state["salary_df"] = new_salary_df.copy()
-                    
-                    # ✅ إرسال إلى GitHub مباشرة
-                    if GITHUB_TOKEN:
-                        data_list = new_salary_df.where(pd.notnull(new_salary_df), None).to_dict(orient='records')
-                        pushed = upload_json_to_github(SALARIES_FILE_PATH, data_list, f"Update salary report via HR by {user.get('Employee Name', 'HR')}")
-                        if pushed:
-                            st.success("✅ Salary data encrypted and saved locally + pushed to GitHub.")
-                        else:
-                            st.warning("✅ Saved locally, but GitHub push failed.")
-                    else:
-                        st.success("✅ Salary data encrypted and saved locally.")
-                    st.rerun()
-            
+                    st.success("✅ Salary data encrypted and saved locally.")
             with col2:
                 if st.button("Preview only (do not replace)"):
                     st.info("Preview shown above.")
-        
         except Exception as e:
             st.error(f"Failed to process uploaded file: {e}")
-    
     st.markdown("---")
     st.markdown("### Save & Push Salary Report to GitHub")
-    
-    if st.button("💾 Save current salary dataset locally and push to GitHub"):
+    if st.button("Save current salary dataset locally and push to GitHub"):
         current_salary_df = st.session_state.get("salary_df")
-        
         if current_salary_df is None:
             current_salary_df = load_json_file(SALARIES_FILE_PATH)
-        
         if current_salary_df is None:
             st.error(f"Could not load salary data from {SALARIES_FILE_PATH}. Upload a file first.")
             return
-        
         saved = save_json_file(current_salary_df, SALARIES_FILE_PATH)
         pushed_to_github = False
-        
         if saved and GITHUB_TOKEN:
             data_list = current_salary_df.where(pd.notnull(current_salary_df), None).to_dict(orient='records')
             pushed_to_github = upload_json_to_github(SALARIES_FILE_PATH, data_list, f"Update salary report via HR by {user.get('Employee Name', 'HR')}")
-        
         if saved:
             if pushed_to_github:
                 st.success("✅ Salary data saved and pushed to GitHub.")
@@ -1286,28 +1145,21 @@ def page_salary_report(user):
                     st.info("✅ Saved locally. GitHub token not configured.")
         else:
             st.error("❌ Failed to save locally.")
-    
     st.markdown("---")
     st.markdown("### Current Salary Data (Encrypted View)")
-    
     current_salary_df = st.session_state.get("salary_df")
-    
     if current_salary_df is None:
         current_salary_df = load_json_file(SALARIES_FILE_PATH)
-    
-    if current_salary_df is not None:
-        st.session_state["salary_df"] = current_salary_df
-    
+        if current_salary_df is not None:
+            st.session_state["salary_df"] = current_salary_df
     if current_salary_df is not None and not current_salary_df.empty:
         st.dataframe(current_salary_df.head(100), use_container_width=True)
-        
         buf = BytesIO()
         with pd.ExcelWriter(buf, engine="openpyxl") as writer:
             current_salary_df.to_excel(writer, index=False, sheet_name="Salaries")
         buf.seek(0)
-        
         st.download_button(
-            "📥 Download Current Encrypted Salary Data",
+            "Download Current Encrypted Salary Data",
             data=buf,
             file_name="Salaries.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
