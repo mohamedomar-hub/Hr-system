@@ -330,7 +330,7 @@ def initialize_passwords_from_data(data_list):
 # ============================
 def get_db_connection():
     try:
-        connection = mysql.connector.connect(
+        return mysql.connector.connect(
             host=st.secrets["MYSQL_HOST"],
             user=st.secrets["MYSQL_USER"],
             password=st.secrets["MYSQL_PASSWORD"],
