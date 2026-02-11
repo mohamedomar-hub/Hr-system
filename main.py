@@ -227,7 +227,6 @@ def initialize_passwords_from_data(data_list):
 # ✅ MySQL Connection Function with Fallback (السطر 250)
 # ============================
 def get_db_connection():
-    st.error(f"DEBUG: Connection error details: {str(e)}")
     try:
         # ❌ لا تستخدم قيم افتراضية للـ password والـ user
         host = st.secrets["MYSQL_HOST"]
