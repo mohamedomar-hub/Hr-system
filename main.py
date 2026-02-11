@@ -259,30 +259,33 @@ def get_db_connection():
 # ✅ Load Employees from MySQL (السطر 280)
 # ============================
 def load_employees_from_mysql():
-    """Load employees from MySQL database with fallback to empty DataFrame"""
     conn = get_db_connection()
     if not conn:
         return pd.DataFrame()
+
     try:
         query = """
-        SELECT employee_code AS `Employee Code`,
-               employee_name AS `Employee Name`,
-               title AS `Title`,
-               manager_code AS `Manager Code`,
-               department AS `Department`,
-               mobile AS `Mobile`,
-               email AS `E-Mail`,
-               address AS `Address as 702 bricks`,
-               hire_date AS `Hiring Date`
-        FROM employees
-        ORDER BY employee_name
+            SELECT 
+                employee_code AS `Employee Code`,
+                employee_name AS `Employee Name`,
+                title AS `Title`,
+                manager_code AS `Manager Code`,
+                department AS `Department`,
+                mobile AS `Mobile`,
+                email AS `E-Mail`,
+                address AS `Address`,
+                hire_date AS `Hiring Date`
+            FROM employees
+            ORDER BY employee_name;
         """
+
         df = pd.read_sql(query, conn)
         conn.close()
-        # Apply sanitization (same as current logic)
+
         return sanitize_employee_data(df)
+
     except Exception as e:
-        st.warning(f"MySQL query failed: {e}. Falling back to JSON files.")
+        st.warning(f"MySQL query failed: {e}. Falling back to JSON.")
         if conn:
             conn.close()
         return pd.DataFrame()
@@ -3287,3 +3290,12 @@ st.markdown("""
 <p>HRAS — Averroes Admin System &copy; 2026 | Secure • Encrypted • Role-Based Access</p>
 </div>
 """, unsafe_allow_html=True)
+try:
+    conn_test = get_db_connection()
+    if conn_test:
+        st.success("Connected to MySQL successfully!")
+        conn_test.close()
+    else:
+        st.error("Failed to connect to MySQL.")
+except Exception as e:
+    st.error(f"MySQL error: {e}")
