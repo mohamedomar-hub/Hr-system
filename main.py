@@ -30,155 +30,155 @@ IDB_REPORTS_FILE = "idb_reports.json"
 # ============================
 SALARY_SECRET_KEY = st.secrets.get("SALARY_SECRET_KEY")
 if not SALARY_SECRET_KEY:
-st.error("❌ Missing SALARY_SECRET_KEY in Streamlit Secrets.")
-st.stop()
+    st.error("❌ Missing SALARY_SECRET_KEY in Streamlit Secrets.")
+    st.stop()
 def get_fernet_from_secret(secret: str) -> Fernet:
-key = hashlib.sha256(secret.encode()).digest()
-fernet_key = base64.urlsafe_b64encode(key)
-return Fernet(fernet_key)
+    key = hashlib.sha256(secret.encode()).digest()
+    fernet_key = base64.urlsafe_b64encode(key)
+    return Fernet(fernet_key)
 fernet_salary = get_fernet_from_secret(SALARY_SECRET_KEY)
 def encrypt_salary_value(value) -> str:
-try:
-if pd.isna(value):
-return ""
-num_str = str(float(value))
-encrypted = fernet_salary.encrypt(num_str.encode())
-return base64.urlsafe_b64encode(encrypted).decode()
-except Exception:
-return ""
+    try:
+        if pd.isna(value):
+            return ""
+        num_str = str(float(value))
+        encrypted = fernet_salary.encrypt(num_str.encode())
+        return base64.urlsafe_b64encode(encrypted).decode()
+    except Exception:
+        return ""
 def decrypt_salary_value(encrypted_str) -> float:  # ✅ FIXED: Improved to handle edge cases
-try:
-# Handle NaN/None/empty first
-if pd.isna(encrypted_str) or encrypted_str is None or encrypted_str == "":
-return 0.0
-# If already a number (not encrypted), return directly
-if isinstance(encrypted_str, (int, float)) and not isinstance(encrypted_str, bool):
-return float(encrypted_str)
-# Convert to string and strip
-encrypted_str = str(encrypted_str).strip()
-if not encrypted_str:
-return 0.0
-# Try to decode as base64 (encrypted format)
-try:
-encrypted_bytes = base64.urlsafe_b64decode(encrypted_str.encode())
-decrypted = fernet_salary.decrypt(encrypted_bytes)
-return float(decrypted.decode())
-except Exception:
-# If decoding fails, assume it's plain text number
-return float(encrypted_str)
-except (InvalidToken, ValueError, Exception):
-return 0.0
+    try:
+        # Handle NaN/None/empty first
+        if pd.isna(encrypted_str) or encrypted_str is None or encrypted_str == "":
+            return 0.0
+        # If already a number (not encrypted), return directly
+        if isinstance(encrypted_str, (int, float)) and not isinstance(encrypted_str, bool):
+            return float(encrypted_str)
+        # Convert to string and strip
+        encrypted_str = str(encrypted_str).strip()
+        if not encrypted_str:
+            return 0.0
+        # Try to decode as base64 (encrypted format)
+        try:
+            encrypted_bytes = base64.urlsafe_b64decode(encrypted_str.encode())
+            decrypted = fernet_salary.decrypt(encrypted_bytes)
+            return float(decrypted.decode())
+        except Exception:
+            # If decoding fails, assume it's plain text number
+            return float(encrypted_str)
+    except (InvalidToken, ValueError, Exception):
+        return 0.0
 # ============================
 # 🆕 FUNCTION: Load & Save Compliance Messages
 # ============================
 def load_compliance_messages():
-return load_json_file(COMPLIANCE_MESSAGES_FILE, default_columns=[
-"ID", "MR Code", "MR Name", "Compliance Recipient", "Compliance Code",
-"Manager Code", "Manager Name", "Message", "Timestamp", "Status"
-])
+    return load_json_file(COMPLIANCE_MESSAGES_FILE, default_columns=[
+        "ID", "MR Code", "MR Name", "Compliance Recipient", "Compliance Code",
+        "Manager Code", "Manager Name", "Message", "Timestamp", "Status"
+    ])
 def save_compliance_messages(df):
-df = df.copy()
-if "Timestamp" in df.columns:
-df["Timestamp"] = pd.to_datetime(df["Timestamp"], errors="coerce").astype(str)
-if "ID" in df.columns:
-df["ID"] = pd.to_numeric(df["ID"], errors="coerce")
-if df["ID"].isna().any():
-existing_max = int(df["ID"].max()) if not df["ID"].isna().all() else 0
-for idx in df[df["ID"].isna()].index:
-existing_max += 1
-df.at[idx, "ID"] = existing_max
-df["ID"] = df["ID"].astype(int)
-return save_json_file(df, COMPLIANCE_MESSAGES_FILE)
+    df = df.copy()
+    if "Timestamp" in df.columns:
+        df["Timestamp"] = pd.to_datetime(df["Timestamp"], errors="coerce").astype(str)
+    if "ID" in df.columns:
+        df["ID"] = pd.to_numeric(df["ID"], errors="coerce")
+        if df["ID"].isna().any():
+            existing_max = int(df["ID"].max()) if not df["ID"].isna().all() else 0
+            for idx in df[df["ID"].isna()].index:
+                existing_max += 1
+                df.at[idx, "ID"] = existing_max
+            df["ID"] = df["ID"].astype(int)
+    return save_json_file(df, COMPLIANCE_MESSAGES_FILE)
 # ============================
 # 🆕 FUNCTION: Sanitize employee data (APPLY YOUR 3 RULES)
 # ============================
 def sanitize_employee_data(df: pd.DataFrame) -> pd.DataFrame:
-"""
-Applies the following rules:
-1. Drop 'annual_leave_balance' column if exists.
-2. Drop 'monthly_salary' column if exists.
-3. Hide 'E-Mail' for anyone NOT in ['BUM', 'AM', 'DM'].
-"""
-df = df.copy()
-# Rule 1 & 2: drop sensitive columns if present
-sensitive_columns_to_drop = ['annual_leave_balance', 'monthly_salary']
-for col in sensitive_columns_to_drop:
-if col in df.columns:
-df = df.drop(columns=[col])
-# Rule 3: hide email except for BUM, AM, DM
-if 'E-Mail' in df.columns and 'Title' in df.columns:
-allowed_titles = {'BUM', 'AM', 'DM'}
-mask = ~df['Title'].astype(str).str.upper().isin(allowed_titles)
-df.loc[mask, 'E-Mail'] = ""  # blank out, not delete column
-return df
+    """
+    Applies the following rules:
+    1. Drop 'annual_leave_balance' column if exists.
+    2. Drop 'monthly_salary' column if exists.
+    3. Hide 'E-Mail' for anyone NOT in ['BUM', 'AM', 'DM'].
+    """
+    df = df.copy()
+    # Rule 1 & 2: drop sensitive columns if present
+    sensitive_columns_to_drop = ['annual_leave_balance', 'monthly_salary']
+    for col in sensitive_columns_to_drop:
+        if col in df.columns:
+            df = df.drop(columns=[col])
+    # Rule 3: hide email except for BUM, AM, DM
+    if 'E-Mail' in df.columns and 'Title' in df.columns:
+        allowed_titles = {'BUM', 'AM', 'DM'}
+        mask = ~df['Title'].astype(str).str.upper().isin(allowed_titles)
+        df.loc[mask, 'E-Mail'] = ""  # blank out, not delete column
+    return df
 # ============================
 # 🆕 FUNCTION: Load & Save IDB Reports (FIXED: Added Employee Name)
 # ============================
 def load_idb_reports():
-return load_json_file(IDB_REPORTS_FILE, default_columns=[
-"Employee Code", "Employee Name", "Selected Departments", "Strengths", "Development Areas", "Action Plan", "Updated At"
-])
+    return load_json_file(IDB_REPORTS_FILE, default_columns=[
+        "Employee Code", "Employee Name", "Selected Departments", "Strengths", "Development Areas", "Action Plan", "Updated At"
+    ])
 def save_idb_report(employee_code, employee_name, selected_deps, strengths, development, action):
-reports = load_idb_reports()
-now = pd.Timestamp.now().isoformat()
-new_row = {
-"Employee Code": employee_code,
-"Employee Name": employee_name,  # ✅ FIXED: Added Employee Name
-"Selected Departments": selected_deps,
-"Strengths": strengths,
-"Development Areas": development,
-"Action Plan": action,
-"Updated At": now
-}
-# إذا كان التقرير موجودًا، نستبدله
-reports = reports[reports["Employee Code"] != employee_code]
-reports = pd.concat([reports, pd.DataFrame([new_row])], ignore_index=True)
-return save_json_file(reports, IDB_REPORTS_FILE)
+    reports = load_idb_reports()
+    now = pd.Timestamp.now().isoformat()
+    new_row = {
+        "Employee Code": employee_code,
+        "Employee Name": employee_name,  # ✅ FIXED: Added Employee Name
+        "Selected Departments": selected_deps,
+        "Strengths": strengths,
+        "Development Areas": development,
+        "Action Plan": action,
+        "Updated At": now
+    }
+    # إذا كان التقرير موجودًا، نستبدله
+    reports = reports[reports["Employee Code"] != employee_code]
+    reports = pd.concat([reports, pd.DataFrame([new_row])], ignore_index=True)
+    return save_json_file(reports, IDB_REPORTS_FILE)
 # ============================
 # Load Configuration from config.json
 # ============================
 def load_config():
-default_config = {
-"file_paths": {
-"employees": "employees.json",
-"leaves": "leaves.json",
-"notifications": "notifications.json",
-"hr_queries": "hr_queries.json",
-"hr_requests": "hr_requests.json",
-"salaries": "salaries.json",
-"recruitment_data": "recruitment_data.json"
-},
-"github": {
-"repo_owner": "mohamedomar-hub",
-"repo_name": "hr-system",
-"branch": "main"
-},
-"recruitment": {
-"cv_dir": "recruitment_cvs",
-"google_form_link": "https://docs.google.com/forms/d/e/1FAIpQLSccvOVVSrKDRAF-4rOt0N_rEr8SmQ2F6cVRSwk7RGjMoRhpLQ/viewform"
-},
-"system": {
-"logo_path": "logo.jpg",
-"default_annual_leave_days": 21
-}
-}
-try:
-with open("config.json", "r", encoding="utf-8") as f:
-user_config = json.load(f)
-def deep_merge(a, b):
-for k, v in b.items():
-if isinstance(v, dict) and k in a and isinstance(a[k], dict):
-deep_merge(a[k], v)
-else:
-a[k] = v
-return a
-return deep_merge(default_config, user_config)
-except FileNotFoundError:
-st.warning("config.json not found. Using default settings.")
-return default_config
-except Exception as e:
-st.error(f"Error loading config.json: {e}. Using defaults.")
-return default_config
+    default_config = {
+        "file_paths": {
+            "employees": "employees.json",
+            "leaves": "leaves.json",
+            "notifications": "notifications.json",
+            "hr_queries": "hr_queries.json",
+            "hr_requests": "hr_requests.json",
+            "salaries": "salaries.json",
+            "recruitment_data": "recruitment_data.json"
+        },
+        "github": {
+            "repo_owner": "mohamedomar-hub",
+            "repo_name": "hr-system",
+            "branch": "main"
+        },
+        "recruitment": {
+            "cv_dir": "recruitment_cvs",
+            "google_form_link": "https://docs.google.com/forms/d/e/1FAIpQLSccvOVVSrKDRAF-4rOt0N_rEr8SmQ2F6cVRSwk7RGjMoRhpLQ/viewform"
+        },
+        "system": {
+            "logo_path": "logo.jpg",
+            "default_annual_leave_days": 21
+        }
+    }
+    try:
+        with open("config.json", "r", encoding="utf-8") as f:
+            user_config = json.load(f)
+        def deep_merge(a, b):
+            for k, v in b.items():
+                if isinstance(v, dict) and k in a and isinstance(a[k], dict):
+                    deep_merge(a[k], v)
+                else:
+                    a[k] = v
+            return a
+        return deep_merge(default_config, user_config)
+    except FileNotFoundError:
+        st.warning("config.json not found. Using default settings.")
+        return default_config
+    except Exception as e:
+        st.error(f"Error loading config.json: {e}. Using defaults.")
+        return default_config
 CONFIG = load_config()
 # ============================
 # Configuration from CONFIG
@@ -200,29 +200,29 @@ REPO_NAME = st.secrets.get("REPO_NAME", CONFIG["github"]["repo_name"])
 BRANCH = st.secrets.get("BRANCH", CONFIG["github"]["branch"])
 FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FILE_PATH") else DEFAULT_FILE_PATH
 # ============================
-# 🔐 Secure Password Management (bcrypt-based)
+# 🔐 Secure Password Management (bcrypt-based) - ✅ FIXED SYNTAX ERRORS
 # ============================
 SECURE_PASSWORDS_FILE = "secure_passwords.json"
-def load_password_hashes():
-if os.path.exists(SECURE_PASSWORDS_FILE):
-with open(SECURE_PASSWORDS_FILE, "r", encoding="utf-8") as f:  # ✅ بدون علامة اقتباس بعد المتغير
-return json.load(f)
-return {}
-def save_password_hashes(hashes):
-with open(SECURE_PASSWORDS_FILE", "w", encoding="utf-8") as f:
-json.dump(hashes, f, indent=2)
+def load_password_hashes():  # ✅ FIXED: removed stray quote after SECURE_PASSWORDS_FILE
+    if os.path.exists(SECURE_PASSWORDS_FILE):
+        with open(SECURE_PASSWORDS_FILE, "r", encoding="utf-8") as f:  # ✅ CORRECTED
+            return json.load(f)
+    return {}
+def save_password_hashes(hashes):  # ✅ FIXED: removed stray quote after SECURE_PASSWORDS_FILE
+    with open(SECURE_PASSWORDS_FILE, "w", encoding="utf-8") as f:  # ✅ CORRECTED
+        json.dump(hashes, f, indent=2)
 def hash_password(password: str) -> str:
-return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 def verify_password(plain_password: str, hashed: str) -> bool:
-return bcrypt.checkpw(plain_password.encode('utf-8'), hashed.encode('utf-8'))
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed.encode('utf-8'))
 def initialize_passwords_from_data(data_list):
-hashes = load_password_hashes()
-for row in data_list:
-emp_code = str(row.get("Employee Code", "")).strip().replace(".0", "")
-pwd = str(row.get("Password", "")).strip()
-if emp_code and pwd and emp_code not in hashes:
-hashes[emp_code] = hash_password(pwd)
-save_password_hashes(hashes)
+    hashes = load_password_hashes()
+    for row in data_list:
+        emp_code = str(row.get("Employee Code", "")).strip().replace(".0", "")
+        pwd = str(row.get("Password", "")).strip()
+        if emp_code and pwd and emp_code not in hashes:
+            hashes[emp_code] = hash_password(pwd)
+            save_password_hashes(hashes)
 # ============================
 # DATABASE CONNECTION (FORCED) - FROM edit.txt
 # ============================
