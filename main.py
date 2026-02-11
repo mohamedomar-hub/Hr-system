@@ -261,7 +261,6 @@ def get_db_connection():
 def load_employees_from_mysql():
     """Load employees from MySQL database with fallback to empty DataFrame"""
     conn = get_db_connection()
-    st.error(f"DEBUG: Connection error details: {str(e)}")
     if not conn:
         return pd.DataFrame()
     try:
