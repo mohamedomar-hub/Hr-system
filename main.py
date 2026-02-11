@@ -205,7 +205,7 @@ FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FI
 SECURE_PASSWORDS_FILE = "secure_passwords.json"
 def load_password_hashes():
 if os.path.exists(SECURE_PASSWORDS_FILE):
-with open(SECURE_PASSWORDS_FILE", "r", encoding="utf-8") as f:
+with open(SECURE_PASSWORDS_FILE, "r", encoding="utf-8") as f:  # ✅ بدون علامة اقتباس بعد المتغير
 return json.load(f)
 return {}
 def save_password_hashes(hashes):
