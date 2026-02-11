@@ -228,33 +228,27 @@ def initialize_passwords_from_data(data_list):
 # ============================
 def get_db_connection():
     try:
-        # ❌ لا تستخدم قيم افتراضية للـ password والـ user
-        host = st.secrets["MYSQL_HOST"]
-        user = st.secrets["MYSQL_USER"]
-        password = st.secrets["MYSQL_PASSWORD"]
-        database = st.secrets["MYSQL_DATABASE"]
-        port = st.secrets.get("MYSQL_PORT", 3306)
         connection = mysql.connector.connect(
-            host=host,
-            user=user,
-            password=password,
-            database=database,
-            port=port,  # ✅ أضف هذا السطر
-            charset='utf8mb4',
-            collation='utf8mb4_unicode_ci',
-            connect_timeout=3
+            host=st.secrets["MYSQL_HOST"],
+            user=st.secrets["MYSQL_USER"],
+            password=st.secrets["MYSQL_PASSWORD"],
+            database=st.secrets["MYSQL_DATABASE"],
+            port=int(st.secrets.get("MYSQL_PORT", 3306)),
+            charset="utf8mb4",
+            autocommit=True,          # ✅ أهم سطر
+            connect_timeout=10        # ✅ أأمن
         )
+
         if connection.is_connected():
             return connection
         else:
-            st.warning("⚠️ MySQL connection established but not active. Falling back to JSON files.")
-            return None
-    except KeyError as e:
-        st.error(f"❌ Missing required secret: {str(e)}. Please configure Streamlit Secrets.")
-        st.stop()
+            raise Exception("Connection created but not active")
+
     except Exception as e:
-        st.warning(f"MySQL Connection Failed: {str(e)[:80]}. Using JSON files instead.")
-        return None
+        st.error("❌ Database connection failed.")
+        st.error(str(e))
+        st.stop()   # ✅ اقفل التطبيق بدل fallback
+
 # ============================
 # ✅ Load Employees from MySQL (السطر 280)
 # ============================
