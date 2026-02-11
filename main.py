@@ -329,12 +329,14 @@ def initialize_passwords_from_data(data_list):
 # ✅ MySQL Connection Function with Fallback
 # ============================
 def get_db_connection():
-    try:
-        host = st.secrets["MYSQL_HOST"]
-        user = st.secrets["MYSQL_USER"]
-        password = st.secrets["MYSQL_PASSWORD"]
-        database = st.secrets["MYSQL_DATABASE"]
+    return mysql.connector.connect(
+        host=st.secrets["MYSQL_HOST"],
+        user=st.secrets["MYSQL_USER"],
+        password=st.secrets["MYSQL_PASSWORD"],
+        database=st.secrets["MYSQL_DATABASE"],
         port = st.secrets.get("MYSQL_PORT", 3306)
+        ssl_ca=st.secrets["MYSQL_SSL_CA"],
+        )    
         
         connection = mysql.connector.connect(
             host=host,
