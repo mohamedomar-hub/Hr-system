@@ -239,12 +239,12 @@ def get_db_connection():
             connect_timeout=5
         )
         if not connection.is_connected():
-            st.error("MySQL connection failed")
-            st.stop()
+            st.warning("MySQL connection failed")
+            return None
         return connection
     except Exception as e:
-        st.error(f"MySQL connection error: {e}")
-        st.stop()
+        st.warning(f"MySQL connection error: {e}")
+        return None
 # ============================
 # ASK HR (INSERT) - FROM edit.txt
 # ============================
