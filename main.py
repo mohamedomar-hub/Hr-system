@@ -1,3 +1,1942 @@
+# hr_system_with_mysql.py — FULL MYSQL INTEGRATION WITH ALL PAGE FUNCTIONS
+import streamlit as st
+import pandas as pd
+import requests
+import base64
+from io import BytesIO
+import os
+import datetime
+import shutil
+import zipfile
+import json
+import bcrypt
+from openpyxl import Workbook
+from cryptography.fernet import Fernet, InvalidToken
+import hashlib
+import mysql.connector
+from mysql.connector import Error
+import mysql.connector.pooling
+
+# ============================
+# CONFIGURATION FILES
+# ============================
+COMPLIANCE_MESSAGES_FILE = "compliance_messages.json"
+IDB_REPORTS_FILE = "idb_reports.json"
+SECURE_PASSWORDS_FILE = "secure_passwords.json"
+
+# ============================
+# SALARY ENCRYPTION SETUP
+# ============================
+SALARY_SECRET_KEY = st.secrets.get("SALARY_SECRET_KEY")
+if not SALARY_SECRET_KEY:
+    st.error("❌ Missing SALARY_SECRET_KEY in Streamlit Secrets.")
+    st.stop()
+
+def get_fernet_from_secret(secret: str) -> Fernet:
+    key = hashlib.sha256(secret.encode()).digest()
+    fernet_key = base64.urlsafe_b64encode(key)
+    return Fernet(fernet_key)
+
+fernet_salary = get_fernet_from_secret(SALARY_SECRET_KEY)
+
+def encrypt_salary_value(value) -> str:
+    try:
+        if pd.isna(value):
+            return ""
+        num_str = str(float(value))
+        encrypted = fernet_salary.encrypt(num_str.encode())
+        return base64.urlsafe_b64encode(encrypted).decode()
+    except Exception:
+        return ""
+
+def decrypt_salary_value(encrypted_str) -> float:
+    try:
+        if pd.isna(encrypted_str) or encrypted_str is None or encrypted_str == "":
+            return 0.0
+        if isinstance(encrypted_str, (int, float)) and not isinstance(encrypted_str, bool):
+            return float(encrypted_str)
+        encrypted_str = str(encrypted_str).strip()
+        if not encrypted_str:
+            return 0.0
+        try:
+            encrypted_bytes = base64.urlsafe_b64decode(encrypted_str.encode())
+            decrypted = fernet_salary.decrypt(encrypted_bytes)
+            return float(decrypted.decode())
+        except Exception:
+            return float(encrypted_str)
+    except (InvalidToken, ValueError, Exception):
+        return 0.0
+
+# ============================
+# MYSQL CONNECTION POOL
+# ============================
+connection_pool = None
+
+def init_connection_pool():
+    global connection_pool
+    try:
+        pool_config = {
+            "pool_name": "hr_pool",
+            "pool_size": 5,
+            "host": st.secrets["MYSQL_HOST"],
+            "user": st.secrets["MYSQL_USER"],
+            "password": st.secrets["MYSQL_PASSWORD"],
+            "database": st.secrets["MYSQL_DATABASE"],
+            "port": st.secrets.get("MYSQL_PORT", 3306),
+            "charset": "utf8mb4",
+            "collation": "utf8mb4_unicode_ci",
+            "connect_timeout": 10,
+            "autocommit": False
+        }
+        connection_pool = mysql.connector.pooling.MySQLConnectionPool(**pool_config)
+        return True
+    except Exception as e:
+        st.error(f"❌ Failed to create connection pool: {e}")
+        return False
+
+def get_db_connection():
+    global connection_pool
+    try:
+        if connection_pool is None:
+            if not init_connection_pool():
+                return None
+        return connection_pool.get_connection()
+    except Exception as e:
+        st.warning(f"⚠️ MySQL Connection Failed: {str(e)[:100]}. Using JSON fallback.")
+        return None
+
+def execute_query(query, params=None, fetch_one=False, fetch_all=False, commit=False):
+    """دالة مساعدة لتنفيذ الاستعلامات مع التعامل مع الأخطاء"""
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return None if not fetch_all else []
+        
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(query, params or ())
+        
+        if commit:
+            conn.commit()
+            result = cursor.lastrowid
+        elif fetch_one:
+            result = cursor.fetchone()
+        elif fetch_all:
+            result = cursor.fetchall()
+        else:
+            result = None
+            
+        return result
+    except Exception as e:
+        st.error(f"❌ Database error: {e}")
+        if conn and commit:
+            conn.rollback()
+        return None if not fetch_all else []
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+# ============================
+# LOAD CONFIGURATION
+# ============================
+def load_config():
+    default_config = {
+        "file_paths": {
+            "employees": "employees.json",
+            "leaves": "leaves.json",
+            "notifications": "notifications.json",
+            "hr_queries": "hr_queries.json",
+            "hr_requests": "hr_requests.json",
+            "salaries": "salaries.json",
+            "recruitment_data": "recruitment_data.json"
+        },
+        "github": {
+            "repo_owner": "mohamedomar-hub",
+            "repo_name": "hr-system",
+            "branch": "main"
+        },
+        "recruitment": {
+            "cv_dir": "recruitment_cvs",
+            "google_form_link": "https://docs.google.com/forms/d/e/1FAIpQLSccvOVVSrKDRAF-4rOt0N_rEr8SmQ2F6cVRSwk7RGjMoRhpLQ/viewform"
+        },
+        "system": {
+            "logo_path": "logo.jpg",
+            "default_annual_leave_days": 21
+        }
+    }
+    try:
+        with open("config.json", "r", encoding="utf-8") as f:
+            user_config = json.load(f)
+        def deep_merge(a, b):
+            for k, v in b.items():
+                if isinstance(v, dict) and k in a and isinstance(a[k], dict):
+                    deep_merge(a[k], v)
+                else:
+                    a[k] = v
+            return a
+        return deep_merge(default_config, user_config)
+    except FileNotFoundError:
+        return default_config
+    except Exception as e:
+        st.error(f"Error loading config.json: {e}")
+        return default_config
+
+CONFIG = load_config()
+
+# ============================
+# FILE PATHS
+# ============================
+DEFAULT_FILE_PATH = CONFIG["file_paths"]["employees"]
+LEAVES_FILE_PATH = CONFIG["file_paths"]["leaves"]
+NOTIFICATIONS_FILE_PATH = CONFIG["file_paths"]["notifications"]
+HR_QUERIES_FILE_PATH = CONFIG["file_paths"]["hr_queries"]
+HR_REQUESTS_FILE_PATH = CONFIG["file_paths"]["hr_requests"]
+SALARIES_FILE_PATH = CONFIG["file_paths"]["salaries"]
+RECRUITMENT_CV_DIR = CONFIG["recruitment"]["cv_dir"]
+RECRUITMENT_DATA_FILE = CONFIG["file_paths"]["recruitment_data"]
+GOOGLE_FORM_RECRUITMENT_LINK = CONFIG["recruitment"]["google_form_link"]
+DEFAULT_ANNUAL_LEAVE = CONFIG["system"]["default_annual_leave_days"]
+
+GITHUB_TOKEN = st.secrets.get("GITHUB_TOKEN", None)
+REPO_OWNER = st.secrets.get("REPO_OWNER", CONFIG["github"]["repo_owner"])
+REPO_NAME = st.secrets.get("REPO_NAME", CONFIG["github"]["repo_name"])
+BRANCH = st.secrets.get("BRANCH", CONFIG["github"]["branch"])
+FILE_PATH = st.secrets.get("FILE_PATH", DEFAULT_FILE_PATH) if st.secrets.get("FILE_PATH") else DEFAULT_FILE_PATH
+
+# ============================
+# PASSWORD MANAGEMENT
+# ============================
+def load_password_hashes():
+    if os.path.exists(SECURE_PASSWORDS_FILE):
+        with open(SECURE_PASSWORDS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+def save_password_hashes(hashes):
+    with open(SECURE_PASSWORDS_FILE, "w", encoding="utf-8") as f:
+        json.dump(hashes, f, indent=2)
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+def verify_password(plain_password: str, hashed: str) -> bool:
+    return bcrypt.checkpw(plain_password.encode('utf-8'), hashed.encode('utf-8'))
+
+def initialize_passwords_from_data(data_list):
+    hashes = load_password_hashes()
+    for row in data_list:
+        emp_code = str(row.get("Employee Code", "")).strip().replace(".0", "")
+        pwd = str(row.get("Password", "")).strip()
+        if emp_code and pwd and emp_code not in hashes:
+            hashes[emp_code] = hash_password(pwd)
+    save_password_hashes(hashes)
+
+# ============================
+# JSON FALLBACK FUNCTIONS
+# ============================
+def load_json_file(filepath, default_columns=None):
+    if os.path.exists(filepath):
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            df = pd.DataFrame(data)
+            return sanitize_employee_data(df)
+        except Exception:
+            return pd.DataFrame(columns=default_columns) if default_columns else pd.DataFrame()
+    else:
+        if default_columns:
+            return pd.DataFrame(columns=default_columns)
+        return pd.DataFrame()
+
+def save_json_file(df, filepath):
+    try:
+        df_sanitized = sanitize_employee_data(df)
+        sensitive_cols = ["Basic Salary", "KPI Bonus", "Deductions", "Net Salary"]
+        df_copy = df_sanitized.copy()
+        for col in sensitive_cols:
+            if col in df_copy.columns:
+                df_copy[col] = df_copy[col].apply(encrypt_salary_value)
+        data = df_copy.where(pd.notnull(df_copy), None).to_dict(orient='records')
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception:
+        return False
+
+def sanitize_employee_data(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    sensitive_columns_to_drop = ['annual_leave_balance', 'monthly_salary']
+    for col in sensitive_columns_to_drop:
+        if col in df.columns:
+            df = df.drop(columns=[col])
+    if 'E-Mail' in df.columns and 'Title' in df.columns:
+        allowed_titles = {'BUM', 'AM', 'DM'}
+        mask = ~df['Title'].astype(str).str.upper().isin(allowed_titles)
+        df.loc[mask, 'E-Mail'] = ""
+    return df
+
+# ============================
+# MYSQL EMPLOYEE FUNCTIONS
+# ============================
+def load_employees_from_mysql():
+    """Load employees from MySQL with proper sanitization"""
+    try:
+        query = """
+        SELECT 
+            employee_code AS `Employee Code`,
+            employee_name AS `Employee Name`,
+            title AS `Title`,
+            manager_code AS `Manager Code`,
+            department AS `Department`,
+            mobile AS `Mobile`,
+            email AS `E-Mail`,
+            address AS `Address as 702 bricks`,
+            hire_date AS `Hiring Date`
+        FROM employees
+        ORDER BY employee_name
+        """
+        result = execute_query(query, fetch_all=True)
+        
+        if result is None:
+            return pd.DataFrame()
+        
+        df = pd.DataFrame(result)
+        if df.empty:
+            return pd.DataFrame()
+            
+        if 'Hiring Date' in df.columns:
+            df['Hiring Date'] = pd.to_datetime(df['Hiring Date']).dt.date
+            
+        return sanitize_employee_data(df)
+        
+    except Exception as e:
+        st.warning(f"⚠️ MySQL query failed: {e}. Using JSON fallback.")
+        return pd.DataFrame()
+
+def save_employee_to_mysql(employee_data):
+    """Save or update employee in MySQL"""
+    try:
+        password_hash = None
+        if 'Password' in employee_data and employee_data['Password']:
+            password_hash = hash_password(str(employee_data['Password']))
+        
+        hire_date = employee_data.get('Hiring Date')
+        if hire_date and pd.notna(hire_date):
+            hire_date = str(hire_date)
+        
+        query = """
+        INSERT INTO employees (
+            employee_code, employee_name, title, manager_code, 
+            department, mobile, email, address, hire_date, password_hash
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+            employee_name = VALUES(employee_name),
+            title = VALUES(title),
+            manager_code = VALUES(manager_code),
+            department = VALUES(department),
+            mobile = VALUES(mobile),
+            email = VALUES(email),
+            address = VALUES(address),
+            hire_date = VALUES(hire_date),
+            password_hash = COALESCE(VALUES(password_hash), password_hash)
+        """
+        
+        params = (
+            str(employee_data.get('Employee Code', '')),
+            str(employee_data.get('Employee Name', '')),
+            str(employee_data.get('Title', '')),
+            str(employee_data.get('Manager Code', '')) if employee_data.get('Manager Code') else None,
+            str(employee_data.get('Department', '')),
+            str(employee_data.get('Mobile', '')),
+            str(employee_data.get('E-Mail', '')),
+            str(employee_data.get('Address as 702 bricks', '')),
+            hire_date,
+            password_hash
+        )
+        
+        result = execute_query(query, params, commit=True)
+        return result is not None
+        
+    except Exception as e:
+        st.error(f"❌ Failed to save employee to MySQL: {e}")
+        return False
+
+def save_all_employees_to_mysql(df):
+    """Save all employees to MySQL in batch"""
+    success_count = 0
+    total_count = len(df)
+    
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return False
+        
+        cursor = conn.cursor()
+        
+        for _, row in df.iterrows():
+            try:
+                password_hash = None
+                if 'Password' in row and pd.notna(row['Password']):
+                    password_hash = hash_password(str(row['Password']))
+                
+                hire_date = row.get('Hiring Date')
+                if pd.notna(hire_date):
+                    hire_date = str(hire_date)
+                else:
+                    hire_date = None
+                
+                query = """
+                INSERT INTO employees (
+                    employee_code, employee_name, title, manager_code,
+                    department, mobile, email, address, hire_date, password_hash
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    employee_name = VALUES(employee_name),
+                    title = VALUES(title),
+                    manager_code = VALUES(manager_code),
+                    department = VALUES(department),
+                    mobile = VALUES(mobile),
+                    email = VALUES(email),
+                    address = VALUES(address),
+                    hire_date = VALUES(hire_date),
+                    password_hash = COALESCE(VALUES(password_hash), password_hash)
+                """
+                
+                values = (
+                    str(row.get('Employee Code', '')),
+                    str(row.get('Employee Name', '')),
+                    str(row.get('Title', '')),
+                    str(row.get('Manager Code', '')) if pd.notna(row.get('Manager Code')) else None,
+                    str(row.get('Department', '')),
+                    str(row.get('Mobile', '')),
+                    str(row.get('E-Mail', '')),
+                    str(row.get('Address as 702 bricks', '')),
+                    hire_date,
+                    password_hash
+                )
+                
+                cursor.execute(query, values)
+                success_count += 1
+                
+            except Exception as e:
+                st.warning(f"⚠️ Failed to save employee {row.get('Employee Code')}: {e}")
+                continue
+        
+        conn.commit()
+        st.success(f"✅ Saved {success_count}/{total_count} employees to MySQL")
+        return success_count == total_count
+        
+    except Exception as e:
+        st.error(f"❌ Batch save failed: {e}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+def delete_employee_from_mysql(employee_code):
+    """Delete employee from MySQL"""
+    try:
+        query = "DELETE FROM employees WHERE employee_code = %s"
+        result = execute_query(query, (employee_code,), commit=True)
+        return result is not None
+    except Exception as e:
+        st.error(f"❌ Failed to delete employee: {e}")
+        return False
+
+# ============================
+# MYSQL LEAVES FUNCTIONS
+# ============================
+def load_leaves_from_mysql(employee_code=None, manager_code=None):
+    """Load leaves from MySQL with optional filters"""
+    try:
+        query = """
+        SELECT 
+            l.id,
+            l.employee_code AS `Employee Code`,
+            e.employee_name AS `Employee Name`,
+            l.manager_code AS `Manager Code`,
+            m.employee_name AS `Manager Name`,
+            l.leave_type AS `Leave Type`,
+            l.start_date AS `Start Date`,
+            l.end_date AS `End Date`,
+            l.reason AS `Reason`,
+            l.status AS `Status`,
+            l.comment AS `Comment`,
+            l.decision_date AS `Decision Date`,
+            l.created_at AS `Created At`
+        FROM leaves l
+        LEFT JOIN employees e ON l.employee_code = e.employee_code
+        LEFT JOIN employees m ON l.manager_code = m.employee_code
+        WHERE 1=1
+        """
+        params = []
+        
+        if employee_code:
+            query += " AND l.employee_code = %s"
+            params.append(employee_code)
+        if manager_code:
+            query += " AND l.manager_code = %s"
+            params.append(manager_code)
+            
+        query += " ORDER BY l.created_at DESC"
+        
+        result = execute_query(query, params, fetch_all=True)
+        
+        if result is None:
+            return load_json_file(LEAVES_FILE_PATH)
+        
+        df = pd.DataFrame(result)
+        
+        # Convert dates
+        for col in ['Start Date', 'End Date', 'Decision Date']:
+            if col in df.columns:
+                df[col] = pd.to_datetime(df[col], errors='coerce')
+        
+        return df
+        
+    except Exception as e:
+        st.warning(f"⚠️ Failed to load leaves from MySQL: {e}")
+        return load_json_file(LEAVES_FILE_PATH)
+
+def save_leave_to_mysql(leave_data):
+    """Save new leave request"""
+    try:
+        query = """
+        INSERT INTO leaves (
+            employee_code, manager_code, leave_type, 
+            start_date, end_date, reason, status, comment, decision_date
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        values = (
+            str(leave_data.get('Employee Code', '')),
+            str(leave_data.get('Manager Code', '')),
+            str(leave_data.get('Leave Type', '')),
+            leave_data.get('Start Date'),
+            leave_data.get('End Date'),
+            str(leave_data.get('Reason', '')),
+            str(leave_data.get('Status', 'Pending')),
+            str(leave_data.get('Comment', '')) if leave_data.get('Comment') else None,
+            leave_data.get('Decision Date')
+        )
+        
+        result = execute_query(query, values, commit=True)
+        return result is not None
+        
+    except Exception as e:
+        st.error(f"❌ Failed to save leave: {e}")
+        return False
+
+def update_leave_status(leave_id, status, comment=None, decision_date=None):
+    """Update leave request status"""
+    try:
+        if decision_date is None:
+            decision_date = datetime.datetime.now()
+            
+        query = """
+        UPDATE leaves 
+        SET status = %s, comment = %s, decision_date = %s
+        WHERE id = %s
+        """
+        
+        values = (status, comment, decision_date, leave_id)
+        result = execute_query(query, values, commit=True)
+        return result is not None
+        
+    except Exception as e:
+        st.error(f"❌ Failed to update leave: {e}")
+        return False
+
+# ============================
+# MYSQL SALARIES FUNCTIONS
+# ============================
+def load_salaries_from_mysql(employee_code=None):
+    """Load salaries from MySQL with optional filter"""
+    try:
+        query = """
+        SELECT 
+            employee_code AS `Employee Code`,
+            month AS `Month`,
+            basic_salary AS `Basic Salary`,
+            kpi_bonus AS `KPI Bonus`,
+            deductions AS `Deductions`,
+            net_salary AS `Net Salary`,
+            created_at AS `Created At`
+        FROM salaries
+        """
+        params = []
+        
+        if employee_code:
+            query += " WHERE employee_code = %s"
+            params.append(employee_code)
+            
+        query += " ORDER BY employee_code, month DESC"
+        
+        result = execute_query(query, params, fetch_all=True)
+        
+        if result is None:
+            return load_json_file(SALARIES_FILE_PATH)
+        
+        df = pd.DataFrame(result)
+        return df
+        
+    except Exception as e:
+        st.warning(f"⚠️ Failed to load salaries from MySQL: {e}")
+        return load_json_file(SALARIES_FILE_PATH)
+
+def save_salary_to_mysql(salary_data):
+    """Save or update salary record"""
+    try:
+        # Encrypt sensitive data
+        basic_enc = encrypt_salary_value(salary_data.get('Basic Salary', 0))
+        kpi_enc = encrypt_salary_value(salary_data.get('KPI Bonus', 0))
+        deductions_enc = encrypt_salary_value(salary_data.get('Deductions', 0))
+        
+        # Calculate net salary
+        basic = decrypt_salary_value(basic_enc)
+        kpi = decrypt_salary_value(kpi_enc)
+        deductions = decrypt_salary_value(deductions_enc)
+        net = basic + kpi - deductions
+        net_enc = encrypt_salary_value(net)
+        
+        query = """
+        INSERT INTO salaries (
+            employee_code, month, basic_salary, kpi_bonus, deductions, net_salary
+        ) VALUES (%s, %s, %s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+            basic_salary = VALUES(basic_salary),
+            kpi_bonus = VALUES(kpi_bonus),
+            deductions = VALUES(deductions),
+            net_salary = VALUES(net_salary)
+        """
+        
+        values = (
+            str(salary_data.get('Employee Code', '')),
+            str(salary_data.get('Month', '')),
+            basic_enc,
+            kpi_enc,
+            deductions_enc,
+            net_enc
+        )
+        
+        result = execute_query(query, values, commit=True)
+        return result is not None
+        
+    except Exception as e:
+        st.error(f"❌ Failed to save salary: {e}")
+        return False
+
+def save_all_salaries_to_mysql(df):
+    """Save all salaries to MySQL in batch"""
+    success_count = 0
+    total_count = len(df)
+    
+    conn = None
+    cursor = None
+    try:
+        conn = get_db_connection()
+        if not conn:
+            return False
+        
+        cursor = conn.cursor()
+        
+        for _, row in df.iterrows():
+            try:
+                basic_enc = encrypt_salary_value(row.get('Basic Salary', 0))
+                kpi_enc = encrypt_salary_value(row.get('KPI Bonus', 0))
+                deductions_enc = encrypt_salary_value(row.get('Deductions', 0))
+                
+                basic = decrypt_salary_value(basic_enc)
+                kpi = decrypt_salary_value(kpi_enc)
+                deductions = decrypt_salary_value(deductions_enc)
+                net = basic + kpi - deductions
+                net_enc = encrypt_salary_value(net)
+                
+                query = """
+                INSERT INTO salaries (
+                    employee_code, month, basic_salary, kpi_bonus, deductions, net_salary
+                ) VALUES (%s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE
+                    basic_salary = VALUES(basic_salary),
+                    kpi_bonus = VALUES(kpi_bonus),
+                    deductions = VALUES(deductions),
+                    net_salary = VALUES(net_salary)
+                """
+                
+                values = (
+                    str(row.get('Employee Code', '')),
+                    str(row.get('Month', '')),
+                    basic_enc,
+                    kpi_enc,
+                    deductions_enc,
+                    net_enc
+                )
+                
+                cursor.execute(query, values)
+                success_count += 1
+                
+            except Exception as e:
+                st.warning(f"⚠️ Failed to save salary for {row.get('Employee Code')}: {e}")
+                continue
+        
+        conn.commit()
+        st.success(f"✅ Saved {success_count}/{total_count} salaries to MySQL")
+        return success_count == total_count
+        
+    except Exception as e:
+        st.error(f"❌ Batch save failed: {e}")
+        if conn:
+            conn.rollback()
+        return False
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+# ============================
+# MYSQL HR QUERIES FUNCTIONS
+# ============================
+def load_hr_queries_from_mysql(employee_code=None):
+    """Load HR queries from MySQL"""
+    try:
+        query = """
+        SELECT 
+            id,
+            employee_code AS `Employee Code`,
+            employee_name AS `Employee Name`,
+            subject AS `Subject`,
+            message AS `Message`,
+            reply AS `Reply`,
+            status AS `Status`,
+            date_sent AS `Date Sent`,
+            date_replied AS `Date Replied`
+        FROM hr_queries
+        """
+        params = []
+        
+        if employee_code:
+            query += " WHERE employee_code = %s"
+            params.append(employee_code)
+            
+        query += " ORDER BY date_sent DESC"
+        
+        result = execute_query(query, params, fetch_all=True)
+        
+        if result is None:
+            return load_json_file(HR_QUERIES_FILE_PATH)
+        
+        df = pd.DataFrame(result)
+        return df
+        
+    except Exception as e:
+        st.warning(f"⚠️ Failed to load HR queries from MySQL: {e}")
+        return load_json_file(HR_QUERIES_FILE_PATH)
+
+def save_hr_query_to_mysql(query_data):
+    """Save new HR query"""
+    try:
+        sql = """
+        INSERT INTO hr_queries (
+            employee_code, employee_name, subject, message, status, date_sent
+        ) VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        
+        values = (
+            str(query_data.get('Employee Code', '')),
+            str(query_data.get('Employee Name', '')),
+            str(query_data.get('Subject', '')),
+            str(query_data.get('Message', '')),
+            str(query_data.get('Status', 'Pending')),
+            query_data.get('Date Sent', datetime.datetime.now())
+        )
+        
+        result = execute_query(sql, values, commit=True)
+        return result is not None
+        
+    except Exception as e:
+        st.error(f"❌ Failed to save HR query: {e}")
+        return False
+
+def update_hr_query_reply(query_id, reply, status="Replied"):
+    """Update HR query with reply"""
+    try:
+        sql = """
+        UPDATE hr_queries 
+        SET reply = %s, status = %s, date_replied = %s
+        WHERE id = %s
+        """
+        
+        values = (reply, status, datetime.datetime.now(), query_id)
+        result = execute_query(sql, values, commit=True)
+        return result is not None
+        
+    except Exception as e:
+        st.error(f"❌ Failed to update HR query: {e}")
+        return False
+
+# ============================
+# MYSQL NOTIFICATIONS FUNCTIONS
+# ============================
+def load_notifications_from_mysql(recipient_code=None, recipient_title=None):
+    """Load notifications from MySQL"""
+    try:
+        query = """
+        SELECT 
+            id,
+            recipient_code AS `Recipient Code`,
+            recipient_title AS `Recipient Title`,
+            message AS `Message`,
+            is_read AS `Is Read`,
+            created_at AS `Timestamp`
+        FROM notifications
+        WHERE 1=1
+        """
+        params = []
+        
+        if recipient_code:
+            query += " AND recipient_code = %s"
+            params.append(recipient_code)
+        if recipient_title:
+            query += " AND recipient_title = %s"
+            params.append(recipient_title)
+            
+        query += " ORDER BY created_at DESC"
+        
+        result = execute_query(query, params, fetch_all=True)
+        
+        if result is None:
+            return load_json_file(NOTIFICATIONS_FILE_PATH)
+        
+        df = pd.DataFrame(result)
+        return df
+        
+    except Exception as e:
+        st.warning(f"⚠️ Failed to load notifications from MySQL: {e}")
+        return load_json_file(NOTIFICATIONS_FILE_PATH)
+
+def add_notification_to_mysql(recipient_code, recipient_title, message):
+    """Add new notification"""
+    try:
+        query = """
+        INSERT INTO notifications (
+            recipient_code, recipient_title, message, is_read
+        ) VALUES (%s, %s, %s, %s)
+        """
+        
+        values = (
+            str(recipient_code) if recipient_code else None,
+            str(recipient_title) if recipient_title else None,
+            message,
+            False
+        )
+        
+        result = execute_query(query, values, commit=True)
+        return result is not None
+        
+    except Exception as e:
+        st.error(f"❌ Failed to add notification: {e}")
+        return False
+
+def mark_notifications_as_read(recipient_code=None, recipient_title=None):
+    """Mark notifications as read"""
+    try:
+        query = "UPDATE notifications SET is_read = TRUE WHERE 1=1"
+        params = []
+        
+        if recipient_code:
+            query += " AND recipient_code = %s"
+            params.append(recipient_code)
+        if recipient_title:
+            query += " AND recipient_title = %s"
+            params.append(recipient_title)
+            
+        result = execute_query(query, params, commit=True)
+        return result is not None
+        
+    except Exception as e:
+        st.error(f"❌ Failed to mark notifications as read: {e}")
+        return False
+
+def get_unread_count_from_mysql(recipient_code=None, recipient_title=None):
+    """Get unread notifications count"""
+    try:
+        query = "SELECT COUNT(*) as count FROM notifications WHERE is_read = FALSE"
+        params = []
+        
+        if recipient_code:
+            query += " AND recipient_code = %s"
+            params.append(recipient_code)
+        if recipient_title:
+            query += " AND recipient_title = %s"
+            params.append(recipient_title)
+            
+        result = execute_query(query, params, fetch_one=True)
+        
+        if result:
+            return result['count']
+        return 0
+        
+    except Exception as e:
+        st.error(f"❌ Failed to get unread count: {e}")
+        return 0
+
+# ============================
+# MYSQL IDB REPORTS FUNCTIONS
+# ============================
+def load_idb_reports_from_mysql(employee_code=None):
+    """Load IDB reports from MySQL"""
+    try:
+        query = """
+        SELECT 
+            employee_code AS `Employee Code`,
+            employee_name AS `Employee Name`,
+            selected_departments AS `Selected Departments`,
+            strengths AS `Strengths`,
+            development_areas AS `Development Areas`,
+            action_plan AS `Action Plan`,
+            updated_at AS `Updated At`
+        FROM idb_reports
+        """
+        params = []
+        
+        if employee_code:
+            query += " WHERE employee_code = %s"
+            params.append(employee_code)
+            
+        query += " ORDER BY updated_at DESC"
+        
+        result = execute_query(query, params, fetch_all=True)
+        
+        if result is None:
+            return load_json_file(IDB_REPORTS_FILE)
+        
+        df = pd.DataFrame(result)
+        
+        # Parse JSON strings back to lists
+        for col in ['Selected Departments', 'Strengths', 'Development Areas']:
+            if col in df.columns:
+                df[col] = df[col].apply(lambda x: json.loads(x) if x else [])
+        
+        return df
+        
+    except Exception as e:
+        st.warning(f"⚠️ Failed to load IDB reports from MySQL: {e}")
+        return load_json_file(IDB_REPORTS_FILE)
+
+def save_idb_report_to_mysql(employee_code, employee_name, selected_deps, strengths, development, action):
+    """Save IDB report to MySQL"""
+    try:
+        query = """
+        INSERT INTO idb_reports (
+            employee_code, employee_name, selected_departments, 
+            strengths, development_areas, action_plan
+        ) VALUES (%s, %s, %s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+            employee_name = VALUES(employee_name),
+            selected_departments = VALUES(selected_departments),
+            strengths = VALUES(strengths),
+            development_areas = VALUES(development_areas),
+            action_plan = VALUES(action_plan)
+        """
+        
+        values = (
+            employee_code,
+            employee_name,
+            json.dumps(selected_deps),
+            json.dumps(strengths),
+            json.dumps(development),
+            action
+        )
+        
+        result = execute_query(query, values, commit=True)
+        return result is not None
+        
+    except Exception as e:
+        st.error(f"❌ Failed to save IDB report: {e}")
+        return False
+
+# ============================
+# MYSQL COMPLIANCE MESSAGES FUNCTIONS
+# ============================
+def load_compliance_messages_from_mysql(mr_code=None, compliance_code=None):
+    """Load compliance messages from MySQL"""
+    try:
+        query = """
+        SELECT 
+            id,
+            mr_code AS `MR Code`,
+            mr_name AS `MR Name`,
+            compliance_recipient AS `Compliance Recipient`,
+            compliance_code AS `Compliance Code`,
+            manager_code AS `Manager Code`,
+            manager_name AS `Manager Name`,
+            message AS `Message`,
+            status AS `Status`,
+            created_at AS `Timestamp`
+        FROM compliance_messages
+        WHERE 1=1
+        """
+        params = []
+        
+        if mr_code:
+            query += " AND mr_code = %s"
+            params.append(mr_code)
+        if compliance_code:
+            query += " AND compliance_code = %s"
+            params.append(compliance_code)
+            
+        query += " ORDER BY created_at DESC"
+        
+        result = execute_query(query, params, fetch_all=True)
+        
+        if result is None:
+            return load_json_file(COMPLIANCE_MESSAGES_FILE)
+        
+        df = pd.DataFrame(result)
+        return df
+        
+    except Exception as e:
+        st.warning(f"⚠️ Failed to load compliance messages from MySQL: {e}")
+        return load_json_file(COMPLIANCE_MESSAGES_FILE)
+
+def save_compliance_message_to_mysql(message_data):
+    """Save compliance message to MySQL"""
+    try:
+        query = """
+        INSERT INTO compliance_messages (
+            mr_code, mr_name, compliance_recipient, compliance_code,
+            manager_code, manager_name, message, status
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        values = (
+            str(message_data.get('MR Code', '')),
+            str(message_data.get('MR Name', '')),
+            str(message_data.get('Compliance Recipient', '')),
+            str(message_data.get('Compliance Code', '')),
+            str(message_data.get('Manager Code', '')) if message_data.get('Manager Code') else None,
+            str(message_data.get('Manager Name', '')) if message_data.get('Manager Name') else None,
+            str(message_data.get('Message', '')),
+            str(message_data.get('Status', 'Pending'))
+        )
+        
+        result = execute_query(query, values, commit=True)
+        return result is not None
+        
+    except Exception as e:
+        st.error(f"❌ Failed to save compliance message: {e}")
+        return False
+
+# ============================
+# MYSQL HR REQUESTS FUNCTIONS
+# ============================
+def load_hr_requests_from_mysql(employee_code=None):
+    """Load HR requests from MySQL"""
+    try:
+        query = """
+        SELECT 
+            id,
+            hr_code AS `HR Code`,
+            employee_code AS `Employee Code`,
+            employee_name AS `Employee Name`,
+            request AS `Request`,
+            file_attached AS `File Attached`,
+            status AS `Status`,
+            response AS `Response`,
+            response_file AS `Response File`,
+            date_sent AS `Date Sent`,
+            date_responded AS `Date Responded`
+        FROM hr_requests
+        """
+        params = []
+        
+        if employee_code:
+            query += " WHERE employee_code = %s"
+            params.append(employee_code)
+            
+        query += " ORDER BY date_sent DESC"
+        
+        result = execute_query(query, params, fetch_all=True)
+        
+        if result is None:
+            return load_json_file(HR_REQUESTS_FILE_PATH)
+        
+        df = pd.DataFrame(result)
+        return df
+        
+    except Exception as e:
+        st.warning(f"⚠️ Failed to load HR requests from MySQL: {e}")
+        return load_json_file(HR_REQUESTS_FILE_PATH)
+
+def save_hr_request_to_mysql(request_data):
+    """Save HR request to MySQL"""
+    try:
+        query = """
+        INSERT INTO hr_requests (
+            hr_code, employee_code, employee_name, request, 
+            file_attached, status, date_sent
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        values = (
+            str(request_data.get('HR Code', '')),
+            str(request_data.get('Employee Code', '')),
+            str(request_data.get('Employee Name', '')),
+            str(request_data.get('Request', '')),
+            str(request_data.get('File Attached', '')) if request_data.get('File Attached') else None,
+            str(request_data.get('Status', 'Pending')),
+            request_data.get('Date Sent', datetime.datetime.now())
+        )
+        
+        result = execute_query(query, values, commit=True)
+        return result is not None
+        
+    except Exception as e:
+        st.error(f"❌ Failed to save HR request: {e}")
+        return False
+
+def update_hr_request_response(request_id, response, response_file=None):
+    """Update HR request with response"""
+    try:
+        query = """
+        UPDATE hr_requests 
+        SET response = %s, response_file = %s, status = 'Completed', date_responded = %s
+        WHERE id = %s
+        """
+        
+        values = (response, response_file, datetime.datetime.now(), request_id)
+        result = execute_query(query, values, commit=True)
+        return result is not None
+        
+    except Exception as e:
+        st.error(f"❌ Failed to update HR request: {e}")
+        return False
+
+# ============================
+# GITHUB HELPERS
+# ============================
+def github_headers():
+    headers = {"Accept": "application/vnd.github.v3+json"}
+    if GITHUB_TOKEN:
+        headers["Authorization"] = f"token {GITHUB_TOKEN}"
+    return headers
+
+def load_employee_data_from_github():
+    try:
+        url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}?ref={BRANCH}"
+        resp = requests.get(url, headers=github_headers(), timeout=30)
+        if resp.status_code == 200:
+            content = resp.json()
+            file_content = base64.b64decode(content["content"])
+            data = json.loads(file_content.decode('utf-8'))
+            df = pd.DataFrame(data)
+            return sanitize_employee_data(df)
+        else:
+            return pd.DataFrame()
+    except Exception:
+        return pd.DataFrame()
+
+def get_file_sha(filepath):
+    try:
+        url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{filepath}"
+        params = {"ref": BRANCH}
+        resp = requests.get(url, headers=github_headers(), params=params, timeout=30)
+        if resp.status_code == 200:
+            return resp.json().get("sha")
+        else:
+            return None
+    except Exception:
+        return None
+
+def upload_json_to_github(filepath, data_list, commit_message):
+    if not GITHUB_TOKEN:
+        return False
+    try:
+        df_temp = pd.DataFrame(data_list)
+        df_sanitized = sanitize_employee_data(df_temp)
+        data_list_sanitized = df_sanitized.to_dict(orient='records')
+        
+        sensitive_cols = ["Basic Salary", "KPI Bonus", "Deductions", "Net Salary"]
+        data_list_copy = [row.copy() for row in data_list_sanitized]
+        for item in data_list_copy:
+            for col in sensitive_cols:
+                if col in item and item[col] is not None:
+                    if isinstance(item[col], str):
+                        try:
+                            base64.urlsafe_b64decode(item[col].encode())
+                            continue
+                        except Exception:
+                            item[col] = encrypt_salary_value(item[col])
+                    else:
+                        item[col] = encrypt_salary_value(item[col])
+                        
+        json_content = json.dumps(data_list_copy, ensure_ascii=False, indent=2).encode('utf-8')
+        file_content_b64 = base64.b64encode(json_content).decode("utf-8")
+        
+        url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{filepath}"
+        sha = get_file_sha(filepath)
+        payload = {"message": commit_message, "content": file_content_b64, "branch": BRANCH}
+        if sha:
+            payload["sha"] = sha
+            
+        put_resp = requests.put(url, headers=github_headers(), json=payload, timeout=60)
+        return put_resp.status_code in (200, 201)
+    except Exception:
+        return False
+
+# ============================
+# UPDATED ENSURE SESSION DF
+# ============================
+def ensure_session_df():
+    """Load employee data with priority: MySQL > GitHub > JSON > Demo"""
+    if "df" not in st.session_state:
+        # Try MySQL first
+        df_loaded = load_employees_from_mysql()
+        
+        if not df_loaded.empty:
+            st.session_state["df"] = df_loaded
+            st.success("✅ Employee data loaded from MySQL database.")
+            
+            # Load password hashes from MySQL
+            try:
+                query = "SELECT employee_code, password_hash FROM employees WHERE password_hash IS NOT NULL"
+                result = execute_query(query, fetch_all=True)
+                if result:
+                    hashes = {}
+                    for row in result:
+                        hashes[row['employee_code']] = row['password_hash']
+                    save_password_hashes(hashes)
+            except:
+                pass
+            return
+        
+        # Try GitHub
+        df_loaded = load_employee_data_from_github()
+        if not df_loaded.empty:
+            st.session_state["df"] = df_loaded
+            st.info("⚠️ Using employee data from GitHub (MySQL unavailable).")
+            return
+        
+        # Try local JSON
+        st.session_state["df"] = load_json_file(FILE_PATH)
+        if st.session_state["df"].empty:
+            # Demo data
+            st.warning("⚠️ No employee data found. Using demo data.")
+            st.session_state["df"] = pd.DataFrame([{
+                "Employee Code": "1001",
+                "Employee Name": "محمد عمر",
+                "Title": "HR",
+                "Manager Code": "",
+                "Department": "HR",
+                "Mobile": "01000000000",
+                "E-Mail": "mohamed@example.com",
+                "Password": "1234"
+            }])
+
+# ============================
+# UPDATED LOGIN FUNCTION
+# ============================
+def login(df, code, password):
+    if df is None or df.empty:
+        return None
+    
+    code_s = str(code).strip().replace(".0", "")
+    
+    # Try MySQL first
+    try:
+        query = """
+        SELECT 
+            employee_code, employee_name, title, manager_code,
+            department, mobile, email, address, hire_date
+        FROM employees 
+        WHERE employee_code = %s
+        """
+        user_row = execute_query(query, (code_s,), fetch_one=True)
+        
+        if user_row:
+            hashes = load_password_hashes()
+            stored_hash = hashes.get(code_s)
+            
+            if stored_hash and verify_password(password, stored_hash):
+                user_dict = {
+                    'Employee Code': user_row['employee_code'],
+                    'Employee Name': user_row['employee_name'],
+                    'Title': user_row['title'],
+                    'Manager Code': user_row['manager_code'],
+                    'Department': user_row['department'],
+                    'Mobile': user_row['mobile'],
+                    'E-Mail': user_row['email'],
+                    'Address as 702 bricks': user_row['address'],
+                    'Hiring Date': user_row['hire_date']
+                }
+                return user_dict
+    except Exception:
+        pass
+    
+    # Fallback to JSON
+    col_map = {c.lower().strip(): c for c in df.columns}
+    code_col = col_map.get("employee_code") or col_map.get("employee code")
+    if not code_col:
+        return None
+    
+    df_local = df.copy()
+    df_local[code_col] = df_local[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    matched = df_local[df_local[code_col] == code_s]
+    
+    if matched.empty:
+        return None
+    
+    hashes = load_password_hashes()
+    stored_hash = hashes.get(code_s)
+    
+    if stored_hash and verify_password(password, stored_hash):
+        return matched.iloc[0].to_dict()
+    
+    return None
+
+# ============================
+# UPDATED NOTIFICATION FUNCTIONS
+# ============================
+def add_notification(recipient_code, recipient_title, message):
+    """Add notification to both MySQL and JSON"""
+    # Try MySQL first
+    success = add_notification_to_mysql(recipient_code, recipient_title, message)
+    
+    # Fallback to JSON
+    if not success:
+        notifications = load_json_file(NOTIFICATIONS_FILE_PATH, default_columns=[
+            "Recipient Code", "Recipient Title", "Message", "Timestamp", "Is Read"
+        ])
+        new_row = pd.DataFrame([{
+            "Recipient Code": str(recipient_code),
+            "Recipient Title": str(recipient_title),
+            "Message": message,
+            "Timestamp": pd.Timestamp.now().isoformat(),
+            "Is Read": False
+        }])
+        notifications = pd.concat([notifications, new_row], ignore_index=True)
+        save_json_file(notifications, NOTIFICATIONS_FILE_PATH)
+
+def load_notifications():
+    """Load notifications from MySQL with JSON fallback"""
+    if st.session_state.get("logged_in_user"):
+        user = st.session_state["logged_in_user"]
+        user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
+        user_title = str(user.get("Title", "")).strip().upper()
+        
+        df = load_notifications_from_mysql(user_code, user_title)
+        if not df.empty:
+            return df
+    
+    # Fallback to JSON
+    return load_json_file(NOTIFICATIONS_FILE_PATH, default_columns=[
+        "Recipient Code", "Recipient Title", "Message", "Timestamp", "Is Read"
+    ])
+
+def get_unread_count(user):
+    """Get unread notifications count"""
+    user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
+    user_title = str(user.get("Title", "")).strip().upper()
+    
+    # Try MySQL first
+    count = get_unread_count_from_mysql(user_code, user_title)
+    if count > 0:
+        return count
+    
+    # Fallback to JSON
+    notifications = load_json_file(NOTIFICATIONS_FILE_PATH)
+    if notifications.empty:
+        return 0
+    
+    mask = (
+        (notifications["Recipient Code"].astype(str) == user_code) |
+        (notifications["Recipient Title"].astype(str).str.upper() == user_title)
+    )
+    unread = notifications[mask & (~notifications["Is Read"])]
+    return len(unread)
+
+def mark_all_as_read(user):
+    """Mark all notifications as read"""
+    user_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
+    user_title = str(user.get("Title", "")).strip().upper()
+    
+    # Try MySQL first
+    success = mark_notifications_as_read(user_code, user_title)
+    
+    # Fallback to JSON
+    if not success:
+        notifications = load_json_file(NOTIFICATIONS_FILE_PATH)
+        if not notifications.empty:
+            mask = (
+                (notifications["Recipient Code"].astype(str) == user_code) |
+                (notifications["Recipient Title"].astype(str).str.upper() == user_title)
+            )
+            notifications.loc[mask, "Is Read"] = True
+            save_json_file(notifications, NOTIFICATIONS_FILE_PATH)
+
+# ============================
+# UPDATED LEAVE FUNCTIONS
+# ============================
+def load_leaves_data(employee_code=None, manager_code=None):
+    """Load leaves with filters"""
+    # Try MySQL first
+    df = load_leaves_from_mysql(employee_code, manager_code)
+    if not df.empty:
+        return df
+    
+    # Fallback to JSON
+    return load_json_file(LEAVES_FILE_PATH, default_columns=[
+        "Employee Code", "Manager Code", "Start Date", "End Date",
+        "Leave Type", "Reason", "Status", "Decision Date", "Comment"
+    ])
+
+def save_leaves_data(df):
+    """Save leaves to both MySQL and JSON"""
+    success_count = 0
+    
+    # Try MySQL for each row
+    for _, row in df.iterrows():
+        leave_data = row.to_dict()
+        if save_leave_to_mysql(leave_data):
+            success_count += 1
+    
+    # Fallback to JSON
+    if success_count < len(df):
+        df_copy = df.copy()
+        date_cols = ["Start Date", "End Date", "Decision Date"]
+        for col in date_cols:
+            if col in df_copy.columns:
+                df_copy[col] = pd.to_datetime(df_copy[col], errors="coerce").dt.strftime("%Y-%m-%d")
+        return save_json_file(df_copy, LEAVES_FILE_PATH)
+    
+    return success_count > 0
+
+# ============================
+# UPDATED HR QUERIES FUNCTIONS
+# ============================
+def load_hr_queries(employee_code=None):
+    """Load HR queries with optional filter"""
+    df = load_hr_queries_from_mysql(employee_code)
+    if not df.empty:
+        return df
+    return load_json_file(HR_QUERIES_FILE_PATH, default_columns=[
+        "ID", "Employee Code", "Employee Name", "Subject", "Message",
+        "Reply", "Status", "Date Sent", "Date Replied"
+    ])
+
+def save_hr_queries(df):
+    """Save HR queries to both MySQL and JSON"""
+    success_count = 0
+    
+    for _, row in df.iterrows():
+        query_data = {
+            'Employee Code': row.get('Employee Code'),
+            'Employee Name': row.get('Employee Name'),
+            'Subject': row.get('Subject'),
+            'Message': row.get('Message'),
+            'Status': row.get('Status', 'Pending'),
+            'Date Sent': row.get('Date Sent')
+        }
+        if save_hr_query_to_mysql(query_data):
+            success_count += 1
+    
+    if success_count < len(df):
+        df_copy = df.copy()
+        if "Date Sent" in df_copy.columns:
+            df_copy["Date Sent"] = pd.to_datetime(df_copy["Date Sent"], errors="coerce").astype(str)
+        if "Date Replied" in df_copy.columns:
+            df_copy["Date Replied"] = pd.to_datetime(df_copy["Date Replied"], errors="coerce").astype(str)
+        return save_json_file(df_copy, HR_QUERIES_FILE_PATH)
+    
+    return success_count > 0
+
+# ============================
+# UPDATED SALARY FUNCTIONS
+# ============================
+def load_salary_data(employee_code=None):
+    """Load salary data with optional filter"""
+    df = load_salaries_from_mysql(employee_code)
+    if not df.empty:
+        return df
+    return load_json_file(SALARIES_FILE_PATH)
+
+def save_salary_data(df):
+    """Save salary data to both MySQL and JSON"""
+    success_count = 0
+    
+    for _, row in df.iterrows():
+        if save_salary_to_mysql(row.to_dict()):
+            success_count += 1
+    
+    if success_count < len(df):
+        return save_json_file(df, SALARIES_FILE_PATH)
+    
+    return success_count > 0
+
+# ============================
+# UPDATED IDB REPORTS FUNCTIONS
+# ============================
+def load_idb_reports(employee_code=None):
+    """Load IDB reports with optional filter"""
+    df = load_idb_reports_from_mysql(employee_code)
+    if not df.empty:
+        return df
+    return load_json_file(IDB_REPORTS_FILE, default_columns=[
+        "Employee Code", "Employee Name", "Selected Departments", 
+        "Strengths", "Development Areas", "Action Plan", "Updated At"
+    ])
+
+def save_idb_report(employee_code, employee_name, selected_deps, strengths, development, action):
+    """Save IDB report to both MySQL and JSON"""
+    success = save_idb_report_to_mysql(
+        employee_code, employee_name, selected_deps, strengths, development, action
+    )
+    
+    if not success:
+        reports = load_idb_reports()
+        now = pd.Timestamp.now().isoformat()
+        new_row = {
+            "Employee Code": employee_code,
+            "Employee Name": employee_name,
+            "Selected Departments": selected_deps,
+            "Strengths": strengths,
+            "Development Areas": development,
+            "Action Plan": action,
+            "Updated At": now
+        }
+        reports = reports[reports["Employee Code"] != employee_code]
+        reports = pd.concat([reports, pd.DataFrame([new_row])], ignore_index=True)
+        return save_json_file(reports, IDB_REPORTS_FILE)
+    
+    return success
+
+# ============================
+# UPDATED COMPLIANCE MESSAGES FUNCTIONS
+# ============================
+def load_compliance_messages(mr_code=None, compliance_code=None):
+    """Load compliance messages with filters"""
+    df = load_compliance_messages_from_mysql(mr_code, compliance_code)
+    if not df.empty:
+        return df
+    return load_json_file(COMPLIANCE_MESSAGES_FILE, default_columns=[
+        "ID", "MR Code", "MR Name", "Compliance Recipient", "Compliance Code",
+        "Manager Code", "Manager Name", "Message", "Timestamp", "Status"
+    ])
+
+def save_compliance_messages(df):
+    """Save compliance messages to both MySQL and JSON"""
+    success_count = 0
+    
+    for _, row in df.iterrows():
+        if save_compliance_message_to_mysql(row.to_dict()):
+            success_count += 1
+    
+    if success_count < len(df):
+        df_copy = df.copy()
+        if "Timestamp" in df_copy.columns:
+            df_copy["Timestamp"] = pd.to_datetime(df_copy["Timestamp"], errors="coerce").astype(str)
+        return save_json_file(df_copy, COMPLIANCE_MESSAGES_FILE)
+    
+    return success_count > 0
+
+# ============================
+# UPDATED HR REQUESTS FUNCTIONS
+# ============================
+def load_hr_requests(employee_code=None):
+    """Load HR requests with optional filter"""
+    df = load_hr_requests_from_mysql(employee_code)
+    if not df.empty:
+        return df
+    return load_json_file(HR_REQUESTS_FILE_PATH, default_columns=[
+        "ID", "HR Code", "Employee Code", "Employee Name", "Request", 
+        "File Attached", "Status", "Response", "Response File", "Date Sent", "Date Responded"
+    ])
+
+def save_hr_requests(df):
+    """Save HR requests to both MySQL and JSON"""
+    success_count = 0
+    
+    for _, row in df.iterrows():
+        if save_hr_request_to_mysql(row.to_dict()):
+            success_count += 1
+    
+    if success_count < len(df):
+        df_copy = df.copy()
+        for col in ["Date Sent", "Date Responded"]:
+            if col in df_copy.columns:
+                df_copy[col] = pd.to_datetime(df_copy[col], errors="coerce").astype(str)
+        return save_json_file(df_copy, HR_REQUESTS_FILE_PATH)
+    
+    return success_count > 0
+
+# ============================
+# PAGE: Forgot Password
+# ============================
+def page_forgot_password():
+    st.subheader("🔐 Change Password (No Login Required)")
+    st.info("Enter your Employee Code. If your password was reset by HR, you can set a new one directly.")
+    with st.form("external_password_change"):
+        emp_code = st.text_input("Employee Code")
+        new_pwd = st.text_input("New Password", type="password")
+        confirm_pwd = st.text_input("Confirm New Password", type="password")
+        submitted = st.form_submit_button("Set New Password")
+        if submitted:
+            if not emp_code.strip() or not new_pwd or not confirm_pwd:
+                st.error("All fields are required.")
+            elif new_pwd != confirm_pwd:
+                st.error("New password and confirmation do not match.")
+            else:
+                emp_code_clean = emp_code.strip().replace(".0", "")
+                hashes = load_password_hashes()
+                df = st.session_state.get("df", pd.DataFrame())
+                if df.empty:
+                    st.error("Employee data not loaded.")
+                    return
+                col_map = {c.lower().strip(): c for c in df.columns}
+                code_col = col_map.get("employee_code") or col_map.get("employee code")
+                if not code_col:
+                    st.error("Employee code column not found in dataset.")
+                    return
+                df[code_col] = df[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+                if emp_code_clean not in df[code_col].values:
+                    st.error("Employee code not found in the company database.")
+                    return
+                hashes[emp_code_clean] = hash_password(new_pwd)
+                save_password_hashes(hashes)
+                
+                # Also save to MySQL if connected
+                try:
+                    query = "UPDATE employees SET password_hash = %s WHERE employee_code = %s"
+                    execute_query(query, (hashes[emp_code_clean], emp_code_clean), commit=True)
+                except:
+                    pass
+                    
+                st.success("✅ Your password has been set successfully. You can now log in.")
+                add_notification("", "HR", f"Employee {emp_code_clean} set a new password after reset.")
+                st.rerun()
+
+# ============================
+# PAGE: My Profile
+# ============================
+def page_my_profile(user):
+    st.subheader("My Profile")
+    st.markdown(f"### 👋 Welcome, {user.get('Employee Name', 'User')}")
+    df = st.session_state.get("df", pd.DataFrame())
+    if df.empty:
+        st.info("No employee data available.")
+        return
+    col_map = {c.lower().strip(): c for c in df.columns}
+    code_col = col_map.get("employee_code") or col_map.get("employee code")
+    if not code_col:
+        st.error("Employee code column not found in dataset.")
+        return
+    user_code = None
+    for key, val in user.items():
+        if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
+            val = str(user[key]).strip()
+            if val.endswith('.0'):
+                val = val[:-2]
+            user_code = val
+            break
+    if user_code is None:
+        st.error("Your Employee Code not found in session.")
+        return
+    df[code_col] = df[code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    row = df[df[code_col] == user_code]
+    if row.empty:
+        st.error("Your record was not found.")
+        return
+    tab1, tab2 = st.tabs(["Profile Data", "Personal Photo"])
+    with tab1:
+        st.dataframe(row.reset_index(drop=True), use_container_width=True)
+        buf = BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            row.to_excel(writer, index=False, sheet_name="MyProfile")
+        buf.seek(0)
+        st.download_button("Download My Profile (Excel)", data=buf, file_name="my_profile.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    with tab2:
+        emp_code_clean = None
+        for key, val in user.items():
+            if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
+                emp_code_clean = str(val).strip().replace(".0", "")
+                break
+        if emp_code_clean:
+            photo_path = None
+            for ext in ["jpg", "jpeg", "png"]:
+                p = os.path.join("employee_photos", f"{emp_code_clean}.{ext}")
+                if os.path.exists(p):
+                    photo_path = p
+                    break
+            if photo_path:
+                st.image(photo_path, width=150, caption="Your current photo")
+            else:
+                st.info("No photo uploaded yet.")
+            uploaded_file = st.file_uploader(
+                "Upload your personal photo (JPG/PNG)",
+                type=["jpg", "jpeg", "png"],
+                key="photo_uploader"
+            )
+            if uploaded_file:
+                if st.button("✅ Save Photo"):
+                    try:
+                        filename = save_employee_photo(emp_code_clean, uploaded_file)
+                        add_notification("", "HR", f"Employee {emp_code_clean} uploaded a new photo.")
+                        st.success(f"Photo saved as: {filename}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Failed to save photo: {e}")
+    st.markdown("---")
+    st.markdown("### 🔐 Change Your Password")
+    with st.form("change_password_form"):
+        current_pwd = st.text_input("Current Password", type="password")
+        new_pwd = st.text_input("New Password", type="password")
+        confirm_pwd = st.text_input("Confirm New Password", type="password")
+        pwd_submitted = st.form_submit_button("Change Password")
+        if pwd_submitted:
+            if not current_pwd or not new_pwd or not confirm_pwd:
+                st.error("All fields are required.")
+            elif new_pwd != confirm_pwd:
+                st.error("New password and confirmation do not match.")
+            else:
+                hashes = load_password_hashes()
+                user_code_clean = str(user.get("Employee Code", "")).strip().replace(".0", "")
+                stored_hash = hashes.get(user_code_clean)
+                if stored_hash and verify_password(current_pwd, stored_hash):
+                    hashes[user_code_clean] = hash_password(new_pwd)
+                    save_password_hashes(hashes)
+                    
+                    # Update MySQL
+                    try:
+                        query = "UPDATE employees SET password_hash = %s WHERE employee_code = %s"
+                        execute_query(query, (hashes[user_code_clean], user_code_clean), commit=True)
+                    except:
+                        pass
+                        
+                    st.success("✅ Your password has been updated successfully.")
+                    add_notification("", "HR", f"Employee {user_code_clean} changed their password.")
+                else:
+                    st.error("❌ Current password is incorrect.")
+
+# ============================
+# PAGE: Leave Request
+# ============================
+def calculate_leave_balance(user_code, leaves_df):
+    annual_balance = DEFAULT_ANNUAL_LEAVE
+    user_approved_leaves = leaves_df[
+        (leaves_df["Employee Code"].astype(str) == str(user_code)) &
+        (leaves_df["Status"] == "Approved")
+    ].copy()
+    if user_approved_leaves.empty:
+        used_days = 0
+    else:
+        user_approved_leaves["Start Date"] = pd.to_datetime(user_approved_leaves["Start Date"])
+        user_approved_leaves["End Date"] = pd.to_datetime(user_approved_leaves["End Date"])
+        user_approved_leaves["Leave Days"] = (user_approved_leaves["End Date"] - user_approved_leaves["Start Date"]).dt.days
+        user_approved_leaves["Leave Days"] = user_approved_leaves["Leave Days"].clip(lower=0)
+        used_days = user_approved_leaves["Leave Days"].sum()
+    remaining_days = annual_balance - used_days
+    return annual_balance, used_days, remaining_days
+
+def page_leave_request(user):
+    st.subheader("Request Leave")
+    df_emp = st.session_state.get("df", pd.DataFrame())
+    if df_emp.empty:
+        st.error("Employee data not loaded.")
+        return
+    user_code = None
+    for key, val in user.items():
+        if key.lower().replace(" ", "").replace("_", "") in ["employeecode", "employee_code"]:
+            user_code = str(val).strip()
+            if user_code.endswith('.0'):
+                user_code = user_code[:-2]
+            break
+    if not user_code:
+        st.error("Your Employee Code not found.")
+        return
+    leaves_df = load_leaves_data()
+    annual_balance, used_days, remaining_days = calculate_leave_balance(user_code, leaves_df)
+    st.markdown("### Leave Balance Summary")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown(f"""
+        <div class="leave-balance-card">
+        <div class="leave-balance-title">Annual Leave Balance</div>
+        <div class="leave-balance-value">{annual_balance} Days</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col2:
+        st.markdown(f"""
+        <div class="leave-balance-card">
+        <div class="leave-balance-title">Used Leave Balance</div>
+        <div class="leave-balance-value used">{used_days} Days</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with col3:
+        st.markdown(f"""
+        <div class="leave-balance-card">
+        <div class="leave-balance-title">Remaining Days</div>
+        <div class="leave-balance-value remaining">{remaining_days} Days</div>
+        </div>
+        """, unsafe_allow_html=True)
+    col_map = {c.lower().strip(): c for c in df_emp.columns}
+    emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
+    mgr_code_col = col_map.get("manager_code") or col_map.get("manager code")
+    if not mgr_code_col:
+        st.error("Column 'Manager Code' is missing in employee sheet.")
+        return
+    emp_row = df_emp[df_emp[emp_code_col].astype(str).str.replace('.0', '', regex=False) == user_code]
+    if emp_row.empty:
+        st.error("Your record not found in employee sheet.")
+        return
+    manager_code = emp_row.iloc[0][mgr_code_col]
+    if pd.isna(manager_code) or str(manager_code).strip() == "":
+        st.warning("You have no manager assigned. Contact HR.")
+        return
+    manager_code = str(manager_code).strip()
+    if manager_code.endswith('.0'):
+        manager_code = manager_code[:-2]
+    with st.form("leave_form"):
+        start_date = st.date_input("Start Date")
+        end_date = st.date_input("End Date")
+        leave_type = st.selectbox("Leave Type", ["Annual", "Sick", "Emergency", "Unpaid"])
+        reason = st.text_area("Reason")
+        submitted = st.form_submit_button("Submit Leave Request")
+        if submitted:
+            if end_date < start_date:
+                st.error("End date cannot be before start date.")
+            else:
+                new_row = pd.DataFrame([{
+                    "Employee Code": user_code,
+                    "Manager Code": manager_code,
+                    "Start Date": pd.Timestamp(start_date),
+                    "End Date": pd.Timestamp(end_date),
+                    "Leave Type": leave_type,
+                    "Reason": reason,
+                    "Status": "Pending",
+                    "Decision Date": None,
+                    "Comment": ""
+                }])
+                leaves_df = pd.concat([leaves_df, new_row], ignore_index=True)
+                if save_leaves_data(leaves_df):
+                    st.success("✅ Leave request submitted successfully to your manager.")
+                    add_notification(manager_code, "", f"New leave request from {user_code}")
+                    st.balloons()
+                else:
+                    st.error("❌ Failed to save leave request.")
+    st.markdown("### Your Leave Requests")
+    if not leaves_df.empty:
+        user_leaves = leaves_df[leaves_df["Employee Code"].astype(str) == user_code].copy()
+        if not user_leaves.empty:
+            user_leaves["Start Date"] = pd.to_datetime(user_leaves["Start Date"]).dt.strftime("%d-%m-%Y")
+            user_leaves["End Date"] = pd.to_datetime(user_leaves["End Date"]).dt.strftime("%d-%m-%Y")
+            st.dataframe(user_leaves[[
+                "Start Date", "End Date", "Leave Type", "Status", "Comment"
+            ]], use_container_width=True)
+        else:
+            st.info("You haven't submitted any leave requests yet.")
+    else:
+        st.info("No leave requests found.")
+
+# ============================
+# PAGE: Manager Leaves
+# ============================
+def page_manager_leaves(user):
+    st.subheader("📅 Team Leave Requests")
+    manager_code = str(user.get("Employee Code", "")).strip().replace(".0", "")
+    if not manager_code:
+        st.error("Your Employee Code not found.")
+        return
+    leaves_df = load_leaves_data()
+    if leaves_df.empty:
+        st.info("No leave requests in the system.")
+        return
+    leaves_df["Manager Code"] = leaves_df["Manager Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+    team_leaves = leaves_df[leaves_df["Manager Code"] == manager_code].copy()
+    if team_leaves.empty:
+        st.info("No leave requests from your team.")
+        return
+    df_emp = st.session_state.get("df", pd.DataFrame())
+    name_col_to_use = "Employee Code"
+    if not df_emp.empty:
+        col_map = {c.lower().strip(): c for c in df_emp.columns}
+        emp_code_col = col_map.get("employee_code") or col_map.get("employee code")
+        emp_name_col = col_map.get("employee_name") or col_map.get("employee name") or col_map.get("name")
+        if emp_code_col and emp_name_col:
+            df_emp[emp_code_col] = df_emp[emp_code_col].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+            team_leaves["Employee Code"] = team_leaves["Employee Code"].astype(str).str.strip().str.replace(r'\.0$', '', regex=True)
+            team_leaves = team_leaves.merge(
+                df_emp[[emp_code_col, emp_name_col]],
+                left_on="Employee Code",
+                right_on=emp_code_col,
+                how="left"
+            )
+            name_col_to_use = emp_name_col
+    pending_leaves = team_leaves[team_leaves["Status"] == "Pending"].reset_index(drop=True)
+    all_leaves = team_leaves.copy()
+    st.markdown("### 🟡 Pending Requests")
+    if not pending_leaves.empty:
+        for idx, row in pending_leaves.iterrows():
+            emp_name = row.get(name_col_to_use, "") if name_col_to_use in row else ""
+            emp_display = f"{emp_name} ({row['Employee Code']})" if emp_name else row['Employee Code']
+            st.markdown(f"**Employee**: {emp_display} | **Dates**: {row['Start Date']} → {row['End Date']} | **Type**: {row['Leave Type']}")
+            st.write(f"**Reason**: {row['Reason']}")
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("✅ Approve", key=f"app_{idx}_{row['Employee Code']}"):
+                    leaves_df.at[leaves_df[leaves_df["Manager Code"] == manager_code].index[leaves_df[leaves_df["Manager Code"] == manager_code]["Employee Code"] == row["Employee Code"]].tolist()[idx], "Status"] = "Approved"
+                    leaves_df.at[leaves_df[leaves_df["Manager Code"] == manager_code].index[leaves_df[leaves_df["Manager Code"] == manager_code]["Employee Code"] == row["Employee Code"]].tolist()[idx], "Decision Date"] = pd.Timestamp.now()
+                    save_leaves_data(leaves_df)
+                    add_notification(row['Employee Code'], "", "Your leave request has been approved!")
+                    st.success("Approved!")
+                    st.rerun()
+            with col2:
+                if st.button("❌ Reject", key=f"rej_{idx}_{row['Employee Code']}"):
+                    comment = st.text_input("Comment (optional)", key=f"com_{idx}_{row['Employee Code']}")
+                    leaves_df.at[leaves_df[leaves_df["Manager Code"] == manager_code].index[leaves_df[leaves_df["Manager Code"] == manager_code]["Employee Code"] == row["Employee Code"]].tolist()[idx], "Status"] = "Rejected"
+                    leaves_df.at[leaves_df[leaves_df["Manager Code"] == manager_code].index[leaves_df[leaves_df["Manager Code"] == manager_code]["Employee Code"] == row["Employee Code"]].tolist()[idx], "Decision Date"] = pd.Timestamp.now()
+                    leaves_df.at[leaves_df[leaves_df["Manager Code"] == manager_code].index[leaves_df[leaves_df["Manager Code"] == manager_code]["Employee Code"] == row["Employee Code"]].tolist()[idx], "Comment"] = comment
+                    save_leaves_data(leaves_df)
+                    msg = f"Your leave request was rejected. Comment: {comment}" if comment else "Your leave request was rejected."
+                    add_notification(row['Employee Code'], "", msg)
+                    st.success("Rejected!")
+                    st.rerun()
+        st.markdown("---")
+    else:
+        st.info("No pending requests.")
+    st.markdown("### 📋 All Team Leave History")
+    if not all_leaves.empty:
+        if name_col_to_use in all_leaves.columns:
+            all_leaves["Employee Name"] = all_leaves[name_col_to_use]
+        else:
+            all_leaves["Employee Name"] = all_leaves["Employee Code"]
+        all_leaves["Start Date"] = pd.to_datetime(all_leaves["Start Date"]).dt.strftime("%d-%m-%Y")
+        all_leaves["End Date"] = pd.to_datetime(all_leaves["End Date"]).dt.strftime("%d-%m-%Y")
+        st.dataframe(all_leaves[[
+            "Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"
+        ]], use_container_width=True)
+        buf = BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            all_leaves[["Employee Name", "Start Date", "End Date", "Leave Type", "Status", "Comment"]].to_excel(writer, index=False)
+        buf.seek(0)
+        st.download_button(
+            "📥 Download Full Team Leave History",
+            data=buf,
+            file_name=f"Team_Leaves_{manager_code}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    else:
+        st.info("No leave history for your team.")
+
 # ============================
 # PAGE: My Team
 # ============================
